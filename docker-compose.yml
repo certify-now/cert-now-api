@@ -1,0 +1,10 @@
+services:
+  postgres:
+    image: postgres:18.1
+    environment:
+    - POSTGRES_DB=certify-now
+    - POSTGRES_USER=postgres
+    - POSTGRES_PASSWORD=P4ssword!
+    ports:
+    - 5433:5432
+

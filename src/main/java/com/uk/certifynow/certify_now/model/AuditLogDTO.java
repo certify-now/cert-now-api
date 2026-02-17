@@ -7,40 +7,36 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
-
 @Getter
 @Setter
 public class AuditLogDTO {
 
-    private UUID id;
+  private UUID id;
 
-    @NotNull
-    private OffsetDateTime createdAt;
+  @NotNull private OffsetDateTime createdAt;
 
-    private UUID actorId;
+  private UUID actorId;
 
-    @NotNull
-    private UUID entityId;
+  @NotNull private UUID entityId;
 
-    @NotNull
-    @Size(max = 20)
-    private String actorType;
+  @NotNull
+  @Size(max = 20)
+  private String actorType;
 
-    @NotNull
-    @Size(max = 50)
-    private String action;
+  @NotNull
+  @Size(max = 50)
+  private String action;
 
-    @NotNull
-    @Size(max = 50)
-    private String entityType;
+  @NotNull
+  @Size(max = 50)
+  private String entityType;
 
-    @Size(max = 255)
-    private String ipAddress;
+  @Size(max = 255)
+  private String ipAddress;
 
-    private String userAgent;
+  private String userAgent;
 
-    private String newValues;
+  private String newValues;
 
-    private String oldValues;
-
+  private String oldValues;
 }

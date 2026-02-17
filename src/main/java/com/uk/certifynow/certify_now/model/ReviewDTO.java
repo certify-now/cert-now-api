@@ -8,44 +8,37 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
-
 @Getter
 @Setter
 public class ReviewDTO {
 
-    private UUID id;
+  private UUID id;
 
-    private Integer communication;
+  private Integer communication;
 
-    @NotNull
-    @JsonProperty("isVisible")
-    private Boolean isVisible;
+  @NotNull
+  @JsonProperty("isVisible")
+  private Boolean isVisible;
 
-    private Integer professionalism;
+  private Integer professionalism;
 
-    private Integer punctuality;
+  private Integer punctuality;
 
-    private Integer quality;
+  private Integer quality;
 
-    @NotNull
-    private Integer rating;
+  @NotNull private Integer rating;
 
-    @NotNull
-    private OffsetDateTime createdAt;
+  @NotNull private OffsetDateTime createdAt;
 
-    private String comment;
+  private String comment;
 
-    @NotNull
-    @Size(max = 255)
-    private String direction;
+  @NotNull
+  @Size(max = 255)
+  private String direction;
 
-    @NotNull
-    private UUID job;
+  @NotNull private UUID job;
 
-    @NotNull
-    private UUID reviewee;
+  @NotNull private UUID reviewee;
 
-    @NotNull
-    private UUID reviewer;
-
+  @NotNull private UUID reviewer;
 }

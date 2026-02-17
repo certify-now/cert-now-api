@@ -4,9 +4,7 @@ import com.uk.certifynow.certify_now.domain.PricingModifier;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-
 public interface PricingModifierRepository extends JpaRepository<PricingModifier, UUID> {
 
-    PricingModifier findFirstByPricingRuleId(UUID id);
-
+  PricingModifier findFirstByPricingRuleId(UUID id);
 }

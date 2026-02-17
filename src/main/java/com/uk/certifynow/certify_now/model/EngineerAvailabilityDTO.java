@@ -10,41 +10,35 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
-
 @Getter
 @Setter
 public class EngineerAvailabilityDTO {
 
-    private UUID id;
+  private UUID id;
 
-    @NotNull
-    private Integer dayOfWeek;
+  @NotNull private Integer dayOfWeek;
 
-    @NotNull
-    @Schema(type = "string", example = "18:30")
-    private LocalTime endTime;
+  @NotNull
+  @Schema(type = "string", example = "18:30")
+  private LocalTime endTime;
 
-    @NotNull
-    @JsonProperty("isAvailable")
-    private Boolean isAvailable;
+  @NotNull
+  @JsonProperty("isAvailable")
+  private Boolean isAvailable;
 
-    @NotNull
-    @JsonProperty("isRecurring")
-    private Boolean isRecurring;
+  @NotNull
+  @JsonProperty("isRecurring")
+  private Boolean isRecurring;
 
-    private LocalDate overrideDate;
+  private LocalDate overrideDate;
 
-    @NotNull
-    @Schema(type = "string", example = "18:30")
-    private LocalTime startTime;
+  @NotNull
+  @Schema(type = "string", example = "18:30")
+  private LocalTime startTime;
 
-    @NotNull
-    private OffsetDateTime createdAt;
+  @NotNull private OffsetDateTime createdAt;
 
-    @NotNull
-    private OffsetDateTime updatedAt;
+  @NotNull private OffsetDateTime updatedAt;
 
-    @NotNull
-    private UUID engineerProfile;
-
+  @NotNull private UUID engineerProfile;
 }

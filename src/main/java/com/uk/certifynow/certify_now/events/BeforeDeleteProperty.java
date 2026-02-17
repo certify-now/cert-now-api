@@ -4,11 +4,9 @@ import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
-
 @Getter
 @AllArgsConstructor
 public class BeforeDeleteProperty {
 
-    private UUID id;
-
+  private UUID id;
 }

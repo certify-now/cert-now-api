@@ -12,98 +12,89 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
-
 @Getter
 @Setter
 public class EngineerProfileDTO {
 
-    private UUID id;
+  private UUID id;
 
-    @NotNull
-    @Digits(integer = 5, fraction = 2)
-    @JsonFormat(shape = JsonFormat.Shape.STRING)
-    @Schema(type = "string", example = "95.08")
-    private BigDecimal acceptanceRate;
+  @NotNull
+  @Digits(integer = 5, fraction = 2)
+  @JsonFormat(shape = JsonFormat.Shape.STRING)
+  @Schema(type = "string", example = "95.08")
+  private BigDecimal acceptanceRate;
 
-    @NotNull
-    @Digits(integer = 3, fraction = 2)
-    @JsonFormat(shape = JsonFormat.Shape.STRING)
-    @Schema(type = "string", example = "5.08")
-    private BigDecimal avgRating;
+  @NotNull
+  @Digits(integer = 3, fraction = 2)
+  @JsonFormat(shape = JsonFormat.Shape.STRING)
+  @Schema(type = "string", example = "5.08")
+  private BigDecimal avgRating;
 
-    @NotNull
-    @JsonProperty("isOnline")
-    private Boolean isOnline;
+  @NotNull
+  @JsonProperty("isOnline")
+  private Boolean isOnline;
 
-    @NotNull
-    private Integer maxDailyJobs;
+  @NotNull private Integer maxDailyJobs;
 
-    @NotNull
-    @Digits(integer = 5, fraction = 2)
-    @JsonFormat(shape = JsonFormat.Shape.STRING)
-    @Schema(type = "string", example = "38.08")
-    private BigDecimal onTimePercentage;
+  @NotNull
+  @Digits(integer = 5, fraction = 2)
+  @JsonFormat(shape = JsonFormat.Shape.STRING)
+  @Schema(type = "string", example = "38.08")
+  private BigDecimal onTimePercentage;
 
-    @NotNull
-    @Digits(integer = 4, fraction = 1)
-    @JsonFormat(shape = JsonFormat.Shape.STRING)
-    @Schema(type = "string", example = "93.8")
-    private BigDecimal serviceRadiusMiles;
+  @NotNull
+  @Digits(integer = 4, fraction = 1)
+  @JsonFormat(shape = JsonFormat.Shape.STRING)
+  @Schema(type = "string", example = "93.8")
+  private BigDecimal serviceRadiusMiles;
 
-    @NotNull
-    private Boolean stripeOnboarded;
+  @NotNull private Boolean stripeOnboarded;
 
-    @NotNull
-    private Integer totalJobsCompleted;
+  @NotNull private Integer totalJobsCompleted;
 
-    @NotNull
-    private Integer totalReviews;
+  @NotNull private Integer totalReviews;
 
-    private OffsetDateTime approvedAt;
+  private OffsetDateTime approvedAt;
 
-    @NotNull
-    private OffsetDateTime createdAt;
+  @NotNull private OffsetDateTime createdAt;
 
-    private OffsetDateTime dbsCheckedAt;
+  private OffsetDateTime dbsCheckedAt;
 
-    private OffsetDateTime idVerifiedAt;
+  private OffsetDateTime idVerifiedAt;
 
-    private OffsetDateTime insuranceVerifiedAt;
+  private OffsetDateTime insuranceVerifiedAt;
 
-    private OffsetDateTime locationUpdatedAt;
+  private OffsetDateTime locationUpdatedAt;
 
-    private OffsetDateTime trainingCompletedAt;
+  private OffsetDateTime trainingCompletedAt;
 
-    @NotNull
-    private OffsetDateTime updatedAt;
+  @NotNull private OffsetDateTime updatedAt;
 
-    @Size(max = 50)
-    private String dbsCertificateNumber;
+  @Size(max = 50)
+  private String dbsCertificateNumber;
 
-    @Size(max = 50)
-    private String dbsStatus;
+  @Size(max = 50)
+  private String dbsStatus;
 
-    private String bio;
+  private String bio;
 
-    @NotNull
-    @Size(max = 255)
-    private String status;
+  @NotNull
+  @Size(max = 255)
+  private String status;
 
-    @Size(max = 255)
-    private String stripeAccountId;
+  @Size(max = 255)
+  private String stripeAccountId;
 
-    @NotNull
-    @Size(max = 255)
-    private String tier;
+  @NotNull
+  @Size(max = 255)
+  private String tier;
 
-    @Size(max = 255)
-    private String location;
+  @Size(max = 255)
+  private String location;
 
-    private String preferredCertTypes;
+  private String preferredCertTypes;
 
-    private String preferredJobTimes;
+  private String preferredJobTimes;
 
-    @NotNull
-    private UUID user;
-
+  @NotNull private UUID user;
 }

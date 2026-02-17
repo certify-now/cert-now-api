@@ -8,44 +8,37 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
-
 @Getter
 @Setter
 public class GasSafetyInspectionDTO {
 
-    private UUID id;
+  private UUID id;
 
-    @NotNull
-    private LocalDate inspectionDate;
+  @NotNull private LocalDate inspectionDate;
 
-    @NotNull
-    private LocalDate nextInspectionDate;
+  @NotNull private LocalDate nextInspectionDate;
 
-    @NotNull
-    private OffsetDateTime createdAt;
+  @NotNull private OffsetDateTime createdAt;
 
-    @NotNull
-    private OffsetDateTime updatedAt;
+  @NotNull private OffsetDateTime updatedAt;
 
-    @NotNull
-    @Size(max = 20)
-    private String inspectorGasSafeId;
+  @NotNull
+  @Size(max = 20)
+  private String inspectorGasSafeId;
 
-    @Size(max = 255)
-    private String defectSeverity;
+  @Size(max = 255)
+  private String defectSeverity;
 
-    private String defectsText;
+  private String defectsText;
 
-    private String landlordAddress;
+  private String landlordAddress;
 
-    @Size(max = 255)
-    private String landlordName;
+  @Size(max = 255)
+  private String landlordName;
 
-    @NotNull
-    @Size(max = 255)
-    private String overallResult;
+  @NotNull
+  @Size(max = 255)
+  private String overallResult;
 
-    @NotNull
-    private UUID job;
-
+  @NotNull private UUID job;
 }

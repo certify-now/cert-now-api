@@ -7,29 +7,25 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
-
 @Getter
 @Setter
 public class StripeWebhookEventDTO {
 
-    private UUID id;
+  private UUID id;
 
-    @NotNull
-    private Boolean processed;
+  @NotNull private Boolean processed;
 
-    @NotNull
-    private OffsetDateTime createdAt;
+  @NotNull private OffsetDateTime createdAt;
 
-    @NotNull
-    @Size(max = 100)
-    private String eventType;
+  @NotNull
+  @Size(max = 100)
+  private String eventType;
 
-    private String errorMessage;
+  private String errorMessage;
 
-    @NotNull
-    @Size(max = 255)
-    private String stripeEventId;
+  @NotNull
+  @Size(max = 255)
+  private String stripeEventId;
 
-    private String payload;
-
+  private String payload;
 }

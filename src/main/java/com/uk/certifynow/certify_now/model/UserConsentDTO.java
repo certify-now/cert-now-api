@@ -7,34 +7,28 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
-
 @Getter
 @Setter
 public class UserConsentDTO {
 
-    private UUID id;
+  private UUID id;
 
-    @NotNull
-    private Boolean granted;
+  @NotNull private Boolean granted;
 
-    @NotNull
-    private OffsetDateTime createdAt;
+  @NotNull private OffsetDateTime createdAt;
 
-    @NotNull
-    private OffsetDateTime grantedAt;
+  @NotNull private OffsetDateTime grantedAt;
 
-    private OffsetDateTime revokedAt;
+  private OffsetDateTime revokedAt;
 
-    @NotNull
-    @Size(max = 255)
-    private String consentType;
+  @NotNull
+  @Size(max = 255)
+  private String consentType;
 
-    @Size(max = 255)
-    private String ipAddress;
+  @Size(max = 255)
+  private String ipAddress;
 
-    private String userAgent;
+  private String userAgent;
 
-    @NotNull
-    private UUID user;
-
+  @NotNull private UUID user;
 }

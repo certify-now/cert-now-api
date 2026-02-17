@@ -8,54 +8,47 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
-
 @Getter
 @Setter
 public class EngineerQualificationDTO {
 
-    private UUID id;
+  private UUID id;
 
-    @NotNull
-    private LocalDate expiryDate;
+  @NotNull private LocalDate expiryDate;
 
-    @NotNull
-    private Boolean externalVerified;
+  @NotNull private Boolean externalVerified;
 
-    private LocalDate issueDate;
+  private LocalDate issueDate;
 
-    @NotNull
-    private OffsetDateTime createdAt;
+  @NotNull private OffsetDateTime createdAt;
 
-    private OffsetDateTime lastApiCheckAt;
+  private OffsetDateTime lastApiCheckAt;
 
-    @NotNull
-    private OffsetDateTime updatedAt;
+  @NotNull private OffsetDateTime updatedAt;
 
-    private OffsetDateTime verifiedAt;
+  private OffsetDateTime verifiedAt;
 
-    private UUID verifiedBy;
+  private UUID verifiedBy;
 
-    @NotNull
-    @Size(max = 100)
-    private String registrationNumber;
+  @NotNull
+  @Size(max = 100)
+  private String registrationNumber;
 
-    @Size(max = 512)
-    private String documentUrl;
+  @Size(max = 512)
+  private String documentUrl;
 
-    @Size(max = 255)
-    private String schemeName;
+  @Size(max = 255)
+  private String schemeName;
 
-    @NotNull
-    @Size(max = 255)
-    private String type;
+  @NotNull
+  @Size(max = 255)
+  private String type;
 
-    @NotNull
-    @Size(max = 255)
-    private String verificationStatus;
+  @NotNull
+  @Size(max = 255)
+  private String verificationStatus;
 
-    private String metadata;
+  private String metadata;
 
-    @NotNull
-    private UUID engineerProfile;
-
+  @NotNull private UUID engineerProfile;
 }

@@ -20,90 +20,81 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-
 @Entity
 @EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter
 public class Payment {
 
-    @Id
-    @Column(nullable = false, updatable = false)
-    @GeneratedValue
-    @UuidGenerator
-    private UUID id;
+  @Id
+  @Column(nullable = false, updatable = false)
+  @GeneratedValue
+  @UuidGenerator
+  private UUID id;
 
-    @Column(nullable = false)
-    private Integer amountPence;
+  @Column(nullable = false)
+  private Integer amountPence;
 
-    @Column(nullable = false, length = 3)
-    private String currency;
+  @Column(nullable = false, length = 3)
+  private String currency;
 
-    @Column
-    private Integer refundAmountPence;
+  @Column private Integer refundAmountPence;
 
-    @Column(nullable = false)
-    private Boolean requiresAction;
+  @Column(nullable = false)
+  private Boolean requiresAction;
 
-    @Column
-    private OffsetDateTime authorisedAt;
+  @Column private OffsetDateTime authorisedAt;
 
-    @Column
-    private OffsetDateTime capturedAt;
+  @Column private OffsetDateTime capturedAt;
 
-    @Column(nullable = false)
-    private OffsetDateTime createdAt;
+  @Column(nullable = false)
+  private OffsetDateTime createdAt;
 
-    @Column
-    private OffsetDateTime refundedAt;
+  @Column private OffsetDateTime refundedAt;
 
-    @Column(nullable = false)
-    private OffsetDateTime updatedAt;
+  @Column(nullable = false)
+  private OffsetDateTime updatedAt;
 
-    @Column(length = 100)
-    private String failureCode;
+  @Column(length = 100)
+  private String failureCode;
 
-    @Column(length = 512)
-    private String stripeReceiptUrl;
+  @Column(length = 512)
+  private String stripeReceiptUrl;
 
-    @Column(length = 512)
-    private String threeDsUrl;
+  @Column(length = 512)
+  private String threeDsUrl;
 
-    @Column(columnDefinition = "text")
-    private String failureMessage;
+  @Column(columnDefinition = "text")
+  private String failureMessage;
 
-    @Column(columnDefinition = "text")
-    private String refundReason;
+  @Column(columnDefinition = "text")
+  private String refundReason;
 
-    @Column(nullable = false)
-    private String status;
+  @Column(nullable = false)
+  private String status;
 
-    @Column
-    private String stripeChargeId;
+  @Column private String stripeChargeId;
 
-    @Column
-    private String stripeClientSecret;
+  @Column private String stripeClientSecret;
 
-    @Column
-    private String stripePaymentIntentId;
+  @Column private String stripePaymentIntentId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "customer_id", nullable = false)
-    private User customer;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "customer_id", nullable = false)
+  private User customer;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "job_id", nullable = false)
-    private Job job;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "job_id", nullable = false)
+  private Job job;
 
-    @OneToMany(mappedBy = "payment")
-    private Set<Payout> paymentPayouts = new HashSet<>();
+  @OneToMany(mappedBy = "payment")
+  private Set<Payout> paymentPayouts = new HashSet<>();
 
-    @CreatedDate
-    @Column(nullable = false, updatable = false)
-    private OffsetDateTime dateCreated;
+  @CreatedDate
+  @Column(nullable = false, updatable = false)
+  private OffsetDateTime dateCreated;
 
-    @LastModifiedDate
-    @Column(nullable = false)
-    private OffsetDateTime lastUpdated;
-
+  @LastModifiedDate
+  @Column(nullable = false)
+  private OffsetDateTime lastUpdated;
 }

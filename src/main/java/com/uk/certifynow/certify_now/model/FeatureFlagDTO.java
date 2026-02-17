@@ -8,32 +8,27 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
-
 @Getter
 @Setter
 public class FeatureFlagDTO {
 
-    private UUID id;
+  private UUID id;
 
-    @NotNull
-    @JsonProperty("isEnabled")
-    private Boolean isEnabled;
+  @NotNull
+  @JsonProperty("isEnabled")
+  private Boolean isEnabled;
 
-    @NotNull
-    private Integer rolloutPct;
+  @NotNull private Integer rolloutPct;
 
-    @NotNull
-    private OffsetDateTime createdAt;
+  @NotNull private OffsetDateTime createdAt;
 
-    @NotNull
-    private OffsetDateTime updatedAt;
+  @NotNull private OffsetDateTime updatedAt;
 
-    @NotNull
-    @Size(max = 100)
-    private String flagKey;
+  @NotNull
+  @Size(max = 100)
+  private String flagKey;
 
-    private String description;
+  private String description;
 
-    private String metadata;
-
+  private String metadata;
 }

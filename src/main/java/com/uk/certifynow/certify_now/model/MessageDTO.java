@@ -7,29 +7,23 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
-
 @Getter
 @Setter
 public class MessageDTO {
 
-    private UUID id;
+  private UUID id;
 
-    @NotNull
-    @JsonProperty("isSystem")
-    private Boolean isSystem;
+  @NotNull
+  @JsonProperty("isSystem")
+  private Boolean isSystem;
 
-    @NotNull
-    private OffsetDateTime createdAt;
+  @NotNull private OffsetDateTime createdAt;
 
-    private OffsetDateTime readAt;
+  private OffsetDateTime readAt;
 
-    @NotNull
-    private String body;
+  @NotNull private String body;
 
-    @NotNull
-    private UUID job;
+  @NotNull private UUID job;
 
-    @NotNull
-    private UUID sender;
-
+  @NotNull private UUID sender;
 }

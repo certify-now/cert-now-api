@@ -18,52 +18,48 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-
 @Entity
 @EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter
 public class PricingRule {
 
-    @Id
-    @Column(nullable = false, updatable = false)
-    @GeneratedValue
-    @UuidGenerator
-    private UUID id;
+  @Id
+  @Column(nullable = false, updatable = false)
+  @GeneratedValue
+  @UuidGenerator
+  private UUID id;
 
-    @Column(nullable = false)
-    private Integer basePricePence;
+  @Column(nullable = false)
+  private Integer basePricePence;
 
-    @Column(nullable = false)
-    private LocalDate effectiveFrom;
+  @Column(nullable = false)
+  private LocalDate effectiveFrom;
 
-    @Column
-    private LocalDate effectiveTo;
+  @Column private LocalDate effectiveTo;
 
-    @Column(nullable = false)
-    private Boolean isActive;
+  @Column(nullable = false)
+  private Boolean isActive;
 
-    @Column(nullable = false)
-    private OffsetDateTime createdAt;
+  @Column(nullable = false)
+  private OffsetDateTime createdAt;
 
-    @Column
-    private UUID createdBy;
+  @Column private UUID createdBy;
 
-    @Column(length = 50)
-    private String region;
+  @Column(length = 50)
+  private String region;
 
-    @Column(nullable = false)
-    private String certificateType;
+  @Column(nullable = false)
+  private String certificateType;
 
-    @OneToMany(mappedBy = "pricingRule")
-    private Set<PricingModifier> pricingRulePricingModifiers = new HashSet<>();
+  @OneToMany(mappedBy = "pricingRule")
+  private Set<PricingModifier> pricingRulePricingModifiers = new HashSet<>();
 
-    @CreatedDate
-    @Column(nullable = false, updatable = false)
-    private OffsetDateTime dateCreated;
+  @CreatedDate
+  @Column(nullable = false, updatable = false)
+  private OffsetDateTime dateCreated;
 
-    @LastModifiedDate
-    @Column(nullable = false)
-    private OffsetDateTime lastUpdated;
-
+  @LastModifiedDate
+  @Column(nullable = false)
+  private OffsetDateTime lastUpdated;
 }

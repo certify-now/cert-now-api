@@ -7,56 +7,51 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
-
 @Getter
 @Setter
 public class NotificationDTO {
 
-    private UUID id;
+  private UUID id;
 
-    @NotNull
-    private OffsetDateTime createdAt;
+  @NotNull private OffsetDateTime createdAt;
 
-    private OffsetDateTime deliveredAt;
+  private OffsetDateTime deliveredAt;
 
-    private OffsetDateTime readAt;
+  private OffsetDateTime readAt;
 
-    private OffsetDateTime sentAt;
+  private OffsetDateTime sentAt;
 
-    @Size(max = 50)
-    private String category;
+  @Size(max = 50)
+  private String category;
 
-    @NotNull
-    private String body;
+  @NotNull private String body;
 
-    @NotNull
-    @Size(max = 255)
-    private String channel;
+  @NotNull
+  @Size(max = 255)
+  private String channel;
 
-    private String failedReason;
+  private String failedReason;
 
-    @Size(max = 255)
-    private String firebaseMessageId;
+  @Size(max = 255)
+  private String firebaseMessageId;
 
-    @Size(max = 255)
-    private String sendgridMessageId;
+  @Size(max = 255)
+  private String sendgridMessageId;
 
-    @NotNull
-    @Size(max = 255)
-    private String status;
+  @NotNull
+  @Size(max = 255)
+  private String status;
 
-    @NotNull
-    @Size(max = 255)
-    private String title;
+  @NotNull
+  @Size(max = 255)
+  private String title;
 
-    @Size(max = 255)
-    private String twilioMessageSid;
+  @Size(max = 255)
+  private String twilioMessageSid;
 
-    private String dataPayload;
+  private String dataPayload;
 
-    private UUID relatedJob;
+  private UUID relatedJob;
 
-    @NotNull
-    private UUID user;
-
+  @NotNull private UUID user;
 }

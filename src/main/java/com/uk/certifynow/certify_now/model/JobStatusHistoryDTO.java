@@ -7,34 +7,30 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
-
 @Getter
 @Setter
 public class JobStatusHistoryDTO {
 
-    private UUID id;
+  private UUID id;
 
-    @NotNull
-    private OffsetDateTime createdAt;
+  @NotNull private OffsetDateTime createdAt;
 
-    private UUID actorId;
+  private UUID actorId;
 
-    @NotNull
-    @Size(max = 20)
-    private String actorType;
+  @NotNull
+  @Size(max = 20)
+  private String actorType;
 
-    @Size(max = 255)
-    private String fromStatus;
+  @Size(max = 255)
+  private String fromStatus;
 
-    private String reason;
+  private String reason;
 
-    @NotNull
-    @Size(max = 255)
-    private String toStatus;
+  @NotNull
+  @Size(max = 255)
+  private String toStatus;
 
-    private String metadata;
+  private String metadata;
 
-    @NotNull
-    private UUID job;
-
+  @NotNull private UUID job;
 }

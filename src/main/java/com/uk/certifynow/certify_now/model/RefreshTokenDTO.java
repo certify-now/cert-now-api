@@ -7,35 +7,29 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
-
 @Getter
 @Setter
 public class RefreshTokenDTO {
 
-    private UUID id;
+  private UUID id;
 
-    @NotNull
-    private Boolean revoked;
+  @NotNull private Boolean revoked;
 
-    @NotNull
-    private OffsetDateTime createdAt;
+  @NotNull private OffsetDateTime createdAt;
 
-    @NotNull
-    private OffsetDateTime expiresAt;
+  @NotNull private OffsetDateTime expiresAt;
 
-    private OffsetDateTime revokedAt;
+  private OffsetDateTime revokedAt;
 
-    @Size(max = 255)
-    private String deviceInfo;
+  @Size(max = 255)
+  private String deviceInfo;
 
-    @Size(max = 255)
-    private String ipAddress;
+  @Size(max = 255)
+  private String ipAddress;
 
-    @NotNull
-    @Size(max = 255)
-    private String tokenHash;
+  @NotNull
+  @Size(max = 255)
+  private String tokenHash;
 
-    @NotNull
-    private UUID user;
-
+  @NotNull private UUID user;
 }

@@ -9,59 +9,51 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
-
 @Getter
 @Setter
 public class PayoutDTO {
 
-    private UUID id;
+  private UUID id;
 
-    @NotNull
-    private Integer amountPence;
+  @NotNull private Integer amountPence;
 
-    @NotNull
-    private Integer commissionPence;
+  @NotNull private Integer commissionPence;
 
-    @NotNull
-    @Size(max = 3)
-    private String currency;
+  @NotNull
+  @Size(max = 3)
+  private String currency;
 
-    private Integer instantFeePence;
+  private Integer instantFeePence;
 
-    @NotNull
-    @JsonProperty("isInstant")
-    private Boolean isInstant;
+  @NotNull
+  @JsonProperty("isInstant")
+  private Boolean isInstant;
 
-    @NotNull
-    private Integer netPence;
+  @NotNull private Integer netPence;
 
-    private LocalDate scheduledFor;
+  private LocalDate scheduledFor;
 
-    private OffsetDateTime completedAt;
+  private OffsetDateTime completedAt;
 
-    @NotNull
-    private OffsetDateTime createdAt;
+  @NotNull private OffsetDateTime createdAt;
 
-    @NotNull
-    private OffsetDateTime updatedAt;
+  @NotNull private OffsetDateTime updatedAt;
 
-    private String failureReason;
+  private String failureReason;
 
-    @NotNull
-    @Size(max = 255)
-    private String status;
+  @NotNull
+  @Size(max = 255)
+  private String status;
 
-    @Size(max = 255)
-    private String stripePayoutId;
+  @Size(max = 255)
+  private String stripePayoutId;
 
-    @Size(max = 255)
-    private String stripeTransferId;
+  @Size(max = 255)
+  private String stripeTransferId;
 
-    @NotNull
-    private UUID engineer;
+  @NotNull private UUID engineer;
 
-    private UUID job;
+  private UUID job;
 
-    private UUID payment;
-
+  private UUID payment;
 }

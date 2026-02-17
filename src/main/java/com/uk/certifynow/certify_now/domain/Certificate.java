@@ -21,95 +21,87 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-
 @Entity
 @EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter
 public class Certificate {
 
-    @Id
-    @Column(nullable = false, updatable = false)
-    @GeneratedValue
-    @UuidGenerator
-    private UUID id;
+  @Id
+  @Column(nullable = false, updatable = false)
+  @GeneratedValue
+  @UuidGenerator
+  private UUID id;
 
-    @Column
-    private Integer epcScore;
+  @Column private Integer epcScore;
 
-    @Column
-    private LocalDate expiryAt;
+  @Column private LocalDate expiryAt;
 
-    @Column(nullable = false)
-    private LocalDate issuedAt;
+  @Column(nullable = false)
+  private LocalDate issuedAt;
 
-    @Column
-    private Integer validYears;
+  @Column private Integer validYears;
 
-    @Column(nullable = false)
-    private OffsetDateTime createdAt;
+  @Column(nullable = false)
+  private OffsetDateTime createdAt;
 
-    @Column
-    private OffsetDateTime shareTokenCreated;
+  @Column private OffsetDateTime shareTokenCreated;
 
-    @Column(nullable = false)
-    private OffsetDateTime updatedAt;
+  @Column(nullable = false)
+  private OffsetDateTime updatedAt;
 
-    @Column(length = 64)
-    private String documentHash;
+  @Column(length = 64)
+  private String documentHash;
 
-    @Column(length = 64)
-    private String shareToken;
+  @Column(length = 64)
+  private String shareToken;
 
-    @Column(length = 100)
-    private String certificateNumber;
+  @Column(length = 100)
+  private String certificateNumber;
 
-    @Column(length = 512)
-    private String documentUrl;
+  @Column(length = 512)
+  private String documentUrl;
 
-    @Column(nullable = false)
-    private String certificateType;
+  @Column(nullable = false)
+  private String certificateType;
 
-    @Column
-    private String epcRating;
+  @Column private String epcRating;
 
-    @Column
-    private String result;
+  @Column private String result;
 
-    @Column(nullable = false)
-    private String status;
+  @Column(nullable = false)
+  private String status;
 
-    @Column(columnDefinition = "text")
-    private String metadata;
+  @Column(columnDefinition = "text")
+  private String metadata;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "issued_by_engineer_id")
-    private User issuedByEngineer;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "issued_by_engineer_id")
+  private User issuedByEngineer;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "job_id")
-    private Job job;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "job_id")
+  private Job job;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "property_id", nullable = false)
-    private Property property;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "property_id", nullable = false)
+  private Property property;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "superseded_by_id")
-    private Certificate supersededBy;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "superseded_by_id")
+  private Certificate supersededBy;
 
-    @OneToMany(mappedBy = "supersededBy")
-    private Set<Certificate> supersededByCertificates = new HashSet<>();
+  @OneToMany(mappedBy = "supersededBy")
+  private Set<Certificate> supersededByCertificates = new HashSet<>();
 
-    @OneToMany(mappedBy = "certificate")
-    private Set<RenewalReminder> certificateRenewalReminders = new HashSet<>();
+  @OneToMany(mappedBy = "certificate")
+  private Set<RenewalReminder> certificateRenewalReminders = new HashSet<>();
 
-    @CreatedDate
-    @Column(nullable = false, updatable = false)
-    private OffsetDateTime dateCreated;
+  @CreatedDate
+  @Column(nullable = false, updatable = false)
+  private OffsetDateTime dateCreated;
 
-    @LastModifiedDate
-    @Column(nullable = false)
-    private OffsetDateTime lastUpdated;
-
+  @LastModifiedDate
+  @Column(nullable = false)
+  private OffsetDateTime lastUpdated;
 }

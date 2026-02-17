@@ -8,46 +8,38 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
-
 @Getter
 @Setter
 public class EngineerInsuranceDTO {
 
-    private UUID id;
+  private UUID id;
 
-    @NotNull
-    private LocalDate expiryDate;
+  @NotNull private LocalDate expiryDate;
 
-    @NotNull
-    private LocalDate startDate;
+  @NotNull private LocalDate startDate;
 
-    @NotNull
-    private Long coverAmountPence;
+  @NotNull private Long coverAmountPence;
 
-    @NotNull
-    private OffsetDateTime createdAt;
+  @NotNull private OffsetDateTime createdAt;
 
-    @NotNull
-    private OffsetDateTime updatedAt;
+  @NotNull private OffsetDateTime updatedAt;
 
-    @NotNull
-    @Size(max = 50)
-    private String policyType;
+  @NotNull
+  @Size(max = 50)
+  private String policyType;
 
-    @Size(max = 100)
-    private String policyNumber;
+  @Size(max = 100)
+  private String policyNumber;
 
-    @Size(max = 512)
-    private String documentUrl;
+  @Size(max = 512)
+  private String documentUrl;
 
-    @Size(max = 255)
-    private String provider;
+  @Size(max = 255)
+  private String provider;
 
-    @NotNull
-    @Size(max = 255)
-    private String verificationStatus;
+  @NotNull
+  @Size(max = 255)
+  private String verificationStatus;
 
-    @NotNull
-    private UUID engineerProfile;
-
+  @NotNull private UUID engineerProfile;
 }

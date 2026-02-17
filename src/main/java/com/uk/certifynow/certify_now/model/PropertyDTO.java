@@ -12,81 +12,73 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
-
 @Getter
 @Setter
 public class PropertyDTO {
 
-    private UUID id;
+  private UUID id;
 
-    private Integer bedrooms;
+  private Integer bedrooms;
 
-    @NotNull
-    @Size(max = 2)
-    private String country;
+  @NotNull
+  @Size(max = 2)
+  private String country;
 
-    @Digits(integer = 8, fraction = 2)
-    @JsonFormat(shape = JsonFormat.Shape.STRING)
-    @Schema(type = "string", example = "18.08")
-    private BigDecimal floorAreaSqm;
+  @Digits(integer = 8, fraction = 2)
+  @JsonFormat(shape = JsonFormat.Shape.STRING)
+  @Schema(type = "string", example = "18.08")
+  private BigDecimal floorAreaSqm;
 
-    private Integer floors;
+  private Integer floors;
 
-    private Integer gasApplianceCount;
+  private Integer gasApplianceCount;
 
-    @NotNull
-    private Boolean hasElectric;
+  @NotNull private Boolean hasElectric;
 
-    @NotNull
-    private Boolean hasGasSupply;
+  @NotNull private Boolean hasGasSupply;
 
-    @NotNull
-    @JsonProperty("isActive")
-    private Boolean isActive;
+  @NotNull
+  @JsonProperty("isActive")
+  private Boolean isActive;
 
-    private Integer yearBuilt;
+  private Integer yearBuilt;
 
-    @NotNull
-    private OffsetDateTime createdAt;
+  @NotNull private OffsetDateTime createdAt;
 
-    @NotNull
-    private OffsetDateTime updatedAt;
+  @NotNull private OffsetDateTime updatedAt;
 
-    @NotNull
-    @Size(max = 10)
-    private String postcode;
+  @NotNull
+  @Size(max = 10)
+  private String postcode;
 
-    @Size(max = 20)
-    private String uprn;
+  @Size(max = 20)
+  private String uprn;
 
-    @Size(max = 50)
-    private String epcRegisterRef;
+  @Size(max = 50)
+  private String epcRegisterRef;
 
-    @NotNull
-    @Size(max = 100)
-    private String city;
+  @NotNull
+  @Size(max = 100)
+  private String city;
 
-    @Size(max = 100)
-    private String county;
+  @Size(max = 100)
+  private String county;
 
-    @NotNull
-    @Size(max = 255)
-    private String addressLine1;
+  @NotNull
+  @Size(max = 255)
+  private String addressLine1;
 
-    @Size(max = 255)
-    private String addressLine2;
+  @Size(max = 255)
+  private String addressLine2;
 
-    @NotNull
-    @Size(max = 255)
-    private String propertyType;
+  @NotNull
+  @Size(max = 255)
+  private String propertyType;
 
-    @NotNull
-    private String complianceStatus;
+  @NotNull private String complianceStatus;
 
-    @Size(max = 255)
-    private String location;
+  @Size(max = 255)
+  private String location;
 
-    @NotNull
-    private UUID owner;
-
+  @NotNull private UUID owner;
 }

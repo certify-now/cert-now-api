@@ -4,11 +4,9 @@ import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
-
 @Getter
 @AllArgsConstructor
 public class BeforeDeletePricingRule {
 
-    private UUID id;
-
+  private UUID id;
 }

@@ -8,43 +8,33 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
-
 @Getter
 @Setter
 public class RenewalReminderDTO {
 
-    private UUID id;
+  private UUID id;
 
-    @NotNull
-    private Integer daysBefore;
+  @NotNull private Integer daysBefore;
 
-    @NotNull
-    private LocalDate expiryDate;
+  @NotNull private LocalDate expiryDate;
 
-    @NotNull
-    private LocalDate scheduledFor;
+  @NotNull private LocalDate scheduledFor;
 
-    @NotNull
-    private Boolean sent;
+  @NotNull private Boolean sent;
 
-    @NotNull
-    private OffsetDateTime createdAt;
+  @NotNull private OffsetDateTime createdAt;
 
-    private OffsetDateTime sentAt;
+  private OffsetDateTime sentAt;
 
-    @NotNull
-    @Size(max = 255)
-    private String certificateType;
+  @NotNull
+  @Size(max = 255)
+  private String certificateType;
 
-    @NotNull
-    private UUID certificate;
+  @NotNull private UUID certificate;
 
-    @NotNull
-    private UUID customer;
+  @NotNull private UUID customer;
 
-    private UUID notification;
+  private UUID notification;
 
-    @NotNull
-    private UUID property;
-
+  @NotNull private UUID property;
 }

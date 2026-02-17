@@ -9,35 +9,30 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
-
 @Getter
 @Setter
 public class PricingRuleDTO {
 
-    private UUID id;
+  private UUID id;
 
-    @NotNull
-    private Integer basePricePence;
+  @NotNull private Integer basePricePence;
 
-    @NotNull
-    private LocalDate effectiveFrom;
+  @NotNull private LocalDate effectiveFrom;
 
-    private LocalDate effectiveTo;
+  private LocalDate effectiveTo;
 
-    @NotNull
-    @JsonProperty("isActive")
-    private Boolean isActive;
+  @NotNull
+  @JsonProperty("isActive")
+  private Boolean isActive;
 
-    @NotNull
-    private OffsetDateTime createdAt;
+  @NotNull private OffsetDateTime createdAt;
 
-    private UUID createdBy;
+  private UUID createdBy;
 
-    @Size(max = 50)
-    private String region;
+  @Size(max = 50)
+  private String region;
 
-    @NotNull
-    @Size(max = 255)
-    private String certificateType;
-
+  @NotNull
+  @Size(max = 255)
+  private String certificateType;
 }

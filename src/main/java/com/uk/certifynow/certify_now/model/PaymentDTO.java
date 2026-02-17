@@ -7,67 +7,59 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
-
 @Getter
 @Setter
 public class PaymentDTO {
 
-    private UUID id;
+  private UUID id;
 
-    @NotNull
-    private Integer amountPence;
+  @NotNull private Integer amountPence;
 
-    @NotNull
-    @Size(max = 3)
-    private String currency;
+  @NotNull
+  @Size(max = 3)
+  private String currency;
 
-    private Integer refundAmountPence;
+  private Integer refundAmountPence;
 
-    @NotNull
-    private Boolean requiresAction;
+  @NotNull private Boolean requiresAction;
 
-    private OffsetDateTime authorisedAt;
+  private OffsetDateTime authorisedAt;
 
-    private OffsetDateTime capturedAt;
+  private OffsetDateTime capturedAt;
 
-    @NotNull
-    private OffsetDateTime createdAt;
+  @NotNull private OffsetDateTime createdAt;
 
-    private OffsetDateTime refundedAt;
+  private OffsetDateTime refundedAt;
 
-    @NotNull
-    private OffsetDateTime updatedAt;
+  @NotNull private OffsetDateTime updatedAt;
 
-    @Size(max = 100)
-    private String failureCode;
+  @Size(max = 100)
+  private String failureCode;
 
-    @Size(max = 512)
-    private String stripeReceiptUrl;
+  @Size(max = 512)
+  private String stripeReceiptUrl;
 
-    @Size(max = 512)
-    private String threeDsUrl;
+  @Size(max = 512)
+  private String threeDsUrl;
 
-    private String failureMessage;
+  private String failureMessage;
 
-    private String refundReason;
+  private String refundReason;
 
-    @NotNull
-    @Size(max = 255)
-    private String status;
+  @NotNull
+  @Size(max = 255)
+  private String status;
 
-    @Size(max = 255)
-    private String stripeChargeId;
+  @Size(max = 255)
+  private String stripeChargeId;
 
-    @Size(max = 255)
-    private String stripeClientSecret;
+  @Size(max = 255)
+  private String stripeClientSecret;
 
-    @Size(max = 255)
-    private String stripePaymentIntentId;
+  @Size(max = 255)
+  private String stripePaymentIntentId;
 
-    @NotNull
-    private UUID customer;
+  @NotNull private UUID customer;
 
-    @NotNull
-    private UUID job;
-
+  @NotNull private UUID job;
 }

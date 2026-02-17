@@ -13,31 +13,27 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
-
 @Getter
 @Setter
 public class UrgencyMultiplierDTO {
 
-    private UUID id;
+  private UUID id;
 
-    @NotNull
-    private LocalDate effectiveFrom;
+  @NotNull private LocalDate effectiveFrom;
 
-    @NotNull
-    @JsonProperty("isActive")
-    private Boolean isActive;
+  @NotNull
+  @JsonProperty("isActive")
+  private Boolean isActive;
 
-    @NotNull
-    @Digits(integer = 4, fraction = 3)
-    @JsonFormat(shape = JsonFormat.Shape.STRING)
-    @Schema(type = "string", example = "5.008")
-    private BigDecimal multiplier;
+  @NotNull
+  @Digits(integer = 4, fraction = 3)
+  @JsonFormat(shape = JsonFormat.Shape.STRING)
+  @Schema(type = "string", example = "5.008")
+  private BigDecimal multiplier;
 
-    @NotNull
-    private OffsetDateTime createdAt;
+  @NotNull private OffsetDateTime createdAt;
 
-    @NotNull
-    @Size(max = 255)
-    private String urgency;
-
+  @NotNull
+  @Size(max = 255)
+  private String urgency;
 }

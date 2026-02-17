@@ -21,62 +21,58 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-
 @Entity
 @EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter
 public class GasSafetyInspection {
 
-    @Id
-    @Column(nullable = false, updatable = false)
-    @GeneratedValue
-    @UuidGenerator
-    private UUID id;
+  @Id
+  @Column(nullable = false, updatable = false)
+  @GeneratedValue
+  @UuidGenerator
+  private UUID id;
 
-    @Column(nullable = false)
-    private LocalDate inspectionDate;
+  @Column(nullable = false)
+  private LocalDate inspectionDate;
 
-    @Column(nullable = false)
-    private LocalDate nextInspectionDate;
+  @Column(nullable = false)
+  private LocalDate nextInspectionDate;
 
-    @Column(nullable = false)
-    private OffsetDateTime createdAt;
+  @Column(nullable = false)
+  private OffsetDateTime createdAt;
 
-    @Column(nullable = false)
-    private OffsetDateTime updatedAt;
+  @Column(nullable = false)
+  private OffsetDateTime updatedAt;
 
-    @Column(nullable = false, length = 20)
-    private String inspectorGasSafeId;
+  @Column(nullable = false, length = 20)
+  private String inspectorGasSafeId;
 
-    @Column
-    private String defectSeverity;
+  @Column private String defectSeverity;
 
-    @Column(columnDefinition = "text")
-    private String defectsText;
+  @Column(columnDefinition = "text")
+  private String defectsText;
 
-    @Column(columnDefinition = "text")
-    private String landlordAddress;
+  @Column(columnDefinition = "text")
+  private String landlordAddress;
 
-    @Column
-    private String landlordName;
+  @Column private String landlordName;
 
-    @Column(nullable = false)
-    private String overallResult;
+  @Column(nullable = false)
+  private String overallResult;
 
-    @OneToMany(mappedBy = "gasInspection")
-    private Set<GasApplianceInspection> gasInspectionGasApplianceInspections = new HashSet<>();
+  @OneToMany(mappedBy = "gasInspection")
+  private Set<GasApplianceInspection> gasInspectionGasApplianceInspections = new HashSet<>();
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "job_id", nullable = false)
-    private Job job;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "job_id", nullable = false)
+  private Job job;
 
-    @CreatedDate
-    @Column(nullable = false, updatable = false)
-    private OffsetDateTime dateCreated;
+  @CreatedDate
+  @Column(nullable = false, updatable = false)
+  private OffsetDateTime dateCreated;
 
-    @LastModifiedDate
-    @Column(nullable = false)
-    private OffsetDateTime lastUpdated;
-
+  @LastModifiedDate
+  @Column(nullable = false)
+  private OffsetDateTime lastUpdated;
 }

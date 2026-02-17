@@ -8,65 +8,59 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
-
 @Getter
 @Setter
 public class CertificateDTO {
 
-    private UUID id;
+  private UUID id;
 
-    private Integer epcScore;
+  private Integer epcScore;
 
-    private LocalDate expiryAt;
+  private LocalDate expiryAt;
 
-    @NotNull
-    private LocalDate issuedAt;
+  @NotNull private LocalDate issuedAt;
 
-    private Integer validYears;
+  private Integer validYears;
 
-    @NotNull
-    private OffsetDateTime createdAt;
+  @NotNull private OffsetDateTime createdAt;
 
-    private OffsetDateTime shareTokenCreated;
+  private OffsetDateTime shareTokenCreated;
 
-    @NotNull
-    private OffsetDateTime updatedAt;
+  @NotNull private OffsetDateTime updatedAt;
 
-    @Size(max = 64)
-    private String documentHash;
+  @Size(max = 64)
+  private String documentHash;
 
-    @Size(max = 64)
-    private String shareToken;
+  @Size(max = 64)
+  private String shareToken;
 
-    @Size(max = 100)
-    private String certificateNumber;
+  @Size(max = 100)
+  private String certificateNumber;
 
-    @Size(max = 512)
-    private String documentUrl;
+  @Size(max = 512)
+  private String documentUrl;
 
-    @NotNull
-    @Size(max = 255)
-    private String certificateType;
+  @NotNull
+  @Size(max = 255)
+  private String certificateType;
 
-    @Size(max = 255)
-    private String epcRating;
+  @Size(max = 255)
+  private String epcRating;
 
-    @Size(max = 255)
-    private String result;
+  @Size(max = 255)
+  private String result;
 
-    @NotNull
-    @Size(max = 255)
-    private String status;
+  @NotNull
+  @Size(max = 255)
+  private String status;
 
-    private String metadata;
+  private String metadata;
 
-    private UUID issuedByEngineer;
+  private UUID issuedByEngineer;
 
-    private UUID job;
+  private UUID job;
 
-    @NotNull
-    private UUID property;
+  @NotNull private UUID property;
 
-    private UUID supersededBy;
-
+  private UUID supersededBy;
 }

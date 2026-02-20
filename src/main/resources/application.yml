@@ -8,7 +8,7 @@ spring:
       maximum-pool-size: 10
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: create-drop
     open-in-view: false
     properties:
       hibernate:
@@ -28,11 +28,25 @@ error:
     log-levels:
       5xx: ERROR
 springdoc:
-  pathsToMatch: /, /api/**
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+    doc-expansion: none
 app:
+  base-url: ${APP_BASE_URL:http://localhost:8080}
   jwt:
     secret: ${JWT_SECRET:dev-secret-key-at-least-512-bits-long-for-hs512-algorithm-change-in-production-change-me}
     access-token-expiry-ms: 900000
     refresh-token-expiry-days: 30
   security:
     max-refresh-tokens-per-user: 5
+  email-verification:
+    token-expiry-hours: 24
+  frontend:
+    base-url: ${FRONTEND_BASE_URL:http://localhost:3000}

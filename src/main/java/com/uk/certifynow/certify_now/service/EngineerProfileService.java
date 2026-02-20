@@ -7,6 +7,8 @@ import com.uk.certifynow.certify_now.events.BeforeDeleteUser;
 import com.uk.certifynow.certify_now.model.EngineerProfileDTO;
 import com.uk.certifynow.certify_now.repos.EngineerProfileRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
+import com.uk.certifynow.certify_now.service.auth.EngineerApplicationStatus;
+import com.uk.certifynow.certify_now.service.auth.EngineerTier;
 import com.uk.certifynow.certify_now.util.NotFoundException;
 import com.uk.certifynow.certify_now.util.ReferencedException;
 import java.util.List;
@@ -123,11 +125,11 @@ public class EngineerProfileService {
     engineerProfile.setDbsStatus(engineerProfileDTO.getDbsStatus());
     engineerProfile.setBio(engineerProfileDTO.getBio());
     engineerProfile.setStatus(
-        com.uk.certifynow.certify_now.auth.domain.EngineerApplicationStatus.valueOf(
+        EngineerApplicationStatus.valueOf(
             engineerProfileDTO.getStatus()));
     engineerProfile.setStripeAccountId(engineerProfileDTO.getStripeAccountId());
     engineerProfile.setTier(
-        com.uk.certifynow.certify_now.auth.domain.EngineerTier.valueOf(
+        EngineerTier.valueOf(
             engineerProfileDTO.getTier()));
     engineerProfile.setLocation(engineerProfileDTO.getLocation());
     engineerProfile.setPreferredCertTypes(engineerProfileDTO.getPreferredCertTypes());

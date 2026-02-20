@@ -4,6 +4,9 @@ import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.events.BeforeDeleteUser;
 import com.uk.certifynow.certify_now.model.UserDTO;
 import com.uk.certifynow.certify_now.repos.UserRepository;
+import com.uk.certifynow.certify_now.service.auth.AuthProvider;
+import com.uk.certifynow.certify_now.service.auth.UserRole;
+import com.uk.certifynow.certify_now.service.auth.UserStatus;
 import com.uk.certifynow.certify_now.util.NotFoundException;
 import java.util.List;
 import java.util.UUID;
@@ -80,15 +83,15 @@ public class UserService {
     user.setUpdatedAt(userDTO.getUpdatedAt());
     user.setPhone(userDTO.getPhone());
     user.setAuthProvider(
-        com.uk.certifynow.certify_now.auth.domain.AuthProvider.valueOf(userDTO.getAuthProvider()));
+        AuthProvider.valueOf(userDTO.getAuthProvider()));
     user.setAvatarUrl(userDTO.getAvatarUrl());
     user.setEmail(userDTO.getEmail());
     user.setExternalAuthId(userDTO.getExternalAuthId());
     user.setFullName(userDTO.getFullName());
     user.setPasswordHash(userDTO.getPasswordHash());
-    user.setRole(com.uk.certifynow.certify_now.auth.domain.UserRole.valueOf(userDTO.getRole()));
+    user.setRole(UserRole.valueOf(userDTO.getRole()));
     user.setStatus(
-        com.uk.certifynow.certify_now.auth.domain.UserStatus.valueOf(userDTO.getStatus()));
+        UserStatus.valueOf(userDTO.getStatus()));
     return user;
   }
 }

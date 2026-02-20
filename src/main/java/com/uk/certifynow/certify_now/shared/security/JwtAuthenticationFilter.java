@@ -19,6 +19,25 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+  private static final List<String> PUBLIC_PATHS = List.of(
+      // Swagger UI paths
+      "/swagger-ui",
+      "/v3/api-docs",
+      "/swagger-resources",
+      "/webjars",
+      "/favicon.ico",
+
+      // Public API paths
+      "/api/v1/auth/register",
+      "/api/v1/auth/login",
+      "/api/v1/auth/refresh",
+      "/api/v1/auth/verify-email",
+      "/api/v1/auth/request-password-reset",
+      "/api/v1/auth/reset-password",
+      "/api/v1/certificates/shared",
+      "/api/v1/webhooks/stripe",
+      "/actuator/health");
+
   private final JwtTokenProvider jwtTokenProvider;
   private final ObjectMapper objectMapper;
 
@@ -34,6 +53,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       final HttpServletResponse response,
       final FilterChain filterChain)
       throws ServletException, IOException {
+
+    final String path = request.getRequestURI();
+
+    // ═══════════════════════════════════════════════════════
+    // SKIP JWT VALIDATION FOR PUBLIC PATHS
+    // ═══════════════════════════════════════════════════════
+    if (isPublicPath(path)) {
+      filterChain.doFilter(request, response);
+      return;
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // EXTRACT AND VALIDATE JWT TOKEN
+    // ═══════════════════════════════════════════════════════
     final String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
     if (authHeader == null || !authHeader.startsWith("Bearer ")) {
       filterChain.doFilter(request, response);
@@ -58,8 +91,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     final String status = String.valueOf(claims.get("status"));
     final String role = String.valueOf(claims.get("role"));
     final String userId = claims.getSubject();
-    final String path = request.getRequestURI();
 
+    // ═══════════════════════════════════════════════════════
+    // CHECK USER STATUS
+    // ═══════════════════════════════════════════════════════
     if ("SUSPENDED".equals(status)) {
       SecurityResponseWriter.writeError(
           request,
@@ -71,8 +106,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       return;
     }
 
-    final boolean allowedForPending =
-        path.startsWith("/api/v1/auth/") || "/api/v1/users/me".equals(path);
+    final boolean allowedForPending = path.startsWith("/api/v1/auth/") || "/api/v1/users/me".equals(path);
     if ("PENDING_VERIFICATION".equals(status) && !allowedForPending) {
       SecurityResponseWriter.writeError(
           request,
@@ -84,10 +118,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       return;
     }
 
-    final UsernamePasswordAuthenticationToken authentication =
-        new UsernamePasswordAuthenticationToken(
-            userId, null, List.of(new SimpleGrantedAuthority("ROLE_" + role)));
+    // ═══════════════════════════════════════════════════════
+    // SET SECURITY CONTEXT
+    // ═══════════════════════════════════════════════════════
+    final UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+        userId, null, List.of(new SimpleGrantedAuthority("ROLE_" + role)));
     SecurityContextHolder.getContext().setAuthentication(authentication);
-    filterChain.doFilter(request, response);
+
+    try {
+      filterChain.doFilter(request, response);
+    } finally {
+      // Clear security context after request
+      SecurityContextHolder.clearContext();
+    }
+  }
+
+  /**
+   * Check if the request path is public (doesn't require authentication)
+   */
+  private boolean isPublicPath(final String path) {
+    return PUBLIC_PATHS.stream().anyMatch(path::startsWith);
   }
 }

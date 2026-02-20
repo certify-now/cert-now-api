@@ -33,11 +33,13 @@ dependencies {
     runtimeOnly('org.postgresql:postgresql')
     implementation('io.github.wimdeblauwe:error-handling-spring-boot-starter:5.0.1')
     implementation('org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.1')
+    implementation('commons-codec:commons-codec:1.16.0')  // For SHA-256 hashing
     compileOnly('org.projectlombok:lombok')
     annotationProcessor('org.projectlombok:lombok')
     testCompileOnly('org.projectlombok:lombok')
     testAnnotationProcessor('org.projectlombok:lombok')
     developmentOnly('org.springframework.boot:spring-boot-docker-compose')
+    testRuntimeOnly('com.h2database:h2')  // H2 for integration tests
     testImplementation('org.springframework.boot:spring-boot-starter-test')
 }
 

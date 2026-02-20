@@ -1,8 +1,8 @@
 package com.uk.certifynow.certify_now.domain;
 
-import com.uk.certifynow.certify_now.auth.domain.AuthProvider;
-import com.uk.certifynow.certify_now.auth.domain.UserRole;
-import com.uk.certifynow.certify_now.auth.domain.UserStatus;
+import com.uk.certifynow.certify_now.service.auth.AuthProvider;
+import com.uk.certifynow.certify_now.service.auth.UserRole;
+import com.uk.certifynow.certify_now.service.auth.UserStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;

@@ -19,6 +19,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service("authRefreshTokenService")
 public class RefreshTokenService {
@@ -30,16 +33,20 @@ public class RefreshTokenService {
   private final int maxRefreshTokensPerUser;
   private final int refreshTokenExpiryDays;
   private final Clock clock;
+  private final TransactionTemplate requiresNewTx;
 
   public RefreshTokenService(
       final RefreshTokenRepository refreshTokenRepository,
       @Value("${app.security.max-refresh-tokens-per-user:5}") final int maxRefreshTokensPerUser,
       @Value("${app.jwt.refresh-token-expiry-days:30}") final int refreshTokenExpiryDays,
-      final Clock clock) {
+      final Clock clock,
+      final PlatformTransactionManager transactionManager) {
     this.refreshTokenRepository = refreshTokenRepository;
     this.maxRefreshTokensPerUser = maxRefreshTokensPerUser;
     this.refreshTokenExpiryDays = refreshTokenExpiryDays;
     this.clock = clock;
+    this.requiresNewTx = new TransactionTemplate(transactionManager);
+    this.requiresNewTx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
   }
 
   /**
@@ -103,7 +110,7 @@ public class RefreshTokenService {
 
     // Fix 5: Revoked token presented → possible theft — revoke the entire family
     if (Boolean.TRUE.equals(token.getRevoked())) {
-      revokeFamily(token.getFamilyId());
+      revokeFamilyInNewTransaction(token.getFamilyId());
       log.warn(
           "SECURITY: TOKEN_REUSE_DETECTED — revoked refresh token re-presented. "
               + "Revoking family={} userId={} ip={}",
@@ -180,6 +187,17 @@ public class RefreshTokenService {
         refreshTokenRepository.save(t);
       }
     }
+  }
+
+  /**
+   * Commits family revocation even when caller transaction fails.
+   *
+   * <p>When a revoked token is replayed we throw TOKEN_REUSE_DETECTED to the caller, which rolls
+   * back the surrounding transaction. Family revocation must still persist, so it runs in
+   * REQUIRES_NEW.
+   */
+  private void revokeFamilyInNewTransaction(final UUID familyId) {
+    requiresNewTx.executeWithoutResult(status -> revokeFamily(familyId));
   }
 
   public record IssuedRefreshToken(String rawToken, RefreshToken entity) {}

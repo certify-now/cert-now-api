@@ -1,11 +1,12 @@
 package com.uk.certifynow.certify_now.service.auth;
 
+import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.service.auth.dto.AuthResponse;
 import com.uk.certifynow.certify_now.service.auth.dto.LoginRequest;
 import com.uk.certifynow.certify_now.service.auth.dto.RefreshRequest;
 import com.uk.certifynow.certify_now.service.auth.dto.RegisterRequest;
 import com.uk.certifynow.certify_now.service.mappers.AuthMapper;
-import com.uk.certifynow.certify_now.domain.User;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,17 +46,31 @@ public class AuthFacade {
   /**
    * Registers a new user and issues tokens.
    *
-   * <p>Orchestrates: registration → token issuance → DTO mapping
+   * <p>Orchestrates: registration → token issuance → DTO mapping.
+   *
+   * <p>Fix 3: If the email/phone already exists, registration silently succeeds (no 409) — the
+   * existing user receives a "someone tried to register" email notification via an async event
+   * listener. An empty Optional from RegistrationService means a silent duplicate was handled.
    *
    * @param request registration details
    * @param deviceInfo device information for audit
    * @param ipAddress IP address for audit
-   * @return authentication response with tokens and user summary
+   * @return authentication response with tokens and user summary (or generic message-only response
+   *     on silent duplicate)
    */
   public AuthResponse register(
       final RegisterRequest request, final String deviceInfo, final String ipAddress) {
-    // Step 1: Register user (creates user, profile, consents, publishes event)
-    final User user = registrationService.registerUser(request, ipAddress);
+    // Step 1: Register user — returns empty if silent duplicate (Fix 3)
+    final Optional<User> userOpt = registrationService.registerUser(request, ipAddress);
+
+    if (userOpt.isEmpty()) {
+      // Silent duplicate: return a generic response that is indistinguishable from
+      // success.
+      // The client should display "Check your email to verify your account."
+      return authMapper.toGenericRegistrationResponse();
+    }
+
+    final User user = userOpt.get();
 
     // Step 2: Issue tokens
     final SessionService.TokenPair tokens = sessionService.issueTokens(user, deviceInfo, ipAddress);
@@ -107,13 +122,14 @@ public class AuthFacade {
   }
 
   /**
-   * Logs out a user by revoking their refresh token.
+   * Logs out a user by revoking their refresh token and denylisting the access token jti.
    *
    * @param userId user requesting logout
    * @param refreshToken token to revoke
+   * @param accessToken current access token (jti will be added to denylist — Fix 1)
    */
-  public void logout(final UUID userId, final String refreshToken) {
-    sessionService.revokeToken(userId, refreshToken);
+  public void logout(final UUID userId, final String refreshToken, final String accessToken) {
+    sessionService.revokeToken(userId, refreshToken, accessToken);
   }
 
   /**

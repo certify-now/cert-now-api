@@ -16,18 +16,18 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class SwaggerConfig {
 
-    @Value("${app.base-url:http://localhost:8080}")
-    private String baseUrl;
+  @Value("${app.base-url:http://localhost:8080}")
+  private String baseUrl;
 
-    @Bean
-    public OpenAPI customOpenAPI() {
-        return new OpenAPI()
-                .info(
-                        new Info()
-                                .title("CertifyNow API")
-                                .version("1.0")
-                                .description(
-                                        """
+  @Bean
+  public OpenAPI customOpenAPI() {
+    return new OpenAPI()
+        .info(
+            new Info()
+                .title("CertifyNow API")
+                .version("1.0")
+                .description(
+                    """
                                                 API for CertifyNow - Platform connecting property owners with certified engineers.
 
                                                 ## Authentication
@@ -46,26 +46,25 @@ public class SwaggerConfig {
                                                 - ENGINEER: Certified professionals performing inspections
                                                 - ADMIN: Platform administrators
                                                 """)
-                                .contact(
-                                        new Contact()
-                                                .name("CertifyNow Support")
-                                                .email("support@certifynow.co.uk")
-                                                .url("https://certifynow.co.uk"))
-                                .license(
-                                        new License().name("Proprietary").url("https://certifynow.co.uk/terms")))
-                .servers(List.of(new Server().url(baseUrl).description("API Server")))
-                .addSecurityItem(new SecurityRequirement().addList("Bearer Authentication"))
-                .components(
-                        new Components()
-                                .addSecuritySchemes(
-                                        "Bearer Authentication",
-                                        new SecurityScheme()
-                                                .type(SecurityScheme.Type.HTTP)
-                                                .scheme("bearer")
-                                                .bearerFormat("JWT")
-                                                .description(
-                                                        "Enter JWT token obtained from /api/v1/auth/login or /api/v1/auth/register")
-                                                .in(SecurityScheme.In.HEADER)
-                                                .name("Authorization")));
-    }
+                .contact(
+                    new Contact()
+                        .name("CertifyNow Support")
+                        .email("support@certifynow.co.uk")
+                        .url("https://certifynow.co.uk"))
+                .license(new License().name("Proprietary").url("https://certifynow.co.uk/terms")))
+        .servers(List.of(new Server().url(baseUrl).description("API Server")))
+        .addSecurityItem(new SecurityRequirement().addList("Bearer Authentication"))
+        .components(
+            new Components()
+                .addSecuritySchemes(
+                    "Bearer Authentication",
+                    new SecurityScheme()
+                        .type(SecurityScheme.Type.HTTP)
+                        .scheme("bearer")
+                        .bearerFormat("JWT")
+                        .description(
+                            "Enter JWT token obtained from /api/v1/auth/login or /api/v1/auth/register")
+                        .in(SecurityScheme.In.HEADER)
+                        .name("Authorization")));
+  }
 }

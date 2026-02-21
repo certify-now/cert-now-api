@@ -1,7 +1,7 @@
 package com.uk.certifynow.certify_now.service.auth;
 
-import com.uk.certifynow.certify_now.events.UserLoggedInEvent;
 import com.uk.certifynow.certify_now.domain.User;
+import com.uk.certifynow.certify_now.events.UserLoggedInEvent;
 import com.uk.certifynow.certify_now.repos.UserRepository;
 import com.uk.certifynow.certify_now.shared.exception.BusinessException;
 import java.time.Clock;

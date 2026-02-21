@@ -15,4 +15,7 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
 
   List<RefreshToken> findAllByUserIdAndRevokedFalseAndExpiresAtAfterOrderByCreatedAtAsc(
       UUID userId, OffsetDateTime now);
+
+  /** Fix 5: Find all tokens belonging to a token family (for theft detection revocation). */
+  List<RefreshToken> findAllByFamilyId(UUID familyId);
 }

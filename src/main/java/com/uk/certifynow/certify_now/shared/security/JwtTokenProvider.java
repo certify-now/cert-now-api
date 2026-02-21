@@ -36,14 +36,27 @@ public class JwtTokenProvider {
     this.clock = clock;
   }
 
+  /**
+   * Generates a signed JWT access token for the given user.
+   *
+   * <p>Claims included:
+   *
+   * <ul>
+   *   <li>{@code sub} — user UUID (principal identifier)
+   *   <li>{@code jti} — unique token ID (UUID); used by the denylist for logout/suspension
+   *   <li>{@code email}, {@code role}, {@code status} — user details
+   *   <li>{@code iat}, {@code exp} — issued-at and expiry timestamps
+   * </ul>
+   */
   public String generateAccessToken(final User user) {
     final Instant now = Instant.now(clock);
     final Instant expiry = now.plusMillis(accessTokenExpiryMs);
     return Jwts.builder()
+        .id(UUID.randomUUID().toString()) // jti claim — unique per issued token
         .subject(user.getId().toString())
         .claim("email", user.getEmail())
-        .claim("role", user.getRole().name()) // Convert enum to string
-        .claim("status", user.getStatus().name()) // Convert enum to string
+        .claim("role", user.getRole().name())
+        .claim("status", user.getStatus().name())
         .issuedAt(Date.from(now))
         .expiration(Date.from(expiry))
         .signWith(SignatureAlgorithm.HS512, key)
@@ -63,6 +76,16 @@ public class JwtTokenProvider {
   public UUID getUserIdFromToken(final String token) {
     final Claims claims = parseClaims(token);
     return UUID.fromString(claims.getSubject());
+  }
+
+  /**
+   * Extracts the jti (JWT ID) from a token.
+   *
+   * @param token JWT access token
+   * @return jti claim value
+   */
+  public String getJtiFromToken(final String token) {
+    return parseClaims(token).getId();
   }
 
   public long getAccessTokenExpirySeconds() {

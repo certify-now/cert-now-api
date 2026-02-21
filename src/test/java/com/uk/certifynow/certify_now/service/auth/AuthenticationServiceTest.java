@@ -7,8 +7,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.uk.certifynow.certify_now.events.UserLoggedInEvent;
 import com.uk.certifynow.certify_now.domain.User;
+import com.uk.certifynow.certify_now.events.UserLoggedInEvent;
 import com.uk.certifynow.certify_now.repos.UserRepository;
 import com.uk.certifynow.certify_now.shared.exception.BusinessException;
 import java.time.Clock;
@@ -56,7 +56,8 @@ class AuthenticationServiceTest {
   void setUp() {
     // Use a fixed clock for deterministic testing
     clock = Clock.fixed(FIXED_INSTANT, ZoneOffset.UTC);
-    authenticationService = new AuthenticationService(userRepository, passwordEncoder, eventPublisher, clock);
+    authenticationService =
+        new AuthenticationService(userRepository, passwordEncoder, eventPublisher, clock);
 
     testUser = createTestUser(UserStatus.ACTIVE);
   }

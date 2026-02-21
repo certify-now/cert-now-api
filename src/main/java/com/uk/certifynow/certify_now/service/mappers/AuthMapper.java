@@ -1,17 +1,17 @@
 package com.uk.certifynow.certify_now.service.mappers;
 
-import com.uk.certifynow.certify_now.service.auth.CustomerProfileView;
-import com.uk.certifynow.certify_now.service.auth.EngineerProfileView;
-import com.uk.certifynow.certify_now.service.auth.ProfileView;
-import com.uk.certifynow.certify_now.service.auth.SessionService;
-import com.uk.certifynow.certify_now.service.auth.UserRole;
-import com.uk.certifynow.certify_now.service.auth.dto.AuthResponse;
 import com.uk.certifynow.certify_now.domain.CustomerProfile;
 import com.uk.certifynow.certify_now.domain.EngineerProfile;
 import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.repos.CustomerProfileRepository;
 import com.uk.certifynow.certify_now.repos.EngineerProfileRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
+import com.uk.certifynow.certify_now.service.auth.CustomerProfileView;
+import com.uk.certifynow.certify_now.service.auth.EngineerProfileView;
+import com.uk.certifynow.certify_now.service.auth.ProfileView;
+import com.uk.certifynow.certify_now.service.auth.SessionService;
+import com.uk.certifynow.certify_now.service.auth.UserRole;
+import com.uk.certifynow.certify_now.service.auth.dto.AuthResponse;
 import com.uk.certifynow.certify_now.shared.exception.EntityNotFoundException;
 import com.uk.certifynow.certify_now.shared.security.JwtTokenProvider;
 import java.util.UUID;
@@ -62,6 +62,18 @@ public class AuthMapper {
         "Bearer",
         jwtTokenProvider.getAccessTokenExpirySeconds(),
         userSummary);
+  }
+
+  /**
+   * Returns a generic registration response used when a duplicate registration is silently handled
+   * (Fix 3: email enumeration prevention).
+   *
+   * <p>This response is intentionally indistinguishable from a real registration response — no
+   * tokens are issued, and the user summary is {@code null}. The client must display a generic
+   * "Check your email" message in all cases.
+   */
+  public AuthResponse toGenericRegistrationResponse() {
+    return new AuthResponse(null, null, null, 0L, null);
   }
 
   /**

@@ -7,6 +7,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -19,31 +21,38 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-  private static final List<String> PUBLIC_PATHS = List.of(
-      // Swagger UI paths
-      "/swagger-ui",
-      "/v3/api-docs",
-      "/swagger-resources",
-      "/webjars",
-      "/favicon.ico",
+  private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
-      // Public API paths
-      "/api/v1/auth/register",
-      "/api/v1/auth/login",
-      "/api/v1/auth/refresh",
-      "/api/v1/auth/verify-email",
-      "/api/v1/auth/request-password-reset",
-      "/api/v1/auth/reset-password",
-      "/api/v1/certificates/shared",
-      "/api/v1/webhooks/stripe",
-      "/actuator/health");
+  private static final List<String> PUBLIC_PATHS =
+      List.of(
+          // Swagger UI paths
+          "/swagger-ui",
+          "/v3/api-docs",
+          "/swagger-resources",
+          "/webjars",
+          "/favicon.ico",
+
+          // Public API paths
+          "/api/v1/auth/register",
+          "/api/v1/auth/login",
+          "/api/v1/auth/refresh",
+          "/api/v1/auth/verify-email",
+          "/api/v1/auth/request-password-reset",
+          "/api/v1/auth/reset-password",
+          "/api/v1/certificates/shared",
+          "/api/v1/webhooks/stripe",
+          "/actuator/health");
 
   private final JwtTokenProvider jwtTokenProvider;
+  private final TokenDenylistService tokenDenylistService;
   private final ObjectMapper objectMapper;
 
   public JwtAuthenticationFilter(
-      final JwtTokenProvider jwtTokenProvider, final ObjectMapper objectMapper) {
+      final JwtTokenProvider jwtTokenProvider,
+      final TokenDenylistService tokenDenylistService,
+      final ObjectMapper objectMapper) {
     this.jwtTokenProvider = jwtTokenProvider;
+    this.tokenDenylistService = tokenDenylistService;
     this.objectMapper = objectMapper;
   }
 
@@ -88,6 +97,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       return;
     }
 
+    // ═══════════════════════════════════════════════════════
+    // CHECK JTI DENYLIST (logout / account suspension)
+    // SECURITY NOTE: If Redis is unavailable, isDenied() returns false (fail-open).
+    // A revoked access token may remain valid for up to 15 min (the JWT TTL) while
+    // Redis is down. Operators should monitor Redis health via /actuator/health.
+    // ═══════════════════════════════════════════════════════
+    final String jti = claims.getId();
+    if (jti != null && tokenDenylistService.isDenied(jti)) {
+      SecurityResponseWriter.writeError(
+          request,
+          response,
+          objectMapper,
+          HttpStatus.UNAUTHORIZED.value(),
+          "TOKEN_REVOKED",
+          "Access token has been revoked");
+      return;
+    }
+
     final String status = String.valueOf(claims.get("status"));
     final String role = String.valueOf(claims.get("role"));
     final String userId = claims.getSubject();
@@ -106,7 +133,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       return;
     }
 
-    final boolean allowedForPending = path.startsWith("/api/v1/auth/") || "/api/v1/users/me".equals(path);
+    final boolean allowedForPending =
+        path.startsWith("/api/v1/auth/") || "/api/v1/users/me".equals(path);
     if ("PENDING_VERIFICATION".equals(status) && !allowedForPending) {
       SecurityResponseWriter.writeError(
           request,
@@ -121,8 +149,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     // ═══════════════════════════════════════════════════════
     // SET SECURITY CONTEXT
     // ═══════════════════════════════════════════════════════
-    final UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-        userId, null, List.of(new SimpleGrantedAuthority("ROLE_" + role)));
+    final UsernamePasswordAuthenticationToken authentication =
+        new UsernamePasswordAuthenticationToken(
+            userId, null, List.of(new SimpleGrantedAuthority("ROLE_" + role)));
     SecurityContextHolder.getContext().setAuthentication(authentication);
 
     try {
@@ -133,9 +162,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
   }
 
-  /**
-   * Check if the request path is public (doesn't require authentication)
-   */
+  /** Check if the request path is public (doesn't require authentication) */
   private boolean isPublicPath(final String path) {
     return PUBLIC_PATHS.stream().anyMatch(path::startsWith);
   }

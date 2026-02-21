@@ -4,6 +4,7 @@ import com.uk.certifynow.certify_now.domain.RefreshToken;
 import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.shared.exception.BusinessException;
 import com.uk.certifynow.certify_now.shared.security.JwtTokenProvider;
+import com.uk.certifynow.certify_now.shared.security.TokenDenylistService;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -26,11 +27,15 @@ public class SessionService {
 
   private final JwtTokenProvider jwtTokenProvider;
   private final RefreshTokenService refreshTokenService;
+  private final TokenDenylistService tokenDenylistService;
 
   public SessionService(
-      final JwtTokenProvider jwtTokenProvider, final RefreshTokenService refreshTokenService) {
+      final JwtTokenProvider jwtTokenProvider,
+      final RefreshTokenService refreshTokenService,
+      final TokenDenylistService tokenDenylistService) {
     this.jwtTokenProvider = jwtTokenProvider;
     this.refreshTokenService = refreshTokenService;
+    this.tokenDenylistService = tokenDenylistService;
   }
 
   /**
@@ -45,7 +50,8 @@ public class SessionService {
   public TokenPair issueTokens(final User user, final String deviceInfo, final String ipAddress) {
     final String accessToken = jwtTokenProvider.generateAccessToken(user);
     final RefreshTokenService.IssuedRefreshToken refreshToken =
-        refreshTokenService.issueToken(user, deviceInfo, ipAddress);
+        // null familyId → starts a new token family (Fix 5)
+        refreshTokenService.issueToken(user, deviceInfo, ipAddress, null);
 
     return new TokenPair(accessToken, refreshToken.rawToken());
   }
@@ -63,34 +69,41 @@ public class SessionService {
    */
   @Transactional
   public TokenPair rotateRefreshToken(final String rawRefreshToken, final String ipAddress) {
-    // Validate current token (checks expiration, revocation)
+    // Validate current token (checks expiration, revocation, and family theft
+    // detection)
     final RefreshToken currentToken = refreshTokenService.validate(rawRefreshToken);
     final User user = currentToken.getUser();
 
-    // Ensure account is still in good standing
+    // Fix 2: Ensure account is still in good standing before issuing new tokens
     validateAccountStatus(user);
 
-    // Atomic rotation: revoke old, issue new
+    // Atomic rotation: revoke old, issue new — family continuity maintained (Fix 5)
     refreshTokenService.revoke(currentToken);
 
     final String accessToken = jwtTokenProvider.generateAccessToken(user);
     final RefreshTokenService.IssuedRefreshToken newRefreshToken =
-        refreshTokenService.issueToken(user, currentToken.getDeviceInfo(), ipAddress);
+        refreshTokenService.issueToken(
+            user, currentToken.getDeviceInfo(), ipAddress, currentToken.getFamilyId());
 
     return new TokenPair(accessToken, newRefreshToken.rawToken());
   }
 
   /**
-   * Revokes a refresh token (logout).
+   * Revokes a refresh token (logout) and denylists the corresponding access token's jti.
    *
-   * <p>Validates that the token belongs to the user before revoking.
+   * <p>Validates that the token belongs to the user before revoking. The access token jti is added
+   * to the Redis denylist so the short-lived JWT is immediately invalidated rather than waiting for
+   * natural expiry.
    *
    * @param userId the user requesting logout
    * @param rawRefreshToken the refresh token to revoke
+   * @param accessToken the current access token whose jti should be denylisted (may be null if
+   *     unavailable — revocation still proceeds but access token won't be immediately invalidated)
    * @throws BusinessException if token doesn't belong to user
    */
   @Transactional
-  public void revokeToken(final UUID userId, final String rawRefreshToken) {
+  public void revokeToken(
+      final UUID userId, final String rawRefreshToken, final String accessToken) {
     final RefreshToken token = refreshTokenService.validate(rawRefreshToken);
 
     // Validate ownership
@@ -100,12 +113,32 @@ public class SessionService {
     }
 
     refreshTokenService.revoke(token);
+
+    // Denylist the access token's jti so it is immediately invalid (Fix 1)
+    // If accessToken is null (e.g., caller didn't provide it), the refresh token is
+    // still
+    // revoked; only the 15-min access token window remains open.
+    if (accessToken != null) {
+      try {
+        final String jti = jwtTokenProvider.getJtiFromToken(accessToken);
+        tokenDenylistService.denyToken(jti, jwtTokenProvider.getAccessTokenExpirySeconds());
+      } catch (final Exception ex) {
+        // Log but don't fail logout if jti extraction fails — refresh token is already
+        // revoked
+        org.slf4j.LoggerFactory.getLogger(SessionService.class)
+            .warn("Could not denylist jti on logout for userId={}", userId, ex);
+      }
+    }
   }
 
   /**
    * Validates that the user account is in a state that allows token refresh.
    *
-   * @throws BusinessException if account is deactivated
+   * <p>Fix 2: This blocks suspended users from obtaining new tokens at refresh time, closing the
+   * 15-min access-token window via the refresh flow. The access token itself is blocked via the
+   * Redis denylist check in JwtAuthenticationFilter (when Redis is available).
+   *
+   * @throws BusinessException if account is deactivated or suspended
    */
   private void validateAccountStatus(final User user) {
     if (user.getStatus() == UserStatus.DEACTIVATED) {
@@ -115,7 +148,8 @@ public class SessionService {
           "Your account has been deactivated. Please contact support.");
     }
 
-    // Suspended users can't refresh tokens (they need to re-authenticate)
+    // Fix 2: Suspended users can't refresh tokens — they need to re-authenticate
+    // and will be blocked again at authentication time.
     if (user.getStatus() == UserStatus.SUSPENDED) {
       throw new BusinessException(
           HttpStatus.FORBIDDEN,

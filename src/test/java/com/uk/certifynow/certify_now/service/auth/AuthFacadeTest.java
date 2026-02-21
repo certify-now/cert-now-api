@@ -2,7 +2,6 @@ package com.uk.certifynow.certify_now.service.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -13,6 +12,7 @@ import com.uk.certifynow.certify_now.service.auth.dto.RefreshRequest;
 import com.uk.certifynow.certify_now.service.auth.dto.RegisterRequest;
 import com.uk.certifynow.certify_now.service.mappers.AuthMapper;
 import java.time.OffsetDateTime;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -69,7 +69,8 @@ class AuthFacadeTest {
           new RegisterRequest(
               TEST_EMAIL, TEST_PASSWORD, TEST_FULL_NAME, TEST_PHONE, UserRole.CUSTOMER);
 
-      when(registrationService.registerUser(request, TEST_IP_ADDRESS)).thenReturn(testUser);
+      when(registrationService.registerUser(request, TEST_IP_ADDRESS))
+          .thenReturn(Optional.of(testUser));
       when(sessionService.issueTokens(testUser, TEST_DEVICE_INFO, TEST_IP_ADDRESS))
           .thenReturn(testTokenPair);
       when(authMapper.toAuthResponse(testUser, testTokenPair)).thenReturn(testAuthResponse);
@@ -84,8 +85,7 @@ class AuthFacadeTest {
       assertThat(result.user().email()).isEqualTo(TEST_EMAIL);
 
       // Verify orchestration order
-      var inOrder =
-          org.mockito.Mockito.inOrder(registrationService, sessionService, authMapper);
+      var inOrder = org.mockito.Mockito.inOrder(registrationService, sessionService, authMapper);
       inOrder.verify(registrationService).registerUser(request, TEST_IP_ADDRESS);
       inOrder.verify(sessionService).issueTokens(testUser, TEST_DEVICE_INFO, TEST_IP_ADDRESS);
       inOrder.verify(authMapper).toAuthResponse(testUser, testTokenPair);
@@ -99,7 +99,8 @@ class AuthFacadeTest {
           new RegisterRequest(
               TEST_EMAIL, TEST_PASSWORD, TEST_FULL_NAME, TEST_PHONE, UserRole.ENGINEER);
 
-      when(registrationService.registerUser(request, TEST_IP_ADDRESS)).thenReturn(testUser);
+      when(registrationService.registerUser(request, TEST_IP_ADDRESS))
+          .thenReturn(Optional.of(testUser));
       when(sessionService.issueTokens(any(User.class), any(String.class), any(String.class)))
           .thenReturn(testTokenPair);
       when(authMapper.toAuthResponse(any(User.class), any(SessionService.TokenPair.class)))
@@ -121,7 +122,7 @@ class AuthFacadeTest {
               TEST_EMAIL, TEST_PASSWORD, TEST_FULL_NAME, TEST_PHONE, UserRole.CUSTOMER);
 
       when(registrationService.registerUser(any(RegisterRequest.class), any(String.class)))
-          .thenReturn(testUser);
+          .thenReturn(Optional.of(testUser));
       when(sessionService.issueTokens(testUser, TEST_DEVICE_INFO, TEST_IP_ADDRESS))
           .thenReturn(testTokenPair);
       when(authMapper.toAuthResponse(any(User.class), any(SessionService.TokenPair.class)))
@@ -143,7 +144,7 @@ class AuthFacadeTest {
               TEST_EMAIL, TEST_PASSWORD, TEST_FULL_NAME, TEST_PHONE, UserRole.CUSTOMER);
 
       when(registrationService.registerUser(any(RegisterRequest.class), any(String.class)))
-          .thenReturn(testUser);
+          .thenReturn(Optional.of(testUser));
       when(sessionService.issueTokens(any(User.class), any(String.class), any(String.class)))
           .thenReturn(testTokenPair);
       when(authMapper.toAuthResponse(testUser, testTokenPair)).thenReturn(testAuthResponse);
@@ -182,9 +183,10 @@ class AuthFacadeTest {
       assertThat(result.user().email()).isEqualTo(TEST_EMAIL);
 
       // Verify orchestration order
-      var inOrder =
-          org.mockito.Mockito.inOrder(authenticationService, sessionService, authMapper);
-      inOrder.verify(authenticationService).authenticate(TEST_EMAIL, TEST_PASSWORD, TEST_DEVICE_INFO);
+      var inOrder = org.mockito.Mockito.inOrder(authenticationService, sessionService, authMapper);
+      inOrder
+          .verify(authenticationService)
+          .authenticate(TEST_EMAIL, TEST_PASSWORD, TEST_DEVICE_INFO);
       inOrder.verify(sessionService).issueTokens(testUser, TEST_DEVICE_INFO, TEST_IP_ADDRESS);
       inOrder.verify(authMapper).toAuthResponse(testUser, testTokenPair);
     }
@@ -218,7 +220,8 @@ class AuthFacadeTest {
       LoginRequest request = new LoginRequest(TEST_EMAIL, TEST_PASSWORD, TEST_DEVICE_INFO);
       String customIpAddress = "10.0.0.1";
 
-      when(authenticationService.authenticate(any(String.class), any(String.class), any(String.class)))
+      when(authenticationService.authenticate(
+              any(String.class), any(String.class), any(String.class)))
           .thenReturn(testUser);
       when(sessionService.issueTokens(testUser, TEST_DEVICE_INFO, customIpAddress))
           .thenReturn(testTokenPair);
@@ -239,13 +242,10 @@ class AuthFacadeTest {
       LoginRequest request = new LoginRequest(TEST_EMAIL, TEST_PASSWORD, TEST_DEVICE_INFO);
       AuthResponse customResponse =
           new AuthResponse(
-              "custom_token",
-              "custom_refresh",
-              "Bearer",
-              3600L,
-              testAuthResponse.user());
+              "custom_token", "custom_refresh", "Bearer", 3600L, testAuthResponse.user());
 
-      when(authenticationService.authenticate(any(String.class), any(String.class), any(String.class)))
+      when(authenticationService.authenticate(
+              any(String.class), any(String.class), any(String.class)))
           .thenReturn(testUser);
       when(sessionService.issueTokens(any(User.class), any(String.class), any(String.class)))
           .thenReturn(testTokenPair);
@@ -375,10 +375,10 @@ class AuthFacadeTest {
       String refreshToken = "token_to_revoke";
 
       // Act
-      authFacade.logout(userId, refreshToken);
+      authFacade.logout(userId, refreshToken, null);
 
       // Assert
-      verify(sessionService).revokeToken(userId, refreshToken);
+      verify(sessionService).revokeToken(userId, refreshToken, null);
     }
 
     @Test
@@ -388,10 +388,10 @@ class AuthFacadeTest {
       UUID customUserId = UUID.randomUUID();
 
       // Act
-      authFacade.logout(customUserId, TEST_REFRESH_TOKEN);
+      authFacade.logout(customUserId, TEST_REFRESH_TOKEN, null);
 
       // Assert
-      verify(sessionService).revokeToken(customUserId, TEST_REFRESH_TOKEN);
+      verify(sessionService).revokeToken(customUserId, TEST_REFRESH_TOKEN, null);
     }
 
     @Test
@@ -402,10 +402,10 @@ class AuthFacadeTest {
       String customToken = "custom_token_to_revoke";
 
       // Act
-      authFacade.logout(userId, customToken);
+      authFacade.logout(userId, customToken, null);
 
       // Assert
-      verify(sessionService).revokeToken(userId, customToken);
+      verify(sessionService).revokeToken(userId, customToken, null);
     }
 
     @Test
@@ -415,10 +415,10 @@ class AuthFacadeTest {
       UUID userId = UUID.randomUUID();
 
       // Act
-      authFacade.logout(userId, TEST_REFRESH_TOKEN);
+      authFacade.logout(userId, TEST_REFRESH_TOKEN, null);
 
       // Assert - verify only session service is called
-      verify(sessionService).revokeToken(userId, TEST_REFRESH_TOKEN);
+      verify(sessionService).revokeToken(userId, TEST_REFRESH_TOKEN, null);
       org.mockito.Mockito.verifyNoInteractions(
           registrationService, authenticationService, authMapper);
     }
@@ -526,7 +526,8 @@ class AuthFacadeTest {
       // Arrange
       LoginRequest request = new LoginRequest(TEST_EMAIL, TEST_PASSWORD, TEST_DEVICE_INFO);
 
-      when(authenticationService.authenticate(any(String.class), any(String.class), any(String.class)))
+      when(authenticationService.authenticate(
+              any(String.class), any(String.class), any(String.class)))
           .thenReturn(testUser);
       when(sessionService.issueTokens(any(User.class), any(String.class), any(String.class)))
           .thenReturn(testTokenPair);
@@ -556,8 +557,9 @@ class AuthFacadeTest {
       RefreshRequest refreshRequest = new RefreshRequest(TEST_REFRESH_TOKEN);
 
       when(registrationService.registerUser(any(RegisterRequest.class), any(String.class)))
-          .thenReturn(testUser);
-      when(authenticationService.authenticate(any(String.class), any(String.class), any(String.class)))
+          .thenReturn(Optional.of(testUser));
+      when(authenticationService.authenticate(
+              any(String.class), any(String.class), any(String.class)))
           .thenReturn(testUser);
       when(sessionService.issueTokens(any(User.class), any(String.class), any(String.class)))
           .thenReturn(testTokenPair);
@@ -573,7 +575,7 @@ class AuthFacadeTest {
       authFacade.register(registerRequest, TEST_DEVICE_INFO, TEST_IP_ADDRESS);
       authFacade.login(loginRequest, TEST_IP_ADDRESS);
       authFacade.refresh(refreshRequest, TEST_IP_ADDRESS);
-      authFacade.logout(UUID.randomUUID(), TEST_REFRESH_TOKEN);
+      authFacade.logout(UUID.randomUUID(), TEST_REFRESH_TOKEN, null);
       authFacade.getMe(UUID.randomUUID());
 
       // Assert - all return expected types (AuthResponse or void)
@@ -608,8 +610,6 @@ class AuthFacadeTest {
             OffsetDateTime.now(),
             null);
 
-    return new AuthResponse(
-        TEST_ACCESS_TOKEN, TEST_REFRESH_TOKEN, "Bearer", 3600L, userSummary);
+    return new AuthResponse(TEST_ACCESS_TOKEN, TEST_REFRESH_TOKEN, "Bearer", 3600L, userSummary);
   }
 }
-

@@ -82,16 +82,14 @@ public class UserService {
     user.setLastLoginAt(userDTO.getLastLoginAt());
     user.setUpdatedAt(userDTO.getUpdatedAt());
     user.setPhone(userDTO.getPhone());
-    user.setAuthProvider(
-        AuthProvider.valueOf(userDTO.getAuthProvider()));
+    user.setAuthProvider(AuthProvider.valueOf(userDTO.getAuthProvider()));
     user.setAvatarUrl(userDTO.getAvatarUrl());
     user.setEmail(userDTO.getEmail());
     user.setExternalAuthId(userDTO.getExternalAuthId());
     user.setFullName(userDTO.getFullName());
     user.setPasswordHash(userDTO.getPasswordHash());
     user.setRole(UserRole.valueOf(userDTO.getRole()));
-    user.setStatus(
-        UserStatus.valueOf(userDTO.getStatus()));
+    user.setStatus(UserStatus.valueOf(userDTO.getStatus()));
     return user;
   }
 }

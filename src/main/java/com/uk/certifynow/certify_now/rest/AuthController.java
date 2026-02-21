@@ -10,10 +10,12 @@ import com.uk.certifynow.certify_now.service.auth.dto.RegisterRequest;
 import com.uk.certifynow.certify_now.service.auth.dto.VerifyEmailRequest;
 import com.uk.certifynow.certify_now.shared.config.RequestIdFilter;
 import com.uk.certifynow.certify_now.shared.dto.ApiResponse;
+import com.uk.certifynow.certify_now.util.IpAddressUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -39,7 +41,8 @@ public class AuthController {
   @PostMapping("/register")
   public ResponseEntity<ApiResponse<AuthResponse>> register(
       @Valid @RequestBody final RegisterRequest request, final HttpServletRequest httpRequest) {
-    final AuthResponse response = authService.register(request, null, clientIp(httpRequest));
+    final AuthResponse response =
+        authService.register(request, null, IpAddressUtils.extractClientIp(httpRequest));
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(ApiResponse.of(response, requestId(httpRequest)));
   }
@@ -47,42 +50,44 @@ public class AuthController {
   @PostMapping("/login")
   public ApiResponse<AuthResponse> login(
       @Valid @RequestBody final LoginRequest request, final HttpServletRequest httpRequest) {
-    final AuthResponse response = authService.login(request, clientIp(httpRequest));
+    final AuthResponse response =
+        authService.login(request, IpAddressUtils.extractClientIp(httpRequest));
     return ApiResponse.of(response, requestId(httpRequest));
   }
 
   @PostMapping("/refresh")
   public ApiResponse<AuthResponse> refresh(
       @Valid @RequestBody final RefreshRequest request, final HttpServletRequest httpRequest) {
-    final AuthResponse response = authService.refresh(request, clientIp(httpRequest));
+    final AuthResponse response =
+        authService.refresh(request, IpAddressUtils.extractClientIp(httpRequest));
     return ApiResponse.of(response, requestId(httpRequest));
   }
 
   @PostMapping("/logout")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void logout(
-      @Valid @RequestBody final LogoutRequest request, final Authentication authentication) {
+      @Valid @RequestBody final LogoutRequest request,
+      final Authentication authentication,
+      final HttpServletRequest httpRequest) {
+    // Pass the raw access token so its jti can be added to the denylist (Fix 1)
+    final String authHeader = httpRequest.getHeader(HttpHeaders.AUTHORIZATION);
+    final String accessToken =
+        (authHeader != null && authHeader.startsWith("Bearer ")) ? authHeader.substring(7) : null;
+
     authService.logout(
-        UUID.fromString((String) authentication.getPrincipal()), request.refreshToken());
+        UUID.fromString((String) authentication.getPrincipal()),
+        request.refreshToken(),
+        accessToken);
   }
 
   @PostMapping("/verify-email")
   public ApiResponse<Map<String, String>> verifyEmail(
       @Valid @RequestBody final VerifyEmailRequest request, final HttpServletRequest httpRequest) {
     emailVerificationService.verifyEmail(request.token());
-    return ApiResponse.of(
-        Map.of("message", "Email verified successfully"), requestId(httpRequest));
+    return ApiResponse.of(Map.of("message", "Email verified successfully"), requestId(httpRequest));
   }
 
   private String requestId(final HttpServletRequest request) {
     return (String) request.getAttribute(RequestIdFilter.REQUEST_ID);
-  }
-
-  private String clientIp(final HttpServletRequest request) {
-    final String forwarded = request.getHeader("X-Forwarded-For");
-    if (forwarded != null && !forwarded.isBlank()) {
-      return forwarded.split(",")[0].trim();
-    }
-    return request.getRemoteAddr();
   }
 }

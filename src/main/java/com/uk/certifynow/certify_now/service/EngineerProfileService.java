@@ -124,13 +124,9 @@ public class EngineerProfileService {
     engineerProfile.setDbsCertificateNumber(engineerProfileDTO.getDbsCertificateNumber());
     engineerProfile.setDbsStatus(engineerProfileDTO.getDbsStatus());
     engineerProfile.setBio(engineerProfileDTO.getBio());
-    engineerProfile.setStatus(
-        EngineerApplicationStatus.valueOf(
-            engineerProfileDTO.getStatus()));
+    engineerProfile.setStatus(EngineerApplicationStatus.valueOf(engineerProfileDTO.getStatus()));
     engineerProfile.setStripeAccountId(engineerProfileDTO.getStripeAccountId());
-    engineerProfile.setTier(
-        EngineerTier.valueOf(
-            engineerProfileDTO.getTier()));
+    engineerProfile.setTier(EngineerTier.valueOf(engineerProfileDTO.getTier()));
     engineerProfile.setLocation(engineerProfileDTO.getLocation());
     engineerProfile.setPreferredCertTypes(engineerProfileDTO.getPreferredCertTypes());
     engineerProfile.setPreferredJobTimes(engineerProfileDTO.getPreferredJobTimes());

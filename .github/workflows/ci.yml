@@ -74,7 +74,8 @@ jobs:
           key: ${{ secrets.DEV_SERVER_SSH_KEY }}
           script: |
             export PATH=$PATH:/opt/homebrew/bin
+            export APP_IMAGE=ghcr.io/maherk96/certify-now-api:latest
             cd ~/certify-now
-            echo ${{ secrets.GITHUB_TOKEN }} | /opt/homebrew/bin/docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            /opt/homebrew/bin/docker compose -f docker-compose.base.yml -f docker-compose.dev.yml pull
-            /opt/homebrew/bin/docker compose -f docker-compose.base.yml -f docker-compose.dev.yml up -d
+            /opt/homebrew/bin/docker --config ~/certify-now/.docker login ghcr.io -u ${{ github.actor }} --password-stdin <<< "${{ secrets.GITHUB_TOKEN }}"
+            /opt/homebrew/bin/docker compose --env-file .env.dev -f docker-compose.base.yml -f docker-compose.dev.yml pull
+            /opt/homebrew/bin/docker compose --env-file .env.dev -f docker-compose.base.yml -f docker-compose.dev.yml up -d

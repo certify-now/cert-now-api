@@ -24,6 +24,7 @@ spring:
       port: 6379
 
 app:
+  base-url: ${APP_BASE_URL:http://localhost:8080}
   jwt:
     secret: test-integration-secret-key-that-is-at-least-512-bits-long-for-hs512-algorithm-test
     access-token-expiry-ms: 900000

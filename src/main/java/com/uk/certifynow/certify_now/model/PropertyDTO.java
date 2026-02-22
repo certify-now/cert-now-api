@@ -1,10 +1,11 @@
 package com.uk.certifynow.certify_now.model;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Digits;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -18,6 +19,7 @@ public class PropertyDTO {
 
   private UUID id;
 
+  @Min(value = 0, message = "Bedrooms must be >= 0")
   private Integer bedrooms;
 
   @NotNull
@@ -37,18 +39,17 @@ public class PropertyDTO {
 
   @NotNull private Boolean hasGasSupply;
 
-  @NotNull
-  @JsonProperty("isActive")
   private Boolean isActive;
 
   private Integer yearBuilt;
 
-  @NotNull private OffsetDateTime createdAt;
+  private OffsetDateTime createdAt;
 
-  @NotNull private OffsetDateTime updatedAt;
+  private OffsetDateTime updatedAt;
 
   @NotNull
   @Size(max = 10)
+  @Pattern(regexp = "^[A-Z]{1,2}\\d[A-Z\\d]? ?\\d[A-Z]{2}$", message = "Invalid UK postcode")
   private String postcode;
 
   @Size(max = 20)
@@ -73,12 +74,15 @@ public class PropertyDTO {
 
   @NotNull
   @Size(max = 255)
+  @Pattern(
+      regexp = "^(FLAT|TERRACED|SEMI_DETACHED|DETACHED|BUNGALOW|MAISONETTE|COMMERCIAL|OTHER)$",
+      message = "Invalid property type")
   private String propertyType;
 
-  @NotNull private String complianceStatus;
+  private String complianceStatus;
 
   @Size(max = 255)
   private String location;
 
-  @NotNull private UUID owner;
+  private UUID owner;
 }

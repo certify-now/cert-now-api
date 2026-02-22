@@ -7,4 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface PropertyRepository extends JpaRepository<Property, UUID> {
 
   Property findFirstByOwnerId(UUID id);
+
+  org.springframework.data.domain.Page<Property> findByOwnerId(
+      UUID ownerId, org.springframework.data.domain.Pageable pageable);
 }

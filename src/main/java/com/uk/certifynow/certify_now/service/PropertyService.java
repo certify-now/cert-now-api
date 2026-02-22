@@ -44,15 +44,37 @@ public class PropertyService {
         .orElseThrow(NotFoundException::new);
   }
 
-  public UUID create(final PropertyDTO propertyDTO) {
+  public org.springframework.data.domain.Page<PropertyDTO> getByOwner(
+      final UUID ownerId, final org.springframework.data.domain.Pageable pageable) {
+    return propertyRepository
+        .findByOwnerId(ownerId, pageable)
+        .map(property -> mapToDTO(property, new PropertyDTO()));
+  }
+
+  public PropertyDTO create(final PropertyDTO propertyDTO) {
     final Property property = new Property();
     mapToEntity(propertyDTO, property);
-    return propertyRepository.save(property).getId();
+    Property saved = propertyRepository.save(property);
+    if (saved.getOwner() != null) {
+      publisher.publishEvent(
+          new com.uk.certifynow.certify_now.events.PropertyCreatedEvent(
+              saved.getId(), saved.getOwner().getId()));
+    }
+    return mapToDTO(saved, new PropertyDTO());
   }
 
   public void update(final UUID id, final PropertyDTO propertyDTO) {
     final Property property = propertyRepository.findById(id).orElseThrow(NotFoundException::new);
+    final java.time.OffsetDateTime createdAt = property.getCreatedAt();
     mapToEntity(propertyDTO, property);
+    property.setCreatedAt(createdAt);
+    property.setUpdatedAt(java.time.OffsetDateTime.now());
+    propertyRepository.save(property);
+  }
+
+  public void deactivate(final UUID id) {
+    final Property property = propertyRepository.findById(id).orElseThrow(NotFoundException::new);
+    property.setIsActive(false);
     propertyRepository.save(property);
   }
 
@@ -99,8 +121,11 @@ public class PropertyService {
     property.setHasGasSupply(propertyDTO.getHasGasSupply());
     property.setIsActive(propertyDTO.getIsActive());
     property.setYearBuilt(propertyDTO.getYearBuilt());
-    property.setCreatedAt(propertyDTO.getCreatedAt());
-    property.setUpdatedAt(propertyDTO.getUpdatedAt());
+    if (property.getId() == null) {
+      final java.time.OffsetDateTime now = java.time.OffsetDateTime.now();
+      property.setCreatedAt(now);
+      property.setUpdatedAt(now);
+    }
     property.setPostcode(propertyDTO.getPostcode());
     property.setUprn(propertyDTO.getUprn());
     property.setEpcRegisterRef(propertyDTO.getEpcRegisterRef());
@@ -109,7 +134,12 @@ public class PropertyService {
     property.setAddressLine1(propertyDTO.getAddressLine1());
     property.setAddressLine2(propertyDTO.getAddressLine2());
     property.setPropertyType(propertyDTO.getPropertyType());
-    property.setComplianceStatus(propertyDTO.getComplianceStatus());
+    if (propertyDTO.getComplianceStatus() == null
+        || propertyDTO.getComplianceStatus().trim().isEmpty()) {
+      property.setComplianceStatus("PENDING");
+    } else {
+      property.setComplianceStatus(propertyDTO.getComplianceStatus());
+    }
     property.setLocation(propertyDTO.getLocation());
     final User owner =
         propertyDTO.getOwner() == null

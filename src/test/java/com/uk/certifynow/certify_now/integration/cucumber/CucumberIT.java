@@ -10,7 +10,7 @@ import org.junit.platform.suite.api.Suite;
 
 @Suite
 @IncludeEngines("cucumber")
-@SelectClasspathResource("features/auth")
+@SelectClasspathResource("features")
 @ConfigurationParameter(
     key = GLUE_PROPERTY_NAME,
     value = "com.uk.certifynow.certify_now.integration.cucumber")

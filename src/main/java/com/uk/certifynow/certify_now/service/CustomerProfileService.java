@@ -41,6 +41,23 @@ public class CustomerProfileService {
         .orElseThrow(NotFoundException::new);
   }
 
+  public CustomerProfileDTO getByUserId(final UUID userId) {
+    CustomerProfile profile = customerProfileRepository.findFirstByUserId(userId);
+    if (profile == null) {
+      throw new NotFoundException("Profile not found for user " + userId);
+    }
+    return mapToDTO(profile, new CustomerProfileDTO());
+  }
+
+  public void incrementPropertyCount(final UUID userId) {
+    CustomerProfile profile = customerProfileRepository.findFirstByUserId(userId);
+    if (profile != null) {
+      profile.setTotalProperties(
+          (profile.getTotalProperties() == null ? 0 : profile.getTotalProperties()) + 1);
+      customerProfileRepository.save(profile);
+    }
+  }
+
   public UUID create(final CustomerProfileDTO customerProfileDTO) {
     final CustomerProfile customerProfile = new CustomerProfile();
     mapToEntity(customerProfileDTO, customerProfile);

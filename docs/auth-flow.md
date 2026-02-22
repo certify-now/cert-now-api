@@ -20,6 +20,8 @@ AuthFacade              ← Orchestration only, zero business logic
 
 ## 2. Registration Flow
 
+> **JSON naming convention:** All HTTP request/response bodies use `snake_case` keys (for example: `full_name`, `refresh_token`, `access_token`, `request_id`).
+
 ### 2.1 Request path
 
 ```
@@ -27,7 +29,7 @@ POST /api/v1/auth/register
 {
   "email": "...",
   "password": "...",
-  "fullName": "...",
+  "full_name": "...",
   "phone": "...",    // optional
   "role": "CUSTOMER" | "ENGINEER"
 }
@@ -195,7 +197,7 @@ Incoming request
 ### 5.2 Token rotation (silent re-authentication)
 
 ```
-POST /api/v1/auth/refresh  { "refreshToken": "<raw>" }
+POST /api/v1/auth/refresh  { "refresh_token": "<raw>" }
                 │
                 ▼
    SessionService.rotateRefreshToken()   [@Transactional — atomic]
@@ -250,7 +252,7 @@ must re-authenticate. Attack surface closed.
 ```
 POST /api/v1/auth/logout
 Headers: Authorization: Bearer <accessToken>
-Body: { "refreshToken": "..." }
+Body: { "refresh_token": "..." }
                 │
                 ▼
    AuthController → extracts Bearer token from header

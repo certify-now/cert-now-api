@@ -19,8 +19,8 @@ class Suite6LogoutTest extends IntegrationTestBase {
     final String email = TestDataFactory.uniqueEmail();
     final var response = register(TestDataFactory.RegisterPayload.customer(email));
 
-    final String access = response.extract().jsonPath().getString("data.accessToken");
-    final String refresh = response.extract().jsonPath().getString("data.refreshToken");
+    final String access = response.extract().jsonPath().getString("data.access_token");
+    final String refresh = response.extract().jsonPath().getString("data.refresh_token");
     final String jti = JwtTestUtils.parse(access).getId();
 
     logout(access, refresh).statusCode(204);
@@ -28,7 +28,7 @@ class Suite6LogoutTest extends IntegrationTestBase {
     // Refresh token is revoked
     final Boolean isRevoked =
         jdbcTemplate.queryForObject(
-            "SELECT revoked FROM refresh_tokens WHERE token_hash = ?",
+            "SELECT revoked FROM refresh_token WHERE token_hash = ?",
             Boolean.class,
             org.apache.commons.codec.digest.DigestUtils.sha256Hex(refresh));
     assertThat(isRevoked).isTrue();
@@ -40,10 +40,12 @@ class Suite6LogoutTest extends IntegrationTestBase {
     assertThat(expire).isNotNull().isGreaterThan(0L).isLessThanOrEqualTo(900L);
 
     // Subsequent use of access token is blocked (401)
-    authenticated(access).get("/api/v1/test-protected/standard").then().statusCode(401);
+    authenticated(access).post("/api/v1/test-protected/privileged").then().statusCode(401);
 
     // Subsequent use of refresh token is blocked
-    refresh(refresh).statusCode(401);
+    refresh(refresh)
+        .statusCode(403)
+        .body("error", org.hamcrest.Matchers.equalTo("TOKEN_REUSE_DETECTED"));
   }
 
   @Test
@@ -51,7 +53,7 @@ class Suite6LogoutTest extends IntegrationTestBase {
   void l02_logoutWithoutBearer() {
     given()
         .contentType(ContentType.JSON)
-        .body(new TestDataFactory.LogoutPayload("some-token"))
+        .body(java.util.Map.of("refresh_token", "some-token"))
         .when()
         .post("/api/v1/auth/logout")
         .then()
@@ -64,13 +66,13 @@ class Suite6LogoutTest extends IntegrationTestBase {
     // User A
     final String emailA = TestDataFactory.uniqueEmail();
     final var respA = register(TestDataFactory.RegisterPayload.customer(emailA));
-    final String accessA = respA.extract().jsonPath().getString("data.accessToken");
-    final String refreshA = respA.extract().jsonPath().getString("data.refreshToken");
+    final String accessA = respA.extract().jsonPath().getString("data.access_token");
+    final String refreshA = respA.extract().jsonPath().getString("data.refresh_token");
 
     // User B
     final String emailB = TestDataFactory.uniqueEmail();
     final var respB = register(TestDataFactory.RegisterPayload.customer(emailB));
-    final String refreshB = respB.extract().jsonPath().getString("data.refreshToken");
+    final String refreshB = respB.extract().jsonPath().getString("data.refresh_token");
 
     // User A attempts to logout User B's refresh token
     logout(accessA, refreshB).statusCode(403);
@@ -78,7 +80,7 @@ class Suite6LogoutTest extends IntegrationTestBase {
     // User B's token is NOT revoked
     final Boolean isBRevoked =
         jdbcTemplate.queryForObject(
-            "SELECT revoked FROM refresh_tokens WHERE token_hash = ?",
+            "SELECT revoked FROM refresh_token WHERE token_hash = ?",
             Boolean.class,
             org.apache.commons.codec.digest.DigestUtils.sha256Hex(refreshB));
     assertThat(isBRevoked).isFalse();

@@ -91,11 +91,11 @@ public abstract class IntegrationTestBase {
   }
 
   protected String registerAndGetAccessToken(final TestDataFactory.RegisterPayload payload) {
-    return register(payload).statusCode(201).extract().jsonPath().getString("data.accessToken");
+    return register(payload).statusCode(201).extract().jsonPath().getString("data.access_token");
   }
 
   protected String registerAndGetRefreshToken(final TestDataFactory.RegisterPayload payload) {
-    return register(payload).statusCode(201).extract().jsonPath().getString("data.refreshToken");
+    return register(payload).statusCode(201).extract().jsonPath().getString("data.refresh_token");
   }
 
   protected ValidatableResponse login(final String email, final String password) {
@@ -110,7 +110,7 @@ public abstract class IntegrationTestBase {
 
   protected ValidatableResponse refresh(final String refreshToken) {
     return unauthenticated()
-        .body(new TestDataFactory.RefreshPayload(refreshToken))
+        .body(java.util.Map.of("refresh_token", refreshToken))
         .when()
         .post("/api/v1/auth/refresh")
         .then()
@@ -120,7 +120,7 @@ public abstract class IntegrationTestBase {
 
   protected ValidatableResponse logout(final String accessToken, final String refreshToken) {
     return authenticated(accessToken)
-        .body(new TestDataFactory.LogoutPayload(refreshToken))
+        .body(java.util.Map.of("refresh_token", refreshToken))
         .when()
         .post("/api/v1/auth/logout")
         .then()

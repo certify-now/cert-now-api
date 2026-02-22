@@ -13,7 +13,7 @@ class Suite7JwtAccessControlTest extends IntegrationTestBase {
   @Test
   @DisplayName("J-01: No token on protected endpoint")
   void j01_noToken() {
-    unauthenticated().get("/api/v1/test-protected/standard").then().statusCode(401);
+    unauthenticated().post("/api/v1/test-protected/privileged").then().statusCode(401);
   }
 
   @Test
@@ -26,10 +26,10 @@ class Suite7JwtAccessControlTest extends IntegrationTestBase {
     final String tampered = JwtTestUtils.buildTamperedToken(validJwt);
 
     authenticated(tampered)
-        .get("/api/v1/test-protected/standard")
+        .post("/api/v1/test-protected/privileged")
         .then()
         .statusCode(401)
-        .body("code", equalTo("INVALID_TOKEN"));
+        .body("error", equalTo("INVALID_TOKEN"));
   }
 
   @Test
@@ -39,10 +39,10 @@ class Suite7JwtAccessControlTest extends IntegrationTestBase {
         JwtTestUtils.buildExpiredToken("00000000-0000-0000-0000-000000000001", "CUSTOMER");
 
     authenticated(expired)
-        .get("/api/v1/test-protected/standard")
+        .post("/api/v1/test-protected/privileged")
         .then()
         .statusCode(401)
-        .body("code", equalTo("INVALID_TOKEN"));
+        .body("error", equalTo("INVALID_TOKEN"));
   }
 
   @Test
@@ -57,10 +57,10 @@ class Suite7JwtAccessControlTest extends IntegrationTestBase {
     redisTemplate.opsForValue().set("jti:" + jti, "1");
 
     authenticated(testJwt)
-        .get("/api/v1/test-protected/standard")
+        .post("/api/v1/test-protected/privileged")
         .then()
         .statusCode(401)
-        .body("code", equalTo("TOKEN_REVOKED"));
+        .body("error", equalTo("TOKEN_REVOKED"));
   }
 
   @Test
@@ -78,7 +78,7 @@ class Suite7JwtAccessControlTest extends IntegrationTestBase {
 
     final String userId =
         jdbcTemplate.queryForObject(
-            "SELECT id FROM users WHERE LOWER(email) = LOWER(?)", String.class, email);
+            "SELECT id FROM \"user\" WHERE LOWER(email) = LOWER(?)", String.class, email);
 
     final String suspendedJwt =
         io.jsonwebtoken.Jwts.builder()
@@ -95,10 +95,10 @@ class Suite7JwtAccessControlTest extends IntegrationTestBase {
             .compact();
 
     authenticated(suspendedJwt)
-        .get("/api/v1/test-protected/standard")
+        .post("/api/v1/test-protected/privileged")
         .then()
         .statusCode(403)
-        .body("code", equalTo("ACCOUNT_SUSPENDED"));
+        .body("error", equalTo("ACCOUNT_SUSPENDED"));
   }
 
   @Test

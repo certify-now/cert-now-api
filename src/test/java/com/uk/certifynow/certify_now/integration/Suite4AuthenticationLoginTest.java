@@ -24,17 +24,17 @@ class Suite4AuthenticationLoginTest extends IntegrationTestBase {
 
     response
         .statusCode(200)
-        .body("data.accessToken", notNullValue())
-        .body("data.refreshToken", notNullValue())
+        .body("data.access_token", notNullValue())
+        .body("data.refresh_token", notNullValue())
         .body("data.user.role", equalTo("CUSTOMER"));
 
-    final String accessToken = response.extract().jsonPath().getString("data.accessToken");
+    final String accessToken = response.extract().jsonPath().getString("data.access_token");
     JwtTestUtils.assertValid(accessToken);
 
     // Refresh token should be in DB, revoked = false, family_id set
     final Integer activeTokens =
         jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM refresh_tokens rt JOIN users u ON rt.user_id = u.id "
+            "SELECT COUNT(*) FROM refresh_token rt JOIN \"user\" u ON rt.user_id = u.id "
                 + "WHERE LOWER(u.email) = LOWER(?) AND rt.revoked = false AND rt.family_id IS NOT NULL",
             Integer.class,
             email);
@@ -48,13 +48,13 @@ class Suite4AuthenticationLoginTest extends IntegrationTestBase {
     final String email = TestDataFactory.uniqueEmail();
     register(TestDataFactory.RegisterPayload.customer(email)).statusCode(201);
 
-    login(email, "WrongPass123!").statusCode(401).body("code", equalTo("INVALID_CREDENTIALS"));
+    login(email, "WrongPass123!").statusCode(401).body("error", equalTo("INVALID_CREDENTIALS"));
 
     // Verify no additional refresh tokens were created
     final Integer tokenCount =
         jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM refresh_tokens rt JOIN users u ON rt.user_id = u.id "
-                + "WHERE LOWER(u.email) = LOWER(?)",
+            "SELECT COUNT(*) FROM refresh_token rt JOIN \"user\" u ON rt.user_id = u.id "
+                + "WHERE LOWER(u.email) = LOWER(?) AND rt.revoked = false AND rt.family_id IS NOT NULL",
             Integer.class,
             email);
     assertThat(tokenCount).isEqualTo(1); // just the registration one
@@ -65,7 +65,7 @@ class Suite4AuthenticationLoginTest extends IntegrationTestBase {
   void a03_nonExistentEmail() {
     login("nobody@nowhere.com", "Pass123!")
         .statusCode(401)
-        .body("code", equalTo("INVALID_CREDENTIALS"));
+        .body("error", equalTo("INVALID_CREDENTIALS"));
   }
 
   @Test
@@ -78,21 +78,19 @@ class Suite4AuthenticationLoginTest extends IntegrationTestBase {
 
     response.statusCode(200).body("data.user.status", equalTo("PENDING_VERIFICATION"));
 
-    final String accessToken = response.extract().jsonPath().getString("data.accessToken");
+    final String accessToken = response.extract().jsonPath().getString("data.access_token");
     final var claims = JwtTestUtils.assertValid(accessToken);
     assertThat(claims.get("status")).isEqualTo("PENDING_VERIFICATION");
 
-    // Accessing a protected endpoint is allowed (JWT filter passes),
-    // but RequiresVerifiedEmail Aspect throws 403 on specific paths.
-    // We test RequiresVerifiedEmail deeply in Suite 9. Let's just assure /me is
-    // 200.
+    // Pending verification users are blocked on non-auth protected endpoints.
     given()
         .contentType(ContentType.JSON)
         .header("Authorization", "Bearer " + accessToken)
         .when()
-        .get("/api/v1/users/me") // Assuming /users/me exists or some basic protected endpoint
+        .post("/api/v1/test-protected/privileged")
         .then()
-        .statusCode(200);
+        .statusCode(403)
+        .body("error", equalTo("EMAIL_NOT_VERIFIED"));
   }
 
   @Test
@@ -103,11 +101,11 @@ class Suite4AuthenticationLoginTest extends IntegrationTestBase {
 
     // Manually suspend the user in the DB
     jdbcTemplate.update(
-        "UPDATE users SET status = 'SUSPENDED' WHERE LOWER(email) = LOWER(?)", email);
+        "UPDATE \"user\" SET status = 'SUSPENDED' WHERE LOWER(email) = LOWER(?)", email);
 
     // Login should be blocked
     login(email, TestDataFactory.VALID_PASSWORD)
         .statusCode(403)
-        .body("code", equalTo("ACCOUNT_SUSPENDED"));
+        .body("error", equalTo("ACCOUNT_SUSPENDED"));
   }
 }

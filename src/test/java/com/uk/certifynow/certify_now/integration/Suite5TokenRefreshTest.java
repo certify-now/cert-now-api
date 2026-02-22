@@ -20,21 +20,21 @@ class Suite5TokenRefreshTest extends IntegrationTestBase {
 
     final String oldFamilyId =
         jdbcTemplate.queryForObject(
-            "SELECT family_id FROM refresh_tokens WHERE token_hash = ?",
+            "SELECT family_id FROM refresh_token WHERE token_hash = ?",
             String.class,
             hash(oldRefresh));
 
     final var response = refresh(oldRefresh);
 
     response.statusCode(200);
-    final String newRefresh = response.extract().jsonPath().getString("data.refreshToken");
+    final String newRefresh = response.extract().jsonPath().getString("data.refresh_token");
 
     assertThat(newRefresh).isNotEqualTo(oldRefresh);
 
     // Old token is revoked
     final Boolean oldRevoked =
         jdbcTemplate.queryForObject(
-            "SELECT revoked FROM refresh_tokens WHERE token_hash = ?",
+            "SELECT revoked FROM refresh_token WHERE token_hash = ?",
             Boolean.class,
             hash(oldRefresh));
     assertThat(oldRevoked).isTrue();
@@ -42,7 +42,7 @@ class Suite5TokenRefreshTest extends IntegrationTestBase {
     // New token is active and has SAME family_id
     final String newFamilyId =
         jdbcTemplate.queryForObject(
-            "SELECT family_id FROM refresh_tokens WHERE token_hash = ?",
+            "SELECT family_id FROM refresh_token WHERE token_hash = ?",
             String.class,
             hash(newRefresh));
     assertThat(newFamilyId).isEqualTo(oldFamilyId);
@@ -57,10 +57,10 @@ class Suite5TokenRefreshTest extends IntegrationTestBase {
 
     // Manually expire the token in the DB
     jdbcTemplate.update(
-        "UPDATE refresh_tokens SET expires_at = NOW() - INTERVAL '1 day' WHERE token_hash = ?",
+        "UPDATE refresh_token SET expires_at = NOW() - INTERVAL '1 day' WHERE token_hash = ?",
         hash(refreshToken));
 
-    refresh(refreshToken).statusCode(401).body("code", equalTo("INVALID_REFRESH_TOKEN"));
+    refresh(refreshToken).statusCode(401).body("error", equalTo("INVALID_REFRESH_TOKEN"));
   }
 
   @Test
@@ -73,12 +73,12 @@ class Suite5TokenRefreshTest extends IntegrationTestBase {
     refresh(tokenA).statusCode(200);
 
     // A is now revoked. Let's try to use A again (attacker)
-    refresh(tokenA).statusCode(403).body("code", equalTo("TOKEN_REUSE_DETECTED"));
+    refresh(tokenA).statusCode(403).body("error", equalTo("TOKEN_REUSE_DETECTED"));
 
     // Ensure ALL tokens for this user's family are now revoked
     final Integer activeTokens =
         jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM refresh_tokens rt JOIN users u ON rt.user_id = u.id WHERE LOWER(u.email) = LOWER(?) AND rt.revoked = false",
+            "SELECT COUNT(*) FROM refresh_token rt JOIN \"user\" u ON rt.user_id = u.id WHERE LOWER(u.email) = LOWER(?) AND rt.revoked = false",
             Integer.class,
             email);
 
@@ -95,9 +95,9 @@ class Suite5TokenRefreshTest extends IntegrationTestBase {
 
     // Manually suspend
     jdbcTemplate.update(
-        "UPDATE users SET status = 'SUSPENDED' WHERE LOWER(email) = LOWER(?)", email);
+        "UPDATE \"user\" SET status = 'SUSPENDED' WHERE LOWER(email) = LOWER(?)", email);
 
-    refresh(refreshToken).statusCode(403).body("code", equalTo("ACCOUNT_SUSPENDED"));
+    refresh(refreshToken).statusCode(403).body("error", equalTo("ACCOUNT_SUSPENDED"));
   }
 
   @Test
@@ -114,14 +114,14 @@ class Suite5TokenRefreshTest extends IntegrationTestBase {
     // 6 logins total = 6 tokens generated. But max active is 5.
     final Integer activeTokens =
         jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM refresh_tokens rt JOIN users u ON rt.user_id = u.id WHERE LOWER(u.email) = LOWER(?) AND rt.revoked = false",
+            "SELECT COUNT(*) FROM refresh_token rt JOIN \"user\" u ON rt.user_id = u.id WHERE LOWER(u.email) = LOWER(?) AND rt.revoked = false",
             Integer.class,
             email);
     assertThat(activeTokens).isEqualTo(5);
 
     final Integer totalTokens =
         jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM refresh_tokens rt JOIN users u ON rt.user_id = u.id WHERE LOWER(u.email) = LOWER(?)",
+            "SELECT COUNT(*) FROM refresh_token rt JOIN \"user\" u ON rt.user_id = u.id WHERE LOWER(u.email) = LOWER(?)",
             Integer.class,
             email);
     assertThat(totalTokens).isEqualTo(6);

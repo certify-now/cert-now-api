@@ -8,7 +8,7 @@ Feature: Security controls around account state and privileged access
     When I POST to "/api/v1/auth/login"
     Then the response status should be 200
     Given I use bearer token from response data field "accessToken"
-    When I POST to "/api/test/requires-verified-email"
+    When I POST to "/api/v1/test-protected/privileged"
     Then the response status should be 403
     And the response error code should be "EMAIL_NOT_VERIFIED"
 
@@ -16,7 +16,7 @@ Feature: Security controls around account state and privileged access
     Given a user exists with email "suspended-claim@example.com" and password "P@ssw0rd!A" and role "CUSTOMER"
     And I issue an access token for email "suspended-claim@example.com" with status "SUSPENDED" as "suspendedToken"
     And I use bearer token stored as "suspendedToken"
-    When I POST to "/api/test/requires-verified-email"
+    When I POST to "/api/v1/test-protected/privileged"
     Then the response status should be 403
     And the response error code should be "ACCOUNT_SUSPENDED"
 
@@ -39,7 +39,7 @@ Feature: Security controls around account state and privileged access
     When I POST to "/api/v1/auth/login"
     Then the response status should be 200
     Given I use bearer token from response data field "accessToken"
-    When I POST to "/api/test/requires-verified-email"
+    When I POST to "/api/v1/test-protected/privileged"
     Then the response status should be 403
     And the response error code should be "EMAIL_NOT_VERIFIED"
     Given a verification token "aspect-token" exists for email "aspect-user@example.com" expiring in 24 hours
@@ -50,6 +50,6 @@ Feature: Security controls around account state and privileged access
     When I POST to "/api/v1/auth/login"
     Then the response status should be 200
     Given I use bearer token from response data field "accessToken"
-    When I POST to "/api/test/requires-verified-email"
+    When I POST to "/api/v1/test-protected/privileged"
     Then the response status should be 200
-    And the response field "result" should equal "verified-action-ok"
+    And the response field "message" should equal "Privileged endpoint accessed"

@@ -23,7 +23,7 @@ class Suite8EmailVerificationEdgeCasesTest extends IntegrationTestBase {
         "UPDATE email_verification_tokens SET expires_at = NOW() - INTERVAL '1 hour' WHERE token_hash = ?",
         org.apache.commons.codec.digest.DigestUtils.sha256Hex(raw));
 
-    verifyEmail(raw).statusCode(400).body("code", equalTo("INVALID_TOKEN"));
+    verifyEmail(raw).statusCode(400).body("error", equalTo("INVALID_TOKEN"));
   }
 
   @Test
@@ -37,7 +37,7 @@ class Suite8EmailVerificationEdgeCasesTest extends IntegrationTestBase {
     verifyEmail(raw).statusCode(200);
 
     // Second use
-    verifyEmail(raw).statusCode(400).body("code", equalTo("INVALID_TOKEN"));
+    verifyEmail(raw).statusCode(400).body("error", equalTo("INVALID_TOKEN"));
   }
 
   @Test
@@ -45,7 +45,7 @@ class Suite8EmailVerificationEdgeCasesTest extends IntegrationTestBase {
   void e03_fakeToken() {
     verifyEmail("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa") // 64 chars
         .statusCode(400)
-        .body("code", equalTo("INVALID_TOKEN"));
+        .body("error", equalTo("INVALID_TOKEN"));
   }
 
   @Test

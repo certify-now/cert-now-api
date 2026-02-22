@@ -50,6 +50,6 @@ Feature: Login, refresh, and logout
     When I POST to "/api/v1/auth/logout"
     Then the response status should be 204
     And stored refresh token "logoutRefresh" should be revoked
-    When I POST to "/api/test/requires-verified-email"
+    When I POST to "/api/v1/test-protected/privileged"
     Then the response status should be 401
     And the response error code should be "TOKEN_REVOKED"

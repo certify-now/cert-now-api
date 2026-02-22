@@ -22,7 +22,7 @@ class Suite9RequiresVerifiedEmailTest extends IntegrationTestBase {
         .post("/api/v1/test-protected/privileged")
         .then()
         .statusCode(403)
-        .body("code", equalTo("EMAIL_NOT_VERIFIED"));
+        .body("error", equalTo("EMAIL_NOT_VERIFIED"));
   }
 
   @Test
@@ -56,13 +56,13 @@ class Suite9RequiresVerifiedEmailTest extends IntegrationTestBase {
 
     // Manually revert the DB!
     jdbcTemplate.update(
-        "UPDATE users SET email_verified = false WHERE LOWER(email) = LOWER(?)", email);
+        "UPDATE \"user\" SET email_verified = false WHERE LOWER(email) = LOWER(?)", email);
 
     // Call privileged endpoint with token issued when all was good (or whatever)
     authenticated(accessToken)
         .post("/api/v1/test-protected/privileged")
         .then()
         .statusCode(403)
-        .body("code", equalTo("EMAIL_NOT_VERIFIED"));
+        .body("error", equalTo("EMAIL_NOT_VERIFIED"));
   }
 }

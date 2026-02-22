@@ -146,7 +146,7 @@ public class RegistrationService {
       return false;
     }
     userRepository
-        .findByEmailIgnoreCase(phone) // Not ideal — ideally findByPhone exists
+        .findByPhone(phone)
         .ifPresent(
             existingUser ->
                 eventPublisher.publishEvent(

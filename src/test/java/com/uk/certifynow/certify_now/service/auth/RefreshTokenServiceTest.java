@@ -3,6 +3,7 @@ package com.uk.certifynow.certify_now.service.auth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -26,12 +27,16 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("RefreshTokenService — Fix 5 (Token Family Tracking)")
 class RefreshTokenServiceTest {
 
   @Mock private RefreshTokenRepository refreshTokenRepository;
+  @Mock private PlatformTransactionManager transactionManager;
+  @Mock private TransactionStatus transactionStatus;
 
   private Clock clock;
   private RefreshTokenService service;
@@ -41,7 +46,8 @@ class RefreshTokenServiceTest {
   @BeforeEach
   void setUp() {
     clock = Clock.fixed(FIXED_INSTANT, ZoneOffset.UTC);
-    service = new RefreshTokenService(refreshTokenRepository, 5, 30, clock);
+    lenient().when(transactionManager.getTransaction(any())).thenReturn(transactionStatus);
+    service = new RefreshTokenService(refreshTokenRepository, 5, 30, clock, transactionManager);
   }
 
   @Nested

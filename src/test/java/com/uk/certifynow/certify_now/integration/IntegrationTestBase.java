@@ -27,7 +27,7 @@ import org.springframework.test.jdbc.JdbcTestUtils;
  */
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("integration")
-public abstract class IntegrationTestBase {
+public abstract class IntegrationTestBase extends TestContainersConfig {
 
   // ─── Spring beans
   // ─────────────────────────────────────────────────────────────

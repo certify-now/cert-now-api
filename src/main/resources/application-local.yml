@@ -1,0 +1,38 @@
+spring:
+  docker:
+    compose:
+      lifecycle-management: start-only
+  datasource:
+    url: ${JDBC_DATABASE_URL:jdbc:postgresql://localhost:5433/certify-now}
+    username: ${JDBC_DATABASE_USERNAME:postgres}
+    password: ${JDBC_DATABASE_PASSWORD:P4ssword!}
+    hikari:
+      connection-timeout: 5000
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 300000
+      max-lifetime: 1800000
+  jpa:
+    hibernate:
+      ddl-auto: update
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
+error:
+  handling:
+    exception-logging: NO_LOGGING
+
+app:
+  base-url: ${APP_BASE_URL:http://localhost:8080}
+  jwt:
+    secret: ${JWT_SECRET:dev-secret-key-at-least-512-bits-long-for-hs512-algorithm-change-in-production-change-me}
+  frontend:
+    base-url: ${FRONTEND_BASE_URL:http://localhost:3000}

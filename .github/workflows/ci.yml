@@ -73,7 +73,7 @@ jobs:
           port: ${{ secrets.DEV_SERVER_PORT }}
           key: ${{ secrets.DEV_SERVER_SSH_KEY }}
           script: |
-            export PATH=$PATH:/opt/homebrew/bin
+            export PATH=$PATH:/opt/homebrew/bin:/usr/local/bin
             export DOCKER_CONFIG=~/certify-now/.docker
             cd ~/certify-now
             set -a && source .env.dev && set +a

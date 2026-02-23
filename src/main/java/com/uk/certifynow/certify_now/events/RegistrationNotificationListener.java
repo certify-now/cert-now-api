@@ -27,7 +27,7 @@ public class RegistrationNotificationListener {
   }
 
   @Async("authEventsExecutor")
-  @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+  @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
   public void onDuplicateRegistrationAttempt(final DuplicateRegistrationAttemptEvent event) {
     log.warn(
         "SECURITY: Duplicate registration attempt on {} for email={}, ip={}",

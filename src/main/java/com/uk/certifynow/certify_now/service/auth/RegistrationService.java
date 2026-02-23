@@ -15,6 +15,7 @@ import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.Optional;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -74,7 +75,7 @@ public class RegistrationService {
    * @param ipAddress IP address of the registration request for audit
    * @return Optional containing the created User, or empty if a silent duplicate was handled
    */
-  @Transactional
+  @Transactional(noRollbackFor = DataIntegrityViolationException.class)
   public Optional<User> registerUser(final RegisterRequest request, final String ipAddress) {
     // Fix 3: Silent duplicate detection — no 409 thrown
     if (handleDuplicateEmail(request.email(), ipAddress)) {
@@ -94,7 +95,19 @@ public class RegistrationService {
             request.phone(),
             request.role());
 
-    userRepository.save(user);
+    try {
+      // Flush early so unique-constraint races are handled inside this method.
+      userRepository.saveAndFlush(user);
+    } catch (DataIntegrityViolationException ex) {
+      // Another concurrent request inserted first. Keep silent-duplicate behavior.
+      if (handleDuplicateEmail(request.email(), ipAddress)) {
+        return Optional.empty();
+      }
+      if (handleDuplicatePhone(request.phone(), ipAddress)) {
+        return Optional.empty();
+      }
+      return Optional.empty();
+    }
 
     // Create role-specific profile
     createProfile(user);
@@ -153,6 +166,20 @@ public class RegistrationService {
                     new DuplicateRegistrationAttemptEvent(
                         existingUser.getId(), existingUser.getEmail(), "PHONE", ipAddress)));
     return true;
+  }
+
+  /**
+   * Best-effort duplicate event publication used when a uniqueness race is detected outside the
+   * normal duplicate-check flow.
+   */
+  public void publishDuplicateAttemptIfPresent(
+      final String email, final String phone, final String ipAddress) {
+    if (email != null) {
+      handleDuplicateEmail(email, ipAddress);
+    }
+    if (phone != null && !phone.isBlank()) {
+      handleDuplicatePhone(phone, ipAddress);
+    }
   }
 
   /**

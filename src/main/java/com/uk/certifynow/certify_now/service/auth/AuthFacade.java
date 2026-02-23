@@ -8,8 +8,10 @@ import com.uk.certifynow.certify_now.service.auth.dto.RegisterRequest;
 import com.uk.certifynow.certify_now.service.mappers.AuthMapper;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.UnexpectedRollbackException;
 
 /**
  * Facade for authentication operations.
@@ -61,7 +63,14 @@ public class AuthFacade {
   public AuthResponse register(
       final RegisterRequest request, final String deviceInfo, final String ipAddress) {
     // Step 1: Register user — returns empty if silent duplicate (Fix 3)
-    final Optional<User> userOpt = registrationService.registerUser(request, ipAddress);
+    final Optional<User> userOpt;
+    try {
+      userOpt = registrationService.registerUser(request, ipAddress);
+    } catch (DataIntegrityViolationException | UnexpectedRollbackException ex) {
+      // Handle rare uniqueness races as silent duplicates too.
+      registrationService.publishDuplicateAttemptIfPresent(request.email(), request.phone(), ipAddress);
+      return authMapper.toGenericRegistrationResponse();
+    }
 
     if (userOpt.isEmpty()) {
       // Silent duplicate: return a generic response that is indistinguishable from

@@ -1,0 +1,33 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5433/certify-now
+    username: test
+    password: test
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+app:
+  jwt:
+    secret: test-secret-key-that-is-at-least-64-bytes-long-for-hs512-algorithm-padding
+    access-token-expiry-ms: 900000
+    refresh-token-expiry-days: 30
+  security:
+    max-refresh-tokens-per-user: 5
+  email-verification:
+    token-expiry-hours: 24
+  frontend:
+    base-url: http://localhost:8080
+
+wiremock:
+  server:
+    port: 8089
+
+APP_BASE_URL: http://localhost:8080
+FRONTEND_BASE_URL: http://localhost:8080
+JWT_SECRET: test-secret-key-that-is-at-least-64-bytes-long-for-hs512-algorithm-padding

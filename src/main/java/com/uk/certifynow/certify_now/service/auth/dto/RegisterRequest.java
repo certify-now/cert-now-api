@@ -20,4 +20,6 @@ public record RegisterRequest(
         @Size(min = 2, max = 100, message = "must be between 2 and 100 characters")
         String fullName,
     @Pattern(regexp = "^\\+44\\d{10}$", message = "must be a valid UK phone number") String phone,
-    @NotNull(message = "role is required") UserRole role) {}
+    @NotNull(message = "role is required")
+        @ValidSelfRegistrableRole
+        UserRole role) {}

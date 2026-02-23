@@ -50,7 +50,7 @@ public class User {
   @Column(nullable = false)
   private OffsetDateTime updatedAt;
 
-  @Column(length = 20)
+  @Column(length = 20, unique = true)
   private String phone;
 
   @Column(nullable = false, length = 50)
@@ -60,7 +60,7 @@ public class User {
   @Column(length = 512)
   private String avatarUrl;
 
-  @Column(nullable = false)
+  @Column(nullable = false, unique = true)
   private String email;
 
   @Column private String externalAuthId;

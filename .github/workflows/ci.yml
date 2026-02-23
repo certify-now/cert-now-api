@@ -78,5 +78,5 @@ jobs:
             cd ~/certify-now
             set -a && source .env.dev && set +a
             echo "${{ secrets.GITHUB_TOKEN }}" | /opt/homebrew/bin/docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            /opt/homebrew/bin/docker compose -f docker-compose.base.yml -f docker-compose.dev.yml pull
-            /opt/homebrew/bin/docker compose -f docker-compose.base.yml -f docker-compose.dev.yml up -d
+            /opt/homebrew/bin/docker-compose -f docker-compose.base.yml -f docker-compose.dev.yml pull
+            /opt/homebrew/bin/docker-compose -f docker-compose.base.yml -f docker-compose.dev.yml up -d

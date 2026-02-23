@@ -1,15 +1,15 @@
-//package com.uk.certifynow.certify_now.integration;
+// package com.uk.certifynow.certify_now.integration;
 //
-//import static org.assertj.core.api.Assertions.assertThat;
-//import static org.hamcrest.Matchers.equalTo;
+// import static org.assertj.core.api.Assertions.assertThat;
+// import static org.hamcrest.Matchers.equalTo;
 //
-//import org.junit.jupiter.api.DisplayName;
-//import org.junit.jupiter.api.Test;
-//import org.springframework.test.context.jdbc.Sql;
+// import org.junit.jupiter.api.DisplayName;
+// import org.junit.jupiter.api.Test;
+// import org.springframework.test.context.jdbc.Sql;
 //
-//@DisplayName("Suite 8 — Email Verification (Edge Cases)")
-//@Sql("/reset.sql")
-//class Suite8EmailVerificationEdgeCasesTest extends IntegrationTestBase {
+// @DisplayName("Suite 8 — Email Verification (Edge Cases)")
+// @Sql("/reset.sql")
+// class Suite8EmailVerificationEdgeCasesTest extends IntegrationTestBase {
 //
 //  @Test
 //  @DisplayName("E-01: Expired verification token rejected")
@@ -20,7 +20,8 @@
 //
 //    // Fast-forward token to expired
 //    jdbcTemplate.update(
-//        "UPDATE email_verification_tokens SET expires_at = NOW() - INTERVAL '1 hour' WHERE token_hash = ?",
+//        "UPDATE email_verification_tokens SET expires_at = NOW() - INTERVAL '1 hour' WHERE
+// token_hash = ?",
 //        org.apache.commons.codec.digest.DigestUtils.sha256Hex(raw));
 //
 //    verifyEmail(raw).statusCode(400).body("error", equalTo("INVALID_TOKEN"));
@@ -97,4 +98,4 @@
 //      Thread.currentThread().interrupt();
 //    }
 //  }
-//}
+// }

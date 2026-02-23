@@ -75,6 +75,7 @@ jobs:
           script: |
             export PATH=$PATH:/opt/homebrew/bin:/usr/local/bin
             export DOCKER_CONFIG=~/certify-now/.docker
+            export DOCKER_HOST=unix:///Users/maherkarim/Library/Containers/com.docker.docker/Data/docker-cli.sock
             cd ~/certify-now
             set -a && source .env.dev && set +a
             echo "${{ secrets.GITHUB_TOKEN }}" | /opt/homebrew/bin/docker login ghcr.io -u ${{ github.actor }} --password-stdin

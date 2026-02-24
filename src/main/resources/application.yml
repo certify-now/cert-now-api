@@ -4,6 +4,17 @@ spring:
       minimum-idle: 2
       idle-timeout: 300000
       max-lifetime: 1800000
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
   jpa:
     open-in-view: false
 
@@ -26,6 +37,9 @@ springdoc:
 
 app:
   base-url: ${APP_BASE_URL}
+  email:
+    provider: ${APP_EMAIL_PROVIDER:stub}
+    from: ${APP_EMAIL_FROM:no-reply@certifynow.local}
   jwt:
     secret: ${JWT_SECRET}
     access-token-expiry-ms: 900000

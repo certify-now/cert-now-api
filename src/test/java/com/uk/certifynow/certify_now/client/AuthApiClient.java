@@ -70,7 +70,10 @@ public class AuthApiClient {
   }
 
   public Response verifyEmail(final Map<String, Object> fields, final String authorizationHeader) {
-    return request().header("Authorization", authorizationHeader).body(fields).post("/verify-email");
+    return request()
+        .header("Authorization", authorizationHeader)
+        .body(fields)
+        .post("/verify-email");
   }
 
   private RequestSpecification request() {

@@ -99,9 +99,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     // ═══════════════════════════════════════════════════════
     // CHECK JTI DENYLIST (logout / account suspension)
-    // SECURITY NOTE: If Redis is unavailable, isDenied() returns false (fail-open).
-    // A revoked access token may remain valid for up to 15 min (the JWT TTL) while
-    // Redis is down. Operators should monitor Redis health via /actuator/health.
+    // SECURITY NOTE: denylist lookup is delegated to TokenDenylistService.
+    // With in-memory denylist, revocations are node-local and reset on restart.
     // ═══════════════════════════════════════════════════════
     final String jti = claims.getId();
     if (jti != null && tokenDenylistService.isDenied(jti)) {

@@ -2,6 +2,7 @@ package com.uk.certifynow.certify_now.shared.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 /**
@@ -11,18 +12,19 @@ import org.springframework.stereotype.Service;
  * production.
  */
 @Service
+@ConditionalOnProperty(name = "app.email.provider", havingValue = "stub", matchIfMissing = true)
 public class StubEmailService implements EmailService {
 
   private static final Logger logger = LoggerFactory.getLogger(StubEmailService.class);
 
   @Override
   public void sendVerificationEmail(
-      final String toEmail, final String fullName, final String verificationLink) {
+      final String toEmail, final String fullName, final String verificationCode) {
     logger.info(
-        "📧 [STUB] Sending verification email to: {}\n" + "   Name: {}\n" + "   Link: {}",
+        "📧 [STUB] Sending verification email to: {}\n" + "   Name: {}\n" + "   Code: {}",
         toEmail,
         fullName,
-        verificationLink);
+        verificationCode);
   }
 
   @Override

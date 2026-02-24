@@ -2,7 +2,7 @@ package com.uk.certifynow.certify_now.hooks;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.uk.certifynow.certify_now.util.RedisTestUtils;
+import com.uk.certifynow.certify_now.util.TokenDenylistTestUtils;
 import com.uk.certifynow.certify_now.util.WireMockUtils;
 import io.cucumber.java.After;
 import io.cucumber.java.Before;
@@ -19,24 +19,24 @@ public class Hooks {
   private static final Logger log = LoggerFactory.getLogger(Hooks.class);
 
   private final JdbcTemplate jdbcTemplate;
-  private final RedisTestUtils redisTestUtils;
+  private final TokenDenylistTestUtils tokenDenylistTestUtils;
   private final WireMockUtils wireMockUtils;
 
   public Hooks(
       final JdbcTemplate jdbcTemplate,
-      final RedisTestUtils redisTestUtils,
+      final TokenDenylistTestUtils tokenDenylistTestUtils,
       final WireMockUtils wireMockUtils) {
     this.jdbcTemplate = jdbcTemplate;
-    this.redisTestUtils = redisTestUtils;
+    this.tokenDenylistTestUtils = tokenDenylistTestUtils;
     this.wireMockUtils = wireMockUtils;
   }
 
   @Before
   @Order(0)
-  public void resetWireMockAndRedis() {
+  public void resetWireMockAndDenylist() {
     wireMockUtils.resetStubs();
     wireMockUtils.stubEmailSuccess();
-    redisTestUtils.flushAll();
+    tokenDenylistTestUtils.clearAll();
   }
 
   @Before
@@ -60,7 +60,10 @@ public class Hooks {
   public void asyncTolerance() {
     Awaitility.setDefaultTimeout(Duration.ofSeconds(5));
     Awaitility.setDefaultPollInterval(Duration.ofMillis(200));
-    Awaitility.await().atMost(Duration.ofSeconds(5)).pollInterval(Duration.ofMillis(200)).until(() -> true);
+    Awaitility.await()
+        .atMost(Duration.ofSeconds(5))
+        .pollInterval(Duration.ofMillis(200))
+        .until(() -> true);
   }
 
   @After

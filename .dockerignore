@@ -1,7 +1,0 @@
-.gradle
-build
-.git
-.github
-*.md
-.env*
-docker-compose*.yml

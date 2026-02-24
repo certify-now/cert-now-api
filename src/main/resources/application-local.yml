@@ -32,6 +32,9 @@ error:
 
 app:
   base-url: ${APP_BASE_URL:http://localhost:8080}
+  email:
+    provider: ${APP_EMAIL_PROVIDER:stub}
+    from: ${APP_EMAIL_FROM:your-test-email@gmail.com}
   jwt:
     secret: ${JWT_SECRET:dev-secret-key-at-least-512-bits-long-for-hs512-algorithm-change-in-production-change-me}
   frontend:

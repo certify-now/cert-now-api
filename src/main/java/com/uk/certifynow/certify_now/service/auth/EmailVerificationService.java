@@ -10,7 +10,6 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -20,11 +19,11 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Service for email verification operations.
  *
- * <p>Handles: - Generating and sending verification tokens - Verifying email addresses with tokens
- * - Token expiry and single-use enforcement
+ * <p>Handles: - Generating and sending verification codes - Verifying email addresses with codes -
+ * Token expiry and single-use enforcement
  *
- * <p>Security features: - Cryptographically secure random tokens (64-char hex) - SHA-256 hashing
- * (tokens never stored in plaintext) - 24-hour expiry window - Single-use enforcement
+ * <p>Security features: - Cryptographically secure random 6-digit codes - SHA-256 hashing (codes
+ * never stored in plaintext) - 24-hour expiry window - Single-use enforcement
  */
 @Service
 public class EmailVerificationService {
@@ -36,9 +35,6 @@ public class EmailVerificationService {
 
   @Value("${app.email-verification.token-expiry-hours:24}")
   private int tokenExpiryHours;
-
-  @Value("${app.frontend.base-url}")
-  private String frontendBaseUrl;
 
   public EmailVerificationService(
       final UserRepository userRepository,
@@ -52,21 +48,21 @@ public class EmailVerificationService {
   }
 
   /**
-   * Generate and send email verification token.
+   * Generate and send email verification code.
    *
    * <p>Called automatically after registration or when user requests a new verification email.
    *
    * @param user user to send verification email to
-   * @return verification link (for email template)
+   * @return raw verification code
    */
   @Transactional
   public String sendVerificationEmail(final User user) {
     // Delete any existing unused tokens for this user
     tokenRepository.deleteUnusedTokensByUserId(user.getId());
 
-    // Generate cryptographically secure random token
-    final String rawToken = generateSecureToken();
-    final String tokenHash = hashToken(rawToken);
+    // Generate cryptographically secure random code
+    final String verificationCode = generateVerificationCode();
+    final String tokenHash = hashToken(verificationCode);
 
     // Create token entity
     final EmailVerificationToken token = new EmailVerificationToken();
@@ -77,26 +73,23 @@ public class EmailVerificationService {
 
     tokenRepository.save(token);
 
-    // Build verification link
-    final String verificationLink = buildVerificationLink(rawToken);
-
     // Send email
-    emailService.sendVerificationEmail(user.getEmail(), user.getFullName(), verificationLink);
+    emailService.sendVerificationEmail(user.getEmail(), user.getFullName(), verificationCode);
 
-    return verificationLink;
+    return verificationCode;
   }
 
   /**
-   * Verify email using token from link.
+   * Verify email using code.
    *
    * <p>Validates token, marks it as used, and updates user's email_verified status. If user was
    * PENDING_VERIFICATION, activates them.
    *
-   * @param rawToken raw token from verification link
+   * @param rawCode raw code from verification email
    */
   @Transactional
-  public void verifyEmail(final String rawToken) {
-    final String tokenHash = hashToken(rawToken);
+  public void verifyEmail(final String rawCode) {
+    final String tokenHash = hashToken(rawCode);
 
     final EmailVerificationToken token =
         tokenRepository
@@ -139,7 +132,7 @@ public class EmailVerificationService {
    * Resend verification email to user.
    *
    * @param userId user ID
-   * @return verification link
+   * @return raw verification code
    */
   @Transactional
   public String resendVerificationEmail(final UUID userId) {
@@ -160,39 +153,26 @@ public class EmailVerificationService {
   }
 
   /**
-   * Generate cryptographically secure random token.
+   * Generate cryptographically secure 6-digit verification code.
    *
-   * @return 64-character hex string
+   * @return zero-padded 6-digit code
    */
-  private String generateSecureToken() {
+  private String generateVerificationCode() {
     try {
       final SecureRandom secureRandom = SecureRandom.getInstanceStrong();
-      return secureRandom
-          .ints(32, 0, 16)
-          .mapToObj(Integer::toHexString)
-          .collect(Collectors.joining());
+      return String.format("%06d", secureRandom.nextInt(1_000_000));
     } catch (Exception e) {
-      throw new RuntimeException("Failed to generate secure token", e);
+      throw new RuntimeException("Failed to generate verification code", e);
     }
   }
 
   /**
    * Hash token using SHA-256.
    *
-   * @param rawToken raw token string
+   * @param rawToken raw token/code string
    * @return SHA-256 hash
    */
   private String hashToken(final String rawToken) {
     return DigestUtils.sha256Hex(rawToken);
-  }
-
-  /**
-   * Build verification link for email.
-   *
-   * @param rawToken raw token
-   * @return full verification URL
-   */
-  private String buildVerificationLink(final String rawToken) {
-    return String.format("%s/verify-email?token=%s", frontendBaseUrl, rawToken);
   }
 }

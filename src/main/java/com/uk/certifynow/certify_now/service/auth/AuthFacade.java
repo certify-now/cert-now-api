@@ -10,8 +10,8 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.UnexpectedRollbackException;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Facade for authentication operations.
@@ -68,7 +68,8 @@ public class AuthFacade {
       userOpt = registrationService.registerUser(request, ipAddress);
     } catch (DataIntegrityViolationException | UnexpectedRollbackException ex) {
       // Handle rare uniqueness races as silent duplicates too.
-      registrationService.publishDuplicateAttemptIfPresent(request.email(), request.phone(), ipAddress);
+      registrationService.publishDuplicateAttemptIfPresent(
+          request.email(), request.phone(), ipAddress);
       return authMapper.toGenericRegistrationResponse();
     }
 

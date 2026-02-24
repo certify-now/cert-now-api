@@ -124,7 +124,9 @@ public final class AuthAssertions {
 
   public static void assertStartsWithEither(
       final String value, final String optionA, final String optionB) {
-    assertThat(value).satisfiesAnyOf(v -> assertThat(v).startsWith(optionA), v -> assertThat(v).startsWith(optionB));
+    assertThat(value)
+        .satisfiesAnyOf(
+            v -> assertThat(v).startsWith(optionA), v -> assertThat(v).startsWith(optionB));
   }
 
   public static void assertNotContains(final String value, final String part) {
@@ -137,13 +139,13 @@ public final class AuthAssertions {
 
   public static void assertAnyConsentType(
       final Collection<Map<String, Object>> consents, final String consentType) {
-    assertThat(consents).anyMatch(row -> consentType.equals(String.valueOf(row.get("consent_type"))));
+    assertThat(consents)
+        .anyMatch(row -> consentType.equals(String.valueOf(row.get("consent_type"))));
   }
 
   public static void assertAllConsentIp(
       final Collection<Map<String, Object>> consents, final String expectedIp) {
-    assertThat(consents)
-        .allMatch(row -> expectedIp.equals(String.valueOf(row.get("ip_address"))));
+    assertThat(consents).allMatch(row -> expectedIp.equals(String.valueOf(row.get("ip_address"))));
   }
 
   public static void assertApproxMinutesFromNow(

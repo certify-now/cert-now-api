@@ -5,8 +5,8 @@ import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
 
 /**
- * Rejects UserRole.ADMIN on self-registration. null is allowed here — @NotNull on the field
- * handles the null case separately so error messages stay distinct.
+ * Rejects UserRole.ADMIN on self-registration. null is allowed here — @NotNull on the field handles
+ * the null case separately so error messages stay distinct.
  */
 public class SelfRegistrableRoleValidator
     implements ConstraintValidator<ValidSelfRegistrableRole, UserRole> {
@@ -19,4 +19,3 @@ public class SelfRegistrableRoleValidator
     return role == UserRole.CUSTOMER || role == UserRole.ENGINEER;
   }
 }
-

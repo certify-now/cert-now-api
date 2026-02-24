@@ -44,7 +44,7 @@ public class UserFactory {
     user.setFullName(fullName);
     user.setPhone(phone);
     user.setRole(role);
-    user.setStatus(role == UserRole.ENGINEER ? UserStatus.PENDING_VERIFICATION : UserStatus.ACTIVE);
+    user.setStatus(UserStatus.PENDING_VERIFICATION);
     user.setAuthProvider(AuthProvider.EMAIL);
     user.setEmailVerified(false);
     user.setPhoneVerified(false);

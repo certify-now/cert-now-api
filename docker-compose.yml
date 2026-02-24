@@ -8,20 +8,12 @@ services:
     ports:
       - "${POSTGRES_PORT:-5433}:5432"
     volumes:
-      - postgres_local_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-certify-now}"]
       interval: 10s
       timeout: 5s
       retries: 10
 
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    volumes:
-      - redis_local_data:/data
-
 volumes:
-  postgres_local_data:
-  redis_local_data:
+  postgres_data:

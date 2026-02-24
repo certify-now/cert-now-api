@@ -9,13 +9,13 @@ package com.uk.certifynow.certify_now.shared.service;
 public interface EmailService {
 
   /**
-   * Send email verification link to user.
+   * Send email verification code to user.
    *
    * @param toEmail recipient email address
    * @param fullName recipient's full name
-   * @param verificationLink verification URL
+   * @param verificationCode verification code
    */
-  void sendVerificationEmail(String toEmail, String fullName, String verificationLink);
+  void sendVerificationEmail(String toEmail, String fullName, String verificationCode);
 
   /**
    * Send password reset link to user.

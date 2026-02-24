@@ -5,6 +5,7 @@ Feature: User registration happy path
 
   Background:
     Given the registration service is available
+    And the email service is stubbed to accept all sends
 
   Rule: A customer can register successfully
 
@@ -23,7 +24,7 @@ Feature: User registration happy path
       And expires_in is 900
       And the user.email is "jane@example.com"
       And the user.role is "CUSTOMER"
-      And the user.status is "ACTIVE"
+      And the user.status is "PENDING_VERIFICATION"
       And the user.email_verified is false
       And the response contains a request_id UUID
       And a CustomerProfile exists in the database for that user

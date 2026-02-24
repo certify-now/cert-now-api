@@ -9,15 +9,11 @@ import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
 import java.util.List;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class SwaggerConfig {
-
-  @Value("${app.base-url:http://localhost:8080}")
-  private String baseUrl;
 
   @Bean
   public OpenAPI customOpenAPI() {
@@ -52,7 +48,7 @@ public class SwaggerConfig {
                         .email("support@certifynow.co.uk")
                         .url("https://certifynow.co.uk"))
                 .license(new License().name("Proprietary").url("https://certifynow.co.uk/terms")))
-        .servers(List.of(new Server().url(baseUrl).description("API Server")))
+        .servers(List.of(new Server().url("/").description("API Server")))
         .addSecurityItem(new SecurityRequirement().addList("Bearer Authentication"))
         .components(
             new Components()

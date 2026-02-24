@@ -10,14 +10,11 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 
@@ -32,19 +29,11 @@ public class TestContainersConfig {
           .withUsername("test")
           .withPassword("test");
 
-  @Container
-  @SuppressWarnings("resource")
-  private static final GenericContainer<?> REDIS =
-      new GenericContainer<>("redis:7-alpine").withExposedPorts(6379);
-
   static {
     POSTGRES.start();
-    REDIS.start();
     System.setProperty("spring.datasource.url", POSTGRES.getJdbcUrl());
     System.setProperty("spring.datasource.username", POSTGRES.getUsername());
     System.setProperty("spring.datasource.password", POSTGRES.getPassword());
-    System.setProperty("spring.data.redis.host", REDIS.getHost());
-    System.setProperty("spring.data.redis.port", String.valueOf(REDIS.getFirstMappedPort()));
   }
 
   @DynamicPropertySource
@@ -52,8 +41,6 @@ public class TestContainersConfig {
     registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
     registry.add("spring.datasource.username", POSTGRES::getUsername);
     registry.add("spring.datasource.password", POSTGRES::getPassword);
-    registry.add("spring.data.redis.host", REDIS::getHost);
-    registry.add("spring.data.redis.port", REDIS::getFirstMappedPort);
   }
 
   @Bean(initMethod = "start", destroyMethod = "stop")
@@ -65,21 +52,19 @@ public class TestContainersConfig {
   @Primary
   EmailService testWireMockEmailService() {
     return new EmailService() {
-      private static final Pattern TOKEN_PATTERN = Pattern.compile("token=([^&\\s]+)");
       private final HttpClient client = HttpClient.newHttpClient();
 
       @Override
       public void sendVerificationEmail(
-          final String toEmail, final String fullName, final String verificationLink) {
-        final String token = extractToken(verificationLink);
+          final String toEmail, final String fullName, final String verificationCode) {
         post(
             "/email/send",
             Map.of(
                 "type", "verification",
                 "to_email", toEmail,
                 "full_name", fullName,
-                "verification_link", verificationLink,
-                "raw_token", token));
+                "verification_code", verificationCode,
+                "raw_token", verificationCode));
       }
 
       @Override
@@ -96,24 +81,21 @@ public class TestContainersConfig {
 
       @Override
       public void sendWelcomeEmail(final String toEmail, final String fullName) {
-        post(
-            "/email/send",
-            Map.of("type", "welcome", "to_email", toEmail, "full_name", fullName));
+        post("/email/send", Map.of("type", "welcome", "to_email", toEmail, "full_name", fullName));
       }
 
       @Override
-      public void sendDuplicateRegistrationNotification(final String toEmail, final String ipAddress) {
+      public void sendDuplicateRegistrationNotification(
+          final String toEmail, final String ipAddress) {
         post(
             "/email/send",
             Map.of(
-                "type", "security_notification",
-                "to_email", toEmail,
-                "ip_address", ipAddress == null ? "unknown" : ipAddress));
-      }
-
-      private String extractToken(final String verificationLink) {
-        final Matcher matcher = TOKEN_PATTERN.matcher(verificationLink);
-        return matcher.find() ? matcher.group(1) : "";
+                "type",
+                "security_notification",
+                "to_email",
+                toEmail,
+                "ip_address",
+                ipAddress == null ? "unknown" : ipAddress));
       }
 
       private void post(final String path, final Map<String, String> payload) {

@@ -6,7 +6,7 @@ import com.uk.certifynow.certify_now.context.ScenarioContext;
 import com.uk.certifynow.certify_now.factory.RequestFactory;
 import com.uk.certifynow.certify_now.util.DatabaseUtils;
 import com.uk.certifynow.certify_now.util.JwtTestUtils;
-import com.uk.certifynow.certify_now.util.RedisTestUtils;
+import com.uk.certifynow.certify_now.util.TokenDenylistTestUtils;
 import com.uk.certifynow.certify_now.util.WireMockUtils;
 import io.cucumber.datatable.DataTable;
 import io.cucumber.java.en.Given;
@@ -42,7 +42,7 @@ public class RegistrationSteps {
   private final AuthApiClient authApiClient;
   private final ScenarioContext scenarioContext;
   private final DatabaseUtils databaseUtils;
-  private final RedisTestUtils redisTestUtils;
+  private final TokenDenylistTestUtils tokenDenylistTestUtils;
   private final WireMockUtils wireMockUtils;
   private final JwtTestUtils jwtTestUtils;
 
@@ -50,13 +50,13 @@ public class RegistrationSteps {
       final AuthApiClient authApiClient,
       final ScenarioContext scenarioContext,
       final DatabaseUtils databaseUtils,
-      final RedisTestUtils redisTestUtils,
+      final TokenDenylistTestUtils tokenDenylistTestUtils,
       final WireMockUtils wireMockUtils,
       final JwtTestUtils jwtTestUtils) {
     this.authApiClient = authApiClient;
     this.scenarioContext = scenarioContext;
     this.databaseUtils = databaseUtils;
-    this.redisTestUtils = redisTestUtils;
+    this.tokenDenylistTestUtils = tokenDenylistTestUtils;
     this.wireMockUtils = wireMockUtils;
     this.jwtTestUtils = jwtTestUtils;
   }
@@ -261,8 +261,8 @@ public class RegistrationSteps {
   }
 
   /**
-   * Lowercase alias — feature files use "a customer" (sentence case) while the legacy step used
-   * "a CUSTOMER". Both are kept so the old feature file continues to work too.
+   * Lowercase alias — feature files use "a customer" (sentence case) while the legacy step used "a
+   * CUSTOMER". Both are kept so the old feature file continues to work too.
    */
   @When("a customer registers with email {string}")
   public void aLowerCustomerRegistersWithEmail(final String email) {
@@ -350,7 +350,8 @@ public class RegistrationSteps {
   }
 
   @When("5 concurrent POST requests arrive at {string} with email {string}")
-  public void fiveConcurrentPostsByEmail(final String path, final String email) throws InterruptedException {
+  public void fiveConcurrentPostsByEmail(final String path, final String email)
+      throws InterruptedException {
     runConcurrentRegistrations(path, 5, email, null);
   }
 
@@ -371,7 +372,8 @@ public class RegistrationSteps {
 
   @When("I measure response time for the duplicate registration")
   public void measureDuplicateRegistrationTime() {
-    final String existingEmail = scenarioContext.get(ScenarioContext.REGISTERED_USER_EMAIL, String.class);
+    final String existingEmail =
+        scenarioContext.get(ScenarioContext.REGISTERED_USER_EMAIL, String.class);
     final Map<String, Object> request = RequestFactory.validCustomerRegistration();
     request.put("email", existingEmail);
     final long start = System.nanoTime();
@@ -434,7 +436,8 @@ public class RegistrationSteps {
 
   @Then("the user.email_verified is {word}")
   public void userEmailVerifiedIs(final String value) {
-    AuthAssertions.assertPathEquals(lastResponse(), "data.user.email_verified", Boolean.parseBoolean(value));
+    AuthAssertions.assertPathEquals(
+        lastResponse(), "data.user.email_verified", Boolean.parseBoolean(value));
   }
 
   @Then("the response contains a request_id UUID")
@@ -481,7 +484,8 @@ public class RegistrationSteps {
 
   @Then("no new user is created in the database")
   public void noNewUserCreated() {
-    final Integer baseline = scenarioContext.get(ScenarioContext.BASELINE_USER_COUNT, Integer.class);
+    final Integer baseline =
+        scenarioContext.get(ScenarioContext.BASELINE_USER_COUNT, Integer.class);
     AuthAssertions.assertEquals(databaseUtils.countAllUsers(), baseline);
   }
 
@@ -527,7 +531,8 @@ public class RegistrationSteps {
 
   @Then("{int} UserConsent records exist in the database for that user")
   public void userConsentRecordsExistForUser(final int count) {
-    final List<Map<String, Object>> consents = databaseUtils.findConsentsByUserId(registeredUserId());
+    final List<Map<String, Object>> consents =
+        databaseUtils.findConsentsByUserId(registeredUserId());
     scenarioContext.put("consents_for_user", consents);
     AuthAssertions.assertCollectionSize(consents, count);
   }
@@ -546,7 +551,8 @@ public class RegistrationSteps {
 
   @Then("the consent records store IP {string}")
   public void consentRecordsStoreIp(final String ipAddress) {
-    final List<Map<String, Object>> consents = databaseUtils.findConsentsByUserId(registeredUserId());
+    final List<Map<String, Object>> consents =
+        databaseUtils.findConsentsByUserId(registeredUserId());
     AuthAssertions.assertAllConsentIp(consents, ipAddress);
   }
 
@@ -559,7 +565,8 @@ public class RegistrationSteps {
   @Then("the stored password_hash starts with {string} or {string}")
   public void storedPasswordHashStartsWith(final String optionA, final String optionB) {
     final String email = scenarioContext.get(ScenarioContext.REGISTERED_USER_EMAIL, String.class);
-    AuthAssertions.assertStartsWithEither(databaseUtils.getPasswordHashForEmail(email), optionA, optionB);
+    AuthAssertions.assertStartsWithEither(
+        databaseUtils.getPasswordHashForEmail(email), optionA, optionB);
   }
 
   @Then("the stored value does not contain {string}")
@@ -604,7 +611,7 @@ public class RegistrationSteps {
     final String accessToken = lastResponse().path("data.access_token");
     final String jti = jwtTestUtils.getJti(accessToken);
     AuthAssertions.assertUuid(jti);
-    AuthAssertions.assertFalse(redisTestUtils.jtiIsDenylisted(jti));
+    AuthAssertions.assertFalse(tokenDenylistTestUtils.jtiIsDenylisted(jti));
   }
 
   @Then("the JWT contains a unique {string} UUID")
@@ -640,7 +647,8 @@ public class RegistrationSteps {
 
   @Then("the refresh token expiry is 30 days from now")
   public void refreshTokenExpiryThirtyDaysFromNow() {
-    final List<Map<String, Object>> tokens = databaseUtils.findActiveRefreshTokensByUserId(registeredUserId());
+    final List<Map<String, Object>> tokens =
+        databaseUtils.findActiveRefreshTokensByUserId(registeredUserId());
     final Map<String, Object> token = tokens.get(0);
     final OffsetDateTime expiresAt = asOffsetDateTime(token.get("expires_at"));
     final long days = ChronoUnit.DAYS.between(OffsetDateTime.now(), expiresAt);
@@ -649,7 +657,8 @@ public class RegistrationSteps {
 
   @Then("the refresh token record has a non-null family_id UUID")
   public void refreshTokenRecordHasFamilyId() {
-    final List<Map<String, Object>> tokens = databaseUtils.findActiveRefreshTokensByUserId(registeredUserId());
+    final List<Map<String, Object>> tokens =
+        databaseUtils.findActiveRefreshTokensByUserId(registeredUserId());
     final Object familyId = tokens.get(0).get("family_id");
     AuthAssertions.assertTrue(familyId != null);
     AuthAssertions.assertUuid(String.valueOf(familyId));
@@ -760,7 +769,8 @@ public class RegistrationSteps {
 
   private void callRegisterPath(final String path, final Map<String, Object> fields) {
     if (!"/api/v1/auth/register".equals(path)) {
-      throw new IllegalArgumentException("Only /api/v1/auth/register is supported in registration steps");
+      throw new IllegalArgumentException(
+          "Only /api/v1/auth/register is supported in registration steps");
     }
     final Response response = authApiClient.register(fields);
     storeLastResponse(response, fields);

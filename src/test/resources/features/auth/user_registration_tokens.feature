@@ -5,6 +5,7 @@ Feature: User registration token issuance
 
   Background:
     Given the registration service is available
+    And the email service is stubbed to accept all sends
 
   Rule: Access token must be a correctly structured HS512-signed JWT
 
@@ -16,7 +17,7 @@ Feature: User registration token issuance
       And the JWT claim "sub" is the user's UUID
       And the JWT claim "email" is "jane@example.com"
       And the JWT claim "role" is "CUSTOMER"
-      And the JWT claim "status" is "ACTIVE"
+      And the JWT claim "status" is "PENDING_VERIFICATION"
       And the JWT "exp" is approximately 15 minutes from now
       And the JWT contains a unique "jti" UUID
 

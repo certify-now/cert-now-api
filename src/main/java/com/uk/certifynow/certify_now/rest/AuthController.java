@@ -83,7 +83,7 @@ public class AuthController {
   @PostMapping("/verify-email")
   public ApiResponse<Map<String, String>> verifyEmail(
       @Valid @RequestBody final VerifyEmailRequest request, final HttpServletRequest httpRequest) {
-    emailVerificationService.verifyEmail(request.token());
+    emailVerificationService.verifyEmail(request.code());
     return ApiResponse.of(Map.of("message", "Email verified successfully"), requestId(httpRequest));
   }
 

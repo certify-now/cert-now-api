@@ -1,8 +1,15 @@
 spring:
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:.env.dev[.properties]
+  docker:
+    compose:
+      lifecycle-management: start-only
   datasource:
-    url: ${JDBC_DATABASE_URL}
-    username: ${JDBC_DATABASE_USERNAME}
-    password: ${JDBC_DATABASE_PASSWORD}
+    url: ${JDBC_DATABASE_URL:jdbc:postgresql://localhost:5433/certify-now}
+    username: ${JDBC_DATABASE_USERNAME:postgres}
+    password: ${JDBC_DATABASE_PASSWORD:P4ssword!}
     hikari:
       connection-timeout: 5000
       maximum-pool-size: 10
@@ -10,24 +17,50 @@ spring:
       idle-timeout: 300000
       max-lifetime: 1800000
   jpa:
+    open-in-view: false
     hibernate:
-      ddl-auto: validate
-  data:
-    redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
+      ddl-auto: update
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:dev.maherk@gmail.com}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
 
 springdoc:
   api-docs:
+    path: /v3/api-docs
     enabled: true
   swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+    doc-expansion: none
     enabled: true
 
 error:
   handling:
+    http-status-in-json-response: true
+    full-stacktrace-http-statuses: 5xx
+    log-levels:
+      5xx: ERROR
     exception-logging: NO_LOGGING
 
 app:
-  base-url: ${APP_BASE_URL}
-  frontend:
-    base-url: ${FRONTEND_BASE_URL}
+  email:
+    provider: ${APP_EMAIL_PROVIDER:smtp}
+    from: ${APP_EMAIL_FROM:dev.maherk@gmail.com}
+  jwt:
+    secret: ${JWT_SECRET:dev-secret-key-that-is-at-least-64-bytes-long-for-hs512-algorithm-padding}
+    access-token-expiry-ms: 900000
+    refresh-token-expiry-days: 30
+  security:
+    max-refresh-tokens-per-user: 5
+  email-verification:
+    token-expiry-hours: 24

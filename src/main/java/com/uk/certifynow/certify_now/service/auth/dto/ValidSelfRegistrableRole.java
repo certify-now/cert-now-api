@@ -24,4 +24,3 @@ public @interface ValidSelfRegistrableRole {
 
   Class<? extends Payload>[] payload() default {};
 }
-

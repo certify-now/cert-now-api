@@ -92,7 +92,7 @@ public class SessionService {
    * Revokes a refresh token (logout) and denylists the corresponding access token's jti.
    *
    * <p>Validates that the token belongs to the user before revoking. The access token jti is added
-   * to the Redis denylist so the short-lived JWT is immediately invalidated rather than waiting for
+   * to the denylist so the short-lived JWT is immediately invalidated rather than waiting for
    * natural expiry.
    *
    * @param userId the user requesting logout
@@ -136,7 +136,7 @@ public class SessionService {
    *
    * <p>Fix 2: This blocks suspended users from obtaining new tokens at refresh time, closing the
    * 15-min access-token window via the refresh flow. The access token itself is blocked via the
-   * Redis denylist check in JwtAuthenticationFilter (when Redis is available).
+   * denylist check in JwtAuthenticationFilter.
    *
    * @throws BusinessException if account is deactivated or suspended
    */

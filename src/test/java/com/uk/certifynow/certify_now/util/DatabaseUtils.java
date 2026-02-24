@@ -76,7 +76,9 @@ public class DatabaseUtils {
   public boolean isEmailVerified(final String email) {
     final Boolean value =
         jdbcTemplate.queryForObject(
-            "select email_verified from \"user\" where lower(email) = lower(?)", Boolean.class, email);
+            "select email_verified from \"user\" where lower(email) = lower(?)",
+            Boolean.class,
+            email);
     return Boolean.TRUE.equals(value);
   }
 

@@ -17,7 +17,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class WireMockUtils {
 
-  private static final Pattern TOKEN_PATTERN = Pattern.compile("\"raw_token\"\\s*:\\s*\"([^\"]+)\"");
+  private static final Pattern TOKEN_PATTERN =
+      Pattern.compile("\"raw_token\"\\s*:\\s*\"([^\"]+)\"");
 
   private final WireMockServer wireMockServer;
 
@@ -28,13 +29,15 @@ public class WireMockUtils {
   public void stubEmailSuccess() {
     wireMockServer.stubFor(
         post(urlEqualTo("/email/send"))
-            .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json")));
+            .willReturn(
+                aResponse().withStatus(200).withHeader("Content-Type", "application/json")));
   }
 
   public void stubEmailFailure() {
     wireMockServer.stubFor(
         post(urlEqualTo("/email/send"))
-            .willReturn(aResponse().withStatus(500).withHeader("Content-Type", "application/json")));
+            .willReturn(
+                aResponse().withStatus(500).withHeader("Content-Type", "application/json")));
   }
 
   public void resetStubs() {
@@ -42,7 +45,8 @@ public class WireMockUtils {
   }
 
   public boolean verificationEmailWasSentTo(final String email) {
-    return !wireMockServer.findAll(
+    return !wireMockServer
+        .findAll(
             postRequestedFor(urlEqualTo("/email/send"))
                 .withRequestBody(containing("\"type\":\"verification\""))
                 .withRequestBody(containing("\"to_email\":\"" + email + "\"")))

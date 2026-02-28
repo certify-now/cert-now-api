@@ -6,7 +6,8 @@ import com.uk.certifynow.certify_now.service.auth.dto.LoginRequest;
 import com.uk.certifynow.certify_now.service.auth.dto.RefreshRequest;
 import com.uk.certifynow.certify_now.service.auth.dto.RegisterRequest;
 import com.uk.certifynow.certify_now.service.mappers.AuthMapper;
-import java.util.Optional;
+import com.uk.certifynow.certify_now.shared.exception.AccountNotActiveException;
+import com.uk.certifynow.certify_now.shared.exception.EmailNotVerifiedException;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -46,47 +47,37 @@ public class AuthFacade {
   }
 
   /**
-   * Registers a new user and issues tokens.
+   * Registers a new user.
    *
-   * <p>Orchestrates: registration → token issuance → DTO mapping.
+   * <p>Orchestrates: registration only. Token issuance is intentionally deferred until login after
+   * email verification.
    *
    * <p>Fix 3: If the email/phone already exists, registration silently succeeds (no 409) — the
    * existing user receives a "someone tried to register" email notification via an async event
    * listener. An empty Optional from RegistrationService means a silent duplicate was handled.
    *
    * @param request registration details
-   * @param deviceInfo device information for audit
+   * @param deviceInfo device information for audit (currently unused)
    * @param ipAddress IP address for audit
-   * @return authentication response with tokens and user summary (or generic message-only response
-   *     on silent duplicate)
    */
   public AuthResponse register(
       final RegisterRequest request, final String deviceInfo, final String ipAddress) {
-    // Step 1: Register user — returns empty if silent duplicate (Fix 3)
-    final Optional<User> userOpt;
     try {
-      userOpt = registrationService.registerUser(request, ipAddress);
+      return registrationService
+          .registerUser(request, ipAddress)
+          .map(
+              user -> {
+                final SessionService.TokenPair tokens =
+                    sessionService.issueTokens(user, deviceInfo, ipAddress);
+                return authMapper.toAuthResponse(user, tokens);
+              })
+          .orElseGet(authMapper::toGenericRegistrationResponse);
     } catch (DataIntegrityViolationException | UnexpectedRollbackException ex) {
       // Handle rare uniqueness races as silent duplicates too.
       registrationService.publishDuplicateAttemptIfPresent(
           request.email(), request.phone(), ipAddress);
       return authMapper.toGenericRegistrationResponse();
     }
-
-    if (userOpt.isEmpty()) {
-      // Silent duplicate: return a generic response that is indistinguishable from
-      // success.
-      // The client should display "Check your email to verify your account."
-      return authMapper.toGenericRegistrationResponse();
-    }
-
-    final User user = userOpt.get();
-
-    // Step 2: Issue tokens
-    final SessionService.TokenPair tokens = sessionService.issueTokens(user, deviceInfo, ipAddress);
-
-    // Step 3: Map to DTO
-    return authMapper.toAuthResponse(user, tokens);
   }
 
   /**
@@ -104,6 +95,15 @@ public class AuthFacade {
     final User user =
         authenticationService.authenticate(
             request.email(), request.password(), request.deviceInfo());
+
+    if (!Boolean.TRUE.equals(user.getEmailVerified())) {
+      throw new EmailNotVerifiedException("Please verify your email address before logging in.");
+    }
+
+    if (user.getStatus() != UserStatus.ACTIVE) {
+      throw new AccountNotActiveException(
+          "Your account is not active. Current status: " + user.getStatus());
+    }
 
     // Step 2: Issue tokens
     final SessionService.TokenPair tokens =

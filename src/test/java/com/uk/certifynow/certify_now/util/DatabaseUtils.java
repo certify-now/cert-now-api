@@ -3,6 +3,7 @@ package com.uk.certifynow.certify_now.util;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -104,6 +105,30 @@ public class DatabaseUtils {
 
   public boolean rawRefreshTokenExists(final String rawToken) {
     return queryInt("select count(*) from refresh_token where token_hash = ?", rawToken) > 0;
+  }
+
+  public Optional<Map<String, Object>> findPropertyById(final UUID propertyId) {
+    return queryOne("select * from property where id = ?", propertyId);
+  }
+
+  public int countPropertiesByOwnerId(final String userId) {
+    return queryInt("select count(*) from property where owner_id::text = ?", userId);
+  }
+
+  public int countPropertiesByOwnerIdAndActive(final String userId, final boolean isActive) {
+    return queryInt(
+        "select count(*) from property where owner_id::text = ? and is_active = ?",
+        userId,
+        isActive);
+  }
+
+  public int getCustomerTotalProperties(final String userId) {
+    final Integer value =
+        jdbcTemplate.queryForObject(
+            "select total_properties from customer_profile where user_id::text = ?",
+            Integer.class,
+            userId);
+    return value == null ? 0 : value;
   }
 
   private Optional<Map<String, Object>> queryOne(final String sql, final Object... args) {

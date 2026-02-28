@@ -31,6 +31,17 @@ public class ScenarioContext {
   public static final String CONCURRENT_RESPONSES = "concurrent_responses";
   public static final String CONCURRENT_EMAIL = "concurrent_email";
   public static final String CONCURRENT_PHONE = "concurrent_phone";
+  public static final String ACTIVE_CUSTOMER_TOKEN = "active_customer_token";
+  public static final String ACTIVE_CUSTOMER_ID = "active_customer_id";
+  public static final String ACTIVE_CUSTOMER_EMAIL = "active_customer_email";
+  public static final String ACTIVE_CUSTOMER_PASSWORD = "active_customer_password";
+  public static final String ACTIVE_CUSTOMER_B_TOKEN = "active_customer_b_token";
+  public static final String ACTIVE_CUSTOMER_B_ID = "active_customer_b_id";
+  public static final String ENGINEER_TOKEN = "engineer_token";
+  public static final String ENGINEER_ID = "engineer_id";
+  public static final String ENGINEER_EMAIL = "engineer_email";
+  public static final String CURRENT_PROPERTY_ID = "current_property_id";
+  public static final String BASELINE_TOTAL_PROPERTIES = "baseline_total_properties";
 
   private final Map<String, Object> store = new HashMap<>();
 

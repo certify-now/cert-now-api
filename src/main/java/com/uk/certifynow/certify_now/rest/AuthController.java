@@ -17,7 +17,6 @@ import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -39,12 +38,12 @@ public class AuthController {
   }
 
   @PostMapping("/register")
-  public ResponseEntity<ApiResponse<AuthResponse>> register(
+  @ResponseStatus(HttpStatus.CREATED)
+  public ApiResponse<AuthResponse> register(
       @Valid @RequestBody final RegisterRequest request, final HttpServletRequest httpRequest) {
     final AuthResponse response =
         authService.register(request, null, IpAddressUtils.extractClientIp(httpRequest));
-    return ResponseEntity.status(HttpStatus.CREATED)
-        .body(ApiResponse.of(response, requestId(httpRequest)));
+    return ApiResponse.of(response, requestId(httpRequest));
   }
 
   @PostMapping("/login")
@@ -84,7 +83,8 @@ public class AuthController {
   public ApiResponse<Map<String, String>> verifyEmail(
       @Valid @RequestBody final VerifyEmailRequest request, final HttpServletRequest httpRequest) {
     emailVerificationService.verifyEmail(request.code());
-    return ApiResponse.of(Map.of("message", "Email verified successfully"), requestId(httpRequest));
+    return ApiResponse.of(
+        Map.of("message", "Email verified. You can now log in."), requestId(httpRequest));
   }
 
   private String requestId(final HttpServletRequest request) {

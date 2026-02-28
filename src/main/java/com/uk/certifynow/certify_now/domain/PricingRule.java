@@ -5,6 +5,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.OneToMany;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -52,7 +54,11 @@ public class PricingRule {
   @Column(nullable = false)
   private String certificateType;
 
-  @OneToMany(mappedBy = "pricingRule")
+  @OneToMany(
+      mappedBy = "pricingRule",
+      cascade = CascadeType.ALL,
+      orphanRemoval = true,
+      fetch = FetchType.EAGER)
   private Set<PricingModifier> pricingRulePricingModifiers = new HashSet<>();
 
   @CreatedDate

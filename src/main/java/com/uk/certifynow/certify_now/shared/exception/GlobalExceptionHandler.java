@@ -13,6 +13,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
@@ -40,8 +41,8 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(MethodArgumentNotValidException.class)
   public ResponseEntity<Map<String, Object>> handleValidation(
       final MethodArgumentNotValidException ex, final HttpServletRequest request) {
-    final List<Map<String, String>> details =
-        ex.getBindingResult().getFieldErrors().stream().map(this::toFieldError).toList();
+    final List<Map<String, String>> details = ex.getBindingResult().getFieldErrors().stream().map(this::toFieldError)
+        .toList();
     return build(
         request,
         HttpStatus.UNPROCESSABLE_ENTITY,
@@ -53,8 +54,7 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(DataIntegrityViolationException.class)
   public ResponseEntity<Map<String, Object>> handleDataConflict(
       final DataIntegrityViolationException ex, final HttpServletRequest request) {
-    final String rawMessage =
-        ex.getMostSpecificCause() == null ? "" : ex.getMostSpecificCause().getMessage();
+    final String rawMessage = ex.getMostSpecificCause() == null ? "" : ex.getMostSpecificCause().getMessage();
     final String message = rawMessage == null ? "" : rawMessage.toLowerCase();
     if (message.contains("phone")) {
       return build(
@@ -62,6 +62,17 @@ public class GlobalExceptionHandler {
     }
     return build(
         request, HttpStatus.CONFLICT, "EMAIL_EXISTS", "Email already registered", List.of());
+  }
+
+  @ExceptionHandler(MissingServletRequestParameterException.class)
+  public ResponseEntity<Map<String, Object>> handleMissingParam(
+      final MissingServletRequestParameterException ex, final HttpServletRequest request) {
+    return build(
+        request,
+        HttpStatus.BAD_REQUEST,
+        "MISSING_PARAMETER",
+        "Required parameter '" + ex.getParameterName() + "' is missing",
+        List.of());
   }
 
   @ExceptionHandler(HttpMessageNotReadableException.class)
@@ -98,16 +109,15 @@ public class GlobalExceptionHandler {
       final List<?> details) {
     final String requestId = (String) request.getAttribute(RequestIdFilter.REQUEST_ID);
     final String safeRequestId = requestId == null ? UUID.randomUUID().toString() : requestId;
-    final Map<String, Object> body =
-        Map.of(
-            "error",
-            errorCode,
-            "message",
-            message,
-            "details",
-            details == null ? List.of() : details,
-            "meta",
-            Map.of("request_id", safeRequestId, "timestamp", Instant.now()));
+    final Map<String, Object> body = Map.of(
+        "error",
+        errorCode,
+        "message",
+        message,
+        "details",
+        details == null ? List.of() : details,
+        "meta",
+        Map.of("request_id", safeRequestId, "timestamp", Instant.now()));
     return ResponseEntity.status(status).body(body);
   }
 }

@@ -53,6 +53,8 @@ error:
     exception-logging: NO_LOGGING
 
 app:
+  pricing:
+    commission-rate: 0.15
   email:
     provider: ${APP_EMAIL_PROVIDER:smtp}
     from: ${APP_EMAIL_FROM:dev.maherk@gmail.com}

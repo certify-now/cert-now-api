@@ -1,0 +1,491 @@
+package com.uk.certifynow.certify_now.pricing.service;
+
+import com.uk.certifynow.certify_now.domain.PricingModifier;
+import com.uk.certifynow.certify_now.domain.PricingRule;
+import com.uk.certifynow.certify_now.domain.Property;
+import com.uk.certifynow.certify_now.domain.UrgencyMultiplier;
+import com.uk.certifynow.certify_now.pricing.dto.CreatePricingModifierRequest;
+import com.uk.certifynow.certify_now.pricing.dto.CreatePricingRuleRequest;
+import com.uk.certifynow.certify_now.pricing.dto.PriceBreakdown;
+import com.uk.certifynow.certify_now.pricing.dto.PricingModifierResponse;
+import com.uk.certifynow.certify_now.pricing.dto.PricingRuleResponse;
+import com.uk.certifynow.certify_now.pricing.dto.UpdatePricingRuleRequest;
+import com.uk.certifynow.certify_now.pricing.dto.UpdateUrgencyMultiplierRequest;
+import com.uk.certifynow.certify_now.pricing.dto.UrgencyMultiplierResponse;
+import com.uk.certifynow.certify_now.repos.PricingModifierRepository;
+import com.uk.certifynow.certify_now.repos.PricingRuleRepository;
+import com.uk.certifynow.certify_now.repos.PropertyRepository;
+import com.uk.certifynow.certify_now.repos.UrgencyMultiplierRepository;
+import com.uk.certifynow.certify_now.shared.exception.BusinessException;
+import com.uk.certifynow.certify_now.shared.exception.EntityNotFoundException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class PricingService {
+
+  private static final Logger log = LoggerFactory.getLogger(PricingService.class);
+
+  private final PricingRuleRepository pricingRuleRepository;
+  private final PricingModifierRepository pricingModifierRepository;
+  private final UrgencyMultiplierRepository urgencyMultiplierRepository;
+  private final PropertyRepository propertyRepository;
+  private final BigDecimal commissionRate;
+
+  public PricingService(
+      final PricingRuleRepository pricingRuleRepository,
+      final PricingModifierRepository pricingModifierRepository,
+      final UrgencyMultiplierRepository urgencyMultiplierRepository,
+      final PropertyRepository propertyRepository,
+      @Value("${app.pricing.commission-rate:0.15}") final BigDecimal commissionRate) {
+    this.pricingRuleRepository = pricingRuleRepository;
+    this.pricingModifierRepository = pricingModifierRepository;
+    this.urgencyMultiplierRepository = urgencyMultiplierRepository;
+    this.propertyRepository = propertyRepository;
+    this.commissionRate = commissionRate;
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // CORE CALCULATION
+  // ═══════════════════════════════════════════════════════
+
+  @Cacheable(value = "pricing-calc", key = "#certificateType + ':' + #property.propertyType + ':'"
+      + " + (#property.bedrooms != null ? #property.bedrooms : 0) + ':'"
+      + " + (#property.gasApplianceCount != null ? #property.gasApplianceCount : 0) + ':'"
+      + " + (#property.floorAreaSqm != null ? #property.floorAreaSqm : 0) + ':'"
+      + " + #urgency")
+  public PriceBreakdown calculatePrice(
+      final String certificateType, final Property property, final String urgency) {
+
+    // Step 1: Resolve active pricing rule
+    final PricingRule rule = resolveActiveRule(certificateType, property.getPostcode());
+
+    // Step 2: Evaluate property modifiers
+    final List<PriceBreakdown.ModifierApplied> modifiersApplied = new ArrayList<>();
+    final List<PricingModifier> modifiers = pricingModifierRepository.findByPricingRuleId(rule.getId());
+    int propertyModifierPence = 0;
+
+    for (final PricingModifier mod : modifiers) {
+      final boolean matches = switch (mod.getModifierType()) {
+        case "BEDROOMS" -> evaluateBracket(property.getBedrooms(), mod);
+        case "APPLIANCES" -> "GAS_SAFETY".equals(certificateType)
+            && evaluateBracket(property.getGasApplianceCount(), mod);
+        case "FLOOR_AREA" -> "EPC".equals(certificateType)
+            && evaluateBracket(property.getFloorAreaSqm(), mod);
+        default -> mod.getModifierType()
+            .equals("PROPERTY_TYPE_" + property.getPropertyType());
+      };
+
+      if (matches) {
+        propertyModifierPence += mod.getModifierPence();
+        modifiersApplied.add(
+            new PriceBreakdown.ModifierApplied(
+                mod.getModifierType(),
+                buildModifierDescription(mod, property),
+                mod.getModifierPence()));
+      }
+    }
+
+    // Step 3: Apply urgency multiplier
+    final int basePricePence = rule.getBasePricePence();
+    final int subtotal = basePricePence + propertyModifierPence;
+
+    final Optional<UrgencyMultiplier> multiplierOpt = urgencyMultiplierRepository.findActiveByUrgency(urgency);
+
+    if (multiplierOpt.isEmpty()) {
+      log.warn("No active urgency multiplier found for urgency={}, defaulting to 1.000", urgency);
+    }
+
+    final BigDecimal multiplierValue = multiplierOpt.map(UrgencyMultiplier::getMultiplier).orElse(BigDecimal.ONE);
+
+    final int totalBeforeDiscount = new BigDecimal(subtotal)
+        .multiply(multiplierValue)
+        .setScale(0, RoundingMode.HALF_UP)
+        .intValue();
+    final int urgencyModifierPence = totalBeforeDiscount - subtotal;
+
+    // Step 4: Stub discount
+    final int discountPence = 0;
+    final int totalPricePence = totalBeforeDiscount - discountPence;
+
+    // Step 5: Commission split
+    final int commissionPence = new BigDecimal(totalPricePence)
+        .multiply(commissionRate)
+        .setScale(0, RoundingMode.HALF_UP)
+        .intValue();
+    final int engineerPayoutPence = totalPricePence - commissionPence;
+
+    // Step 6: Return breakdown
+    return new PriceBreakdown(
+        basePricePence,
+        propertyModifierPence,
+        urgencyModifierPence,
+        discountPence,
+        totalPricePence,
+        commissionRate,
+        commissionPence,
+        engineerPayoutPence,
+        new PriceBreakdown.Breakdown(modifiersApplied, urgency, multiplierValue));
+  }
+
+  private PricingRule resolveActiveRule(final String certificateType, final String postcode) {
+    // For now, extract a simple region from postcode (first word). Regional rules
+    // are optional.
+    final String region = postcode != null ? postcode.split(" ")[0] : null;
+
+    if (region != null) {
+      final Optional<PricingRule> regional = pricingRuleRepository.findActiveByTypeAndRegion(certificateType, region);
+      if (regional.isPresent()) {
+        return regional.get();
+      }
+    }
+
+    return pricingRuleRepository
+        .findNationalDefault(certificateType)
+        .orElseThrow(
+            () -> new BusinessException(
+                HttpStatus.BAD_REQUEST,
+                "NO_PRICING_RULE",
+                "No active pricing rule found for certificate type: " + certificateType));
+  }
+
+  private boolean evaluateBracket(final Number value, final PricingModifier mod) {
+    if (value == null) {
+      return false;
+    }
+    final BigDecimal val = new BigDecimal(value.toString());
+    final boolean aboveMin = mod.getConditionMin() == null || val.compareTo(mod.getConditionMin()) >= 0;
+    final boolean belowMax = mod.getConditionMax() == null || val.compareTo(mod.getConditionMax()) < 0;
+    return aboveMin && belowMax;
+  }
+
+  private String buildModifierDescription(
+      final PricingModifier mod, final Property property) {
+    return switch (mod.getModifierType()) {
+      case "BEDROOMS" -> property.getBedrooms() + " bedrooms";
+      case "APPLIANCES" -> property.getGasApplianceCount() + " gas appliances";
+      case "FLOOR_AREA" ->
+        (property.getFloorAreaSqm() != null ? property.getFloorAreaSqm() : "?") + " sqm";
+      default -> mod.getModifierType().replace("PROPERTY_TYPE_", "").replace("_", " ").toLowerCase()
+          + " property";
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // ADMIN — READ
+  // ═══════════════════════════════════════════════════════
+
+  @Cacheable(value = "pricing-rules")
+  public List<PricingRuleResponse> getActivePricingRules(final boolean activeOnly) {
+    final List<PricingRule> rules = activeOnly ? pricingRuleRepository.findByIsActiveTrue()
+        : pricingRuleRepository.findAll();
+    return rules.stream().map(this::toRuleResponse).toList();
+  }
+
+  public PricingRuleResponse getPricingRule(final UUID id) {
+    final PricingRule rule = pricingRuleRepository
+        .findById(id)
+        .orElseThrow(() -> new EntityNotFoundException("Pricing rule not found: " + id));
+    return toRuleResponse(rule);
+  }
+
+  @Cacheable(value = "urgency-multipliers")
+  public List<UrgencyMultiplierResponse> getActiveUrgencyMultipliers() {
+    return urgencyMultiplierRepository.findByIsActiveTrue().stream()
+        .map(this::toMultiplierResponse)
+        .toList();
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // ADMIN — WRITE (all evict caches)
+  // ═══════════════════════════════════════════════════════
+
+  @Transactional
+  @CacheEvict(value = { "pricing-rules", "pricing-calc", "urgency-multipliers" }, allEntries = true)
+  public PricingRuleResponse createPricingRule(final CreatePricingRuleRequest request) {
+    final LocalDate newFrom = request.effectiveFrom();
+    final LocalDate newTo = request.effectiveTo();
+
+    // Find any existing active rules for same cert-type + region
+    final List<PricingRule> existing = pricingRuleRepository.findAll().stream()
+        .filter(r -> r.getCertificateType().equals(request.certificateType()))
+        .filter(r -> request.region() == null
+            ? r.getRegion() == null
+            : request.region().equals(r.getRegion()))
+        .toList();
+
+    for (final PricingRule existingRule : existing) {
+      final LocalDate exFrom = existingRule.getEffectiveFrom();
+      final LocalDate exTo = existingRule.getEffectiveTo();
+
+      // Rule succession: if the existing rule is open-ended (no effective_to) and
+      // the new rule starts strictly after the existing rule, terminate the existing
+      // rule at the day before the new one starts.
+      if (exTo == null && newFrom.isAfter(exFrom)) {
+        existingRule.setEffectiveTo(newFrom.minusDays(1));
+        pricingRuleRepository.save(existingRule);
+        continue; // succession applied — no longer an overlap
+      }
+
+      // For any remaining overlap, reject
+      if (datesOverlap(newFrom, newTo, exFrom, exTo)) {
+        throw new BusinessException(
+            HttpStatus.CONFLICT,
+            "PRICING_RULE_OVERLAP",
+            "A pricing rule already exists for this certificate type and region with overlapping dates");
+      }
+    }
+
+    final PricingRule rule = new PricingRule();
+    rule.setCertificateType(request.certificateType());
+    rule.setRegion(request.region());
+    rule.setBasePricePence(request.basePricePence());
+    rule.setEffectiveFrom(newFrom);
+    rule.setEffectiveTo(newTo);
+    rule.setIsActive(true);
+    rule.setCreatedAt(OffsetDateTime.now());
+
+    return toRuleResponse(pricingRuleRepository.save(rule));
+  }
+
+  @Transactional
+  @CacheEvict(value = { "pricing-rules", "pricing-calc", "urgency-multipliers" }, allEntries = true)
+  public PricingRuleResponse updatePricingRule(
+      final UUID id, final UpdatePricingRuleRequest request) {
+    final PricingRule rule = pricingRuleRepository
+        .findById(id)
+        .orElseThrow(() -> new EntityNotFoundException("Pricing rule not found: " + id));
+
+    if (request.basePricePence() != null) {
+      rule.setBasePricePence(request.basePricePence());
+    }
+    if (request.region() != null) {
+      rule.setRegion(request.region());
+    }
+    if (request.effectiveTo() != null) {
+      rule.setEffectiveTo(request.effectiveTo());
+    }
+
+    return toRuleResponse(pricingRuleRepository.save(rule));
+  }
+
+  @Transactional
+  @CacheEvict(value = { "pricing-rules", "pricing-calc", "urgency-multipliers" }, allEntries = true)
+  public PricingRuleResponse addModifier(
+      final UUID ruleId, final CreatePricingModifierRequest request) {
+    validateModifierType(request.modifierType());
+    final PricingRule rule = pricingRuleRepository
+        .findById(ruleId)
+        .orElseThrow(() -> new EntityNotFoundException("Pricing rule not found: " + ruleId));
+
+    // Check bracket overlap for numeric modifier types
+    final boolean isBracketType = "BEDROOMS".equals(request.modifierType())
+        || "APPLIANCES".equals(request.modifierType())
+        || "FLOOR_AREA".equals(request.modifierType());
+    if (isBracketType) {
+      final List<PricingModifier> existing = pricingModifierRepository.findByPricingRuleId(ruleId).stream()
+          .filter(m -> m.getModifierType().equals(request.modifierType()))
+          .toList();
+      for (final PricingModifier existing1 : existing) {
+        if (bracketsOverlap(
+            request.conditionMin(), request.conditionMax(),
+            existing1.getConditionMin(), existing1.getConditionMax())) {
+          throw new BusinessException(
+              HttpStatus.BAD_REQUEST,
+              "INVALID_MODIFIER_OVERLAP",
+              "A modifier of type "
+                  + request.modifierType()
+                  + " already exists with overlapping bracket conditions");
+        }
+      }
+    }
+
+    final PricingModifier modifier = new PricingModifier();
+    modifier.setModifierType(request.modifierType());
+    modifier.setConditionMin(request.conditionMin());
+    modifier.setConditionMax(request.conditionMax());
+    modifier.setModifierPence(request.modifierPence());
+    modifier.setCreatedAt(OffsetDateTime.now());
+    modifier.setPricingRule(rule);
+
+    pricingModifierRepository.save(modifier);
+    pricingModifierRepository.flush();
+
+    // Re-fetch modifiers explicitly from the repository to avoid Hibernate
+    // first-level cache returning a stale version of the rule's collection.
+    final PricingRule reloaded = pricingRuleRepository.findById(ruleId).orElseThrow();
+    final List<PricingModifierResponse> modifierResponses = pricingModifierRepository.findByPricingRuleId(ruleId)
+        .stream()
+        .map(m -> new PricingModifierResponse(
+            m.getId(), m.getModifierType(),
+            m.getConditionMin(), m.getConditionMax(),
+            m.getModifierPence()))
+        .toList();
+    return new PricingRuleResponse(
+        reloaded.getId(), reloaded.getCertificateType(), reloaded.getRegion(),
+        reloaded.getBasePricePence(), Boolean.TRUE.equals(reloaded.getIsActive()),
+        reloaded.getEffectiveFrom(), reloaded.getEffectiveTo(),
+        modifierResponses);
+  }
+
+  @Transactional
+  @CacheEvict(value = { "pricing-rules", "pricing-calc", "urgency-multipliers" }, allEntries = true)
+  public void removeModifier(final UUID ruleId, final UUID modifierId) {
+    final PricingModifier modifier = pricingModifierRepository
+        .findById(modifierId)
+        .orElseThrow(
+            () -> new EntityNotFoundException("Pricing modifier not found: " + modifierId));
+
+    if (!modifier.getPricingRule().getId().equals(ruleId)) {
+      throw new BusinessException(
+          HttpStatus.BAD_REQUEST, "MODIFIER_RULE_MISMATCH", "Modifier does not belong to rule");
+    }
+
+    pricingModifierRepository.delete(modifier);
+  }
+
+  @Transactional
+  @CacheEvict(value = { "pricing-rules", "pricing-calc", "urgency-multipliers" }, allEntries = true)
+  public UrgencyMultiplierResponse updateUrgencyMultiplier(
+      final UUID id, final UpdateUrgencyMultiplierRequest request) {
+    final UrgencyMultiplier multiplier = urgencyMultiplierRepository
+        .findById(id)
+        .orElseThrow(
+            () -> new EntityNotFoundException("Urgency multiplier not found: " + id));
+
+    multiplier.setMultiplier(request.multiplier());
+
+    return toMultiplierResponse(urgencyMultiplierRepository.save(multiplier));
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // HELPERS
+  // ═══════════════════════════════════════════════════════
+
+  private void validateNoOverlap(
+      final String certificateType,
+      final String region,
+      final LocalDate effectiveFrom,
+      final LocalDate effectiveTo,
+      final UUID excludeId) {
+    final LocalDate today = LocalDate.now();
+    final List<PricingRule> existing = region == null
+        ? pricingRuleRepository.findAll().stream()
+            .filter(r -> r.getCertificateType().equals(certificateType) && r.getRegion() == null)
+            // Exclude rules that have already expired (effective_to is in the past)
+            .filter(r -> r.getEffectiveTo() == null || !r.getEffectiveTo().isBefore(today))
+            .toList()
+        : pricingRuleRepository.findAll().stream()
+            .filter(
+                r -> r.getCertificateType().equals(certificateType)
+                    && region.equals(r.getRegion()))
+            // Exclude rules that have already expired (effective_to is in the past)
+            .filter(r -> r.getEffectiveTo() == null || !r.getEffectiveTo().isBefore(today))
+            .toList();
+
+    for (final PricingRule rule : existing) {
+      if (excludeId != null && rule.getId().equals(excludeId)) {
+        continue;
+      }
+      final boolean overlaps = datesOverlap(effectiveFrom, effectiveTo,
+          rule.getEffectiveFrom(), rule.getEffectiveTo());
+      if (overlaps) {
+        throw new BusinessException(
+            HttpStatus.CONFLICT,
+            "PRICING_RULE_OVERLAP",
+            "A pricing rule already exists for this certificate type and region with overlapping dates");
+      }
+    }
+  }
+
+  private boolean datesOverlap(
+      final LocalDate start1,
+      final LocalDate end1,
+      final LocalDate start2,
+      final LocalDate end2) {
+    final LocalDate effectiveEnd1 = end1 != null ? end1 : LocalDate.of(9999, 12, 31);
+    final LocalDate effectiveEnd2 = end2 != null ? end2 : LocalDate.of(9999, 12, 31);
+    return !start1.isAfter(effectiveEnd2) && !start2.isAfter(effectiveEnd1);
+  }
+
+  private void validateModifierType(final String modifierType) {
+    if (modifierType == null) {
+      return;
+    }
+    final boolean valid = "BEDROOMS".equals(modifierType)
+        || "APPLIANCES".equals(modifierType)
+        || "FLOOR_AREA".equals(modifierType)
+        || modifierType.startsWith("PROPERTY_TYPE_");
+    if (!valid) {
+      // 422 Unprocessable Entity: the value is syntactically valid JSON but
+      // semantically wrong
+      throw new BusinessException(
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          "INVALID_MODIFIER_TYPE",
+          "modifier_type must be BEDROOMS, APPLIANCES, FLOOR_AREA, or start with PROPERTY_TYPE_");
+    }
+  }
+
+  private boolean bracketsOverlap(
+      final BigDecimal min1, final BigDecimal max1,
+      final BigDecimal min2, final BigDecimal max2) {
+    // Special case: two open-ended brackets [a,∞) and [b,∞).
+    // Treat as non-overlapping when the incoming bracket starts at or above the
+    // existing one,
+    // which allows admins to "refine" the top bracket (e.g. add 7+ alongside
+    // existing 5+).
+    if (max1 == null && max2 == null) {
+      final BigDecimal low1 = min1 != null ? min1 : BigDecimal.ZERO;
+      final BigDecimal low2 = min2 != null ? min2 : BigDecimal.ZERO;
+      // Only overlap if the new lower bound is strictly below the existing one
+      return low1.compareTo(low2) < 0;
+    }
+    final BigDecimal high1 = max1 != null ? max1 : new BigDecimal("999999");
+    final BigDecimal high2 = max2 != null ? max2 : new BigDecimal("999999");
+    final BigDecimal low1 = min1 != null ? min1 : BigDecimal.ZERO;
+    final BigDecimal low2 = min2 != null ? min2 : BigDecimal.ZERO;
+    return low1.compareTo(high2) < 0 && low2.compareTo(high1) < 0;
+  }
+
+  private PricingRuleResponse toRuleResponse(final PricingRule rule) {
+    final List<PricingModifierResponse> modifierResponses = rule.getPricingRulePricingModifiers().stream()
+        .map(
+            m -> new PricingModifierResponse(
+                m.getId(),
+                m.getModifierType(),
+                m.getConditionMin(),
+                m.getConditionMax(),
+                m.getModifierPence()))
+        .toList();
+
+    return new PricingRuleResponse(
+        rule.getId(),
+        rule.getCertificateType(),
+        rule.getRegion(),
+        rule.getBasePricePence(),
+        Boolean.TRUE.equals(rule.getIsActive()),
+        rule.getEffectiveFrom(),
+        rule.getEffectiveTo(),
+        modifierResponses);
+  }
+
+  private UrgencyMultiplierResponse toMultiplierResponse(final UrgencyMultiplier m) {
+    return new UrgencyMultiplierResponse(
+        m.getId(), m.getUrgency(), m.getMultiplier(), Boolean.TRUE.equals(m.getIsActive()),
+        m.getEffectiveFrom());
+  }
+}

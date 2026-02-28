@@ -43,6 +43,24 @@ public class ScenarioContext {
   public static final String CURRENT_PROPERTY_ID = "current_property_id";
   public static final String BASELINE_TOTAL_PROPERTIES = "baseline_total_properties";
 
+  // ── Pricing test context ──────────────────────────────────────────────────
+  public static final String SARAH_TOKEN = "sarah_token";
+  public static final String SARAH_USER_ID = "sarah_user_id";
+  public static final String SARAH_PROPERTY_ID = "sarah_property_id";
+  public static final String SARAH_SECOND_PROPERTY_ID = "sarah_second_property_id";
+  public static final String ADMIN_TOKEN = "admin_token";
+  public static final String ADMIN_USER_ID = "admin_user_id";
+  public static final String BOB_TOKEN = "bob_token";
+  public static final String BOB_USER_ID = "bob_user_id";
+  public static final String BOB_PROPERTY_ID = "bob_property_id";
+  public static final String MIKE_TOKEN = "mike_token";
+  public static final String ROLE_USER_TOKEN = "role_user_token";
+  public static final String CURRENT_RULE_ID = "current_rule_id";
+  public static final String CURRENT_MODIFIER_ID = "current_modifier_id";
+  public static final String CURRENT_URGENCY_MULTIPLIER_ID = "current_urgency_multiplier_id";
+  public static final String FIRST_PRICE_BREAKDOWN = "first_price_breakdown";
+  public static final String SECOND_PRICE_BREAKDOWN = "second_price_breakdown";
+
   private final Map<String, Object> store = new HashMap<>();
 
   public void put(final String key, final Object value) {

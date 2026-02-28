@@ -87,6 +87,12 @@ public class DatabaseUtils {
     jdbcTemplate.update("update \"user\" set status = ? where id::text = ?", status, userId);
   }
 
+  public void promoteUserToAdmin(final String userId) {
+    jdbcTemplate.update(
+        "update \"user\" set role = 'ADMIN', status = 'ACTIVE', email_verified = TRUE where id::text = ?",
+        userId);
+  }
+
   public boolean customerProfileExistsForUserId(final String userId) {
     return queryInt("select count(*) from customer_profile where user_id::text = ?", userId) > 0;
   }
@@ -120,6 +126,79 @@ public class DatabaseUtils {
         "select count(*) from property where owner_id::text = ? and is_active = ?",
         userId,
         isActive);
+  }
+
+  // ── Pricing utilities ────────────────────────────────────────────────────
+
+  public Optional<Map<String, Object>> findPricingRuleByType(final String certificateType) {
+    return queryOne(
+        "select * from pricing_rule where certificate_type = ? and is_active = true limit 1",
+        certificateType);
+  }
+
+  public List<Map<String, Object>> findAllPricingRules() {
+    return jdbcTemplate.queryForList("select * from pricing_rule order by certificate_type");
+  }
+
+  public List<Map<String, Object>> findModifiersForRule(final String ruleId) {
+    return jdbcTemplate.queryForList(
+        "select * from pricing_modifier where pricing_rule_id = ?::uuid", ruleId);
+  }
+
+  public Optional<Map<String, Object>> findUrgencyMultiplierByUrgency(final String urgency) {
+    return queryOne(
+        "select * from urgency_multiplier where urgency = ? order by effective_from desc limit 1",
+        urgency);
+  }
+
+  public List<Map<String, Object>> findAllUrgencyMultipliers() {
+    return jdbcTemplate.queryForList(
+        "select * from urgency_multiplier order by urgency");
+  }
+
+  public void deactivatePricingRulesByType(final String certificateType) {
+    jdbcTemplate.update(
+        "update pricing_rule set is_active = false where certificate_type = ?", certificateType);
+  }
+
+  public void deactivatePricingRule(final String ruleId) {
+    jdbcTemplate.update(
+        "update pricing_rule set is_active = false where id = ?::uuid", ruleId);
+  }
+
+  public void deactivateUrgencyMultiplier(final String urgency) {
+    jdbcTemplate.update(
+        "update urgency_multiplier set is_active = false where urgency = ?", urgency);
+  }
+
+  public void updatePricingRuleEffectiveFrom(final String ruleId, final String date) {
+    jdbcTemplate.update(
+        "update pricing_rule set effective_from = ?::date where id = ?::uuid", date, ruleId);
+  }
+
+  public void updatePricingRuleEffectiveTo(final String ruleId, final String date) {
+    jdbcTemplate.update(
+        "update pricing_rule set effective_to = ?::date where id = ?::uuid", date, ruleId);
+  }
+
+  public void insertAdminUser(
+      final String id,
+      final String email,
+      final String passwordHash,
+      final String fullName) {
+    jdbcTemplate.update(
+        """
+        INSERT INTO "user" (
+          id, email, password_hash, full_name, phone, role, status,
+          email_verified, phone_verified, auth_provider,
+          created_at, updated_at, date_created, last_updated
+        ) VALUES (
+          ?::uuid, ?, ?, ?, NULL, 'ADMIN', 'ACTIVE',
+          TRUE, FALSE, 'LOCAL',
+          NOW(), NOW(), NOW(), NOW()
+        )
+        """,
+        id, email, passwordHash, fullName);
   }
 
   public int getCustomerTotalProperties(final String userId) {

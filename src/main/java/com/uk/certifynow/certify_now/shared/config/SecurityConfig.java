@@ -87,6 +87,12 @@ public class SecurityConfig {
                     .permitAll()
 
                     // ═══════════════════════════════════════════════════════
+                    // ADMIN-ONLY ENDPOINTS
+                    // ═══════════════════════════════════════════════════════
+                    .requestMatchers("/api/v1/admin/**")
+                    .hasRole("ADMIN")
+
+                    // ═══════════════════════════════════════════════════════
                     // ALL OTHER ENDPOINTS REQUIRE AUTHENTICATION
                     // ═══════════════════════════════════════════════════════
                     .anyRequest()

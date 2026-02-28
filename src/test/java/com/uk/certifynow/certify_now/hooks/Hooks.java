@@ -11,6 +11,7 @@ import java.time.Duration;
 import org.awaitility.Awaitility;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.CacheManager;
 import org.springframework.core.annotation.Order;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -21,14 +22,17 @@ public class Hooks {
   private final JdbcTemplate jdbcTemplate;
   private final TokenDenylistTestUtils tokenDenylistTestUtils;
   private final WireMockUtils wireMockUtils;
+  private final CacheManager cacheManager;
 
   public Hooks(
       final JdbcTemplate jdbcTemplate,
       final TokenDenylistTestUtils tokenDenylistTestUtils,
-      final WireMockUtils wireMockUtils) {
+      final WireMockUtils wireMockUtils,
+      final CacheManager cacheManager) {
     this.jdbcTemplate = jdbcTemplate;
     this.tokenDenylistTestUtils = tokenDenylistTestUtils;
     this.wireMockUtils = wireMockUtils;
+    this.cacheManager = cacheManager;
   }
 
   @Before
@@ -42,6 +46,10 @@ public class Hooks {
   @Before
   @Order(1)
   public void cleanDatabase() {
+    truncateIfExists("pricing_modifier");
+    truncateIfExists("pricing_rule");
+    truncateIfExists("urgency_multiplier");
+    truncateIfExists("property");
     truncateIfExists("user_consent");
     truncateIfExists("user_consents");
     truncateIfExists("email_verification_tokens");
@@ -53,6 +61,12 @@ public class Hooks {
     truncateIfExists("engineer_profiles");
     truncateIfExists("\"user\"");
     truncateIfExists("users");
+    cacheManager.getCacheNames().forEach(name -> {
+      final var cache = cacheManager.getCache(name);
+      if (cache != null) {
+        cache.clear();
+      }
+    });
   }
 
   @Before("@async")

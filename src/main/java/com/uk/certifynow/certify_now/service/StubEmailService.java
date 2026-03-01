@@ -1,4 +1,4 @@
-package com.uk.certifynow.certify_now.shared.service;
+package com.uk.certifynow.certify_now.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -61,12 +61,15 @@ public class Hooks {
     truncateIfExists("engineer_profiles");
     truncateIfExists("\"user\"");
     truncateIfExists("users");
-    cacheManager.getCacheNames().forEach(name -> {
-      final var cache = cacheManager.getCache(name);
-      if (cache != null) {
-        cache.clear();
-      }
-    });
+    cacheManager
+        .getCacheNames()
+        .forEach(
+            name -> {
+              final var cache = cacheManager.getCache(name);
+              if (cache != null) {
+                cache.clear();
+              }
+            });
   }
 
   @Before("@async")

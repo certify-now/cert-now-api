@@ -69,13 +69,13 @@ public class PricingSteps {
     final String token = registerVerifyAndLogin(email, "CUSTOMER");
     if (isSarahEmail(email)) {
       scenarioContext.put(ScenarioContext.SARAH_TOKEN, token);
-      final String userId = databaseUtils.findUserByEmail(email)
-          .map(u -> String.valueOf(u.get("id"))).orElseThrow();
+      final String userId =
+          databaseUtils.findUserByEmail(email).map(u -> String.valueOf(u.get("id"))).orElseThrow();
       scenarioContext.put(ScenarioContext.SARAH_USER_ID, userId);
     } else if (isBobEmail(email)) {
       scenarioContext.put(ScenarioContext.BOB_TOKEN, token);
-      final String userId = databaseUtils.findUserByEmail(email)
-          .map(u -> String.valueOf(u.get("id"))).orElseThrow();
+      final String userId =
+          databaseUtils.findUserByEmail(email).map(u -> String.valueOf(u.get("id"))).orElseThrow();
       scenarioContext.put(ScenarioContext.BOB_USER_ID, userId);
     } else {
       scenarioContext.put(ScenarioContext.ROLE_USER_TOKEN, token);
@@ -127,8 +127,8 @@ public class PricingSteps {
     final String token = scenarioContext.get(ScenarioContext.SARAH_TOKEN, String.class);
     final Response response = userPropertyApiClient.createProperty(token, body);
     assertThat(response.statusCode()).isIn(200, 201);
-    scenarioContext.put(ScenarioContext.SARAH_PROPERTY_ID,
-        UUID.fromString(response.path("data.id")));
+    scenarioContext.put(
+        ScenarioContext.SARAH_PROPERTY_ID, UUID.fromString(response.path("data.id")));
   }
 
   @Given("Sarah owns a valid property with gas supply")
@@ -143,8 +143,7 @@ public class PricingSteps {
     body.put("has_gas_supply", true);
     final Response response = userPropertyApiClient.createProperty(token, body);
     assertThat(response.statusCode()).isIn(200, 201);
-    scenarioContext.put(ScenarioContext.BOB_PROPERTY_ID,
-        UUID.fromString(response.path("data.id")));
+    scenarioContext.put(ScenarioContext.BOB_PROPERTY_ID, UUID.fromString(response.path("data.id")));
   }
 
   // ═══════════════════════════════════════════════════════
@@ -162,8 +161,8 @@ public class PricingSteps {
   public void iCalculatePriceForPropertyWithCertAndUrgency(
       final String propertyId, final String certType, final String urgency) {
     final String token = scenarioContext.get(ScenarioContext.SARAH_TOKEN, String.class);
-    storeLastResponse(pricingApiClient.calculatePrice(
-        token, UUID.fromString(propertyId), certType, urgency));
+    storeLastResponse(
+        pricingApiClient.calculatePrice(token, UUID.fromString(propertyId), certType, urgency));
   }
 
   @When("I calculate the price with certificate_type {string}")
@@ -184,52 +183,59 @@ public class PricingSteps {
   public void calculateWithoutCertType() {
     final UUID propertyId = scenarioContext.get(ScenarioContext.SARAH_PROPERTY_ID, UUID.class);
     final String token = scenarioContext.get(ScenarioContext.SARAH_TOKEN, String.class);
-    storeLastResponse(pricingApiClient.calculatePriceMissingParam(
-        token, "?property_id=" + propertyId + "&urgency=STANDARD"));
+    storeLastResponse(
+        pricingApiClient.calculatePriceMissingParam(
+            token, "?property_id=" + propertyId + "&urgency=STANDARD"));
   }
 
   @When("I call GET \\/api\\/v1\\/pricing\\/calculate without the urgency parameter")
   public void calculateWithoutUrgency() {
     final UUID propertyId = scenarioContext.get(ScenarioContext.SARAH_PROPERTY_ID, UUID.class);
     final String token = scenarioContext.get(ScenarioContext.SARAH_TOKEN, String.class);
-    storeLastResponse(pricingApiClient.calculatePriceMissingParam(
-        token, "?property_id=" + propertyId + "&certificate_type=GAS_SAFETY"));
+    storeLastResponse(
+        pricingApiClient.calculatePriceMissingParam(
+            token, "?property_id=" + propertyId + "&certificate_type=GAS_SAFETY"));
   }
 
   @When("I call GET \\/api\\/v1\\/pricing\\/calculate without the property_id parameter")
   public void calculateWithoutPropertyId() {
-    final String token = scenarioContext.contains(ScenarioContext.SARAH_TOKEN)
-        ? scenarioContext.get(ScenarioContext.SARAH_TOKEN, String.class)
-        : null;
-    storeLastResponse(pricingApiClient.calculatePriceMissingParam(
-        token, "?certificate_type=GAS_SAFETY&urgency=STANDARD"));
+    final String token =
+        scenarioContext.contains(ScenarioContext.SARAH_TOKEN)
+            ? scenarioContext.get(ScenarioContext.SARAH_TOKEN, String.class)
+            : null;
+    storeLastResponse(
+        pricingApiClient.calculatePriceMissingParam(
+            token, "?certificate_type=GAS_SAFETY&urgency=STANDARD"));
   }
 
   @When("I call GET \\/api\\/v1\\/pricing\\/calculate without authentication")
   public void calculateWithoutAuthentication() {
-    storeLastResponse(pricingApiClient.calculatePriceNoAuth(
-        UUID.randomUUID(), "GAS_SAFETY", "STANDARD"));
+    storeLastResponse(
+        pricingApiClient.calculatePriceNoAuth(UUID.randomUUID(), "GAS_SAFETY", "STANDARD"));
   }
 
   @When("Sarah tries to calculate the price for Bob's property")
   public void sarahTriesCalculateForBobProperty() {
     final UUID bobPropertyId = scenarioContext.get(ScenarioContext.BOB_PROPERTY_ID, UUID.class);
     final String token = scenarioContext.get(ScenarioContext.SARAH_TOKEN, String.class);
-    storeLastResponse(pricingApiClient.calculatePrice(token, bobPropertyId, "GAS_SAFETY", "STANDARD"));
+    storeLastResponse(
+        pricingApiClient.calculatePrice(token, bobPropertyId, "GAS_SAFETY", "STANDARD"));
   }
 
   @When("Mike tries to calculate the price for Sarah's property")
   public void mikeTriesCalculateForSarahProperty() {
     final UUID sarahPropertyId = scenarioContext.get(ScenarioContext.SARAH_PROPERTY_ID, UUID.class);
     final String mikeToken = scenarioContext.get(ScenarioContext.MIKE_TOKEN, String.class);
-    storeLastResponse(pricingApiClient.calculatePrice(mikeToken, sarahPropertyId, "GAS_SAFETY", "STANDARD"));
+    storeLastResponse(
+        pricingApiClient.calculatePrice(mikeToken, sarahPropertyId, "GAS_SAFETY", "STANDARD"));
   }
 
   @When("the admin calculates the price for Bob's property")
   public void adminCalculatesForBobProperty() {
     final UUID bobPropertyId = scenarioContext.get(ScenarioContext.BOB_PROPERTY_ID, UUID.class);
     final String adminToken = scenarioContext.get(ScenarioContext.ADMIN_TOKEN, String.class);
-    storeLastResponse(pricingApiClient.calculatePrice(adminToken, bobPropertyId, "GAS_SAFETY", "STANDARD"));
+    storeLastResponse(
+        pricingApiClient.calculatePrice(adminToken, bobPropertyId, "GAS_SAFETY", "STANDARD"));
   }
 
   @When("that user calls {string} {string}")
@@ -309,16 +315,17 @@ public class PricingSteps {
   @When("the admin updates the GAS_SAFETY national rule with base_price_pence {int}")
   public void adminUpdatesGasSafetyNationalRuleBasePricePence(final int basePricePence) {
     final UUID ruleId = PricingTestDataSeeder.GAS_SAFETY_RULE_ID;
-    storeLastResponse(pricingApiClient.updateRule(adminToken(), ruleId,
-        Map.of("base_price_pence", basePricePence)));
+    storeLastResponse(
+        pricingApiClient.updateRule(
+            adminToken(), ruleId, Map.of("base_price_pence", basePricePence)));
     scenarioContext.put(ScenarioContext.CURRENT_RULE_ID, ruleId);
   }
 
   @When("the admin updates the GAS_SAFETY rule with effective_to {string}")
   public void adminUpdatesGasSafetyRuleEffectiveTo(final String effectiveTo) {
     final UUID ruleId = PricingTestDataSeeder.GAS_SAFETY_RULE_ID;
-    storeLastResponse(pricingApiClient.updateRule(adminToken(), ruleId,
-        Map.of("effective_to", effectiveTo)));
+    storeLastResponse(
+        pricingApiClient.updateRule(adminToken(), ruleId, Map.of("effective_to", effectiveTo)));
     scenarioContext.put(ScenarioContext.CURRENT_RULE_ID, ruleId);
   }
 
@@ -345,21 +352,25 @@ public class PricingSteps {
     if (maxStr != null && !maxStr.isBlank()) {
       body.put("condition_max", new BigDecimal(maxStr));
     }
-    final Response response = pricingApiClient.addModifier(
-        adminToken(), PricingTestDataSeeder.GAS_SAFETY_RULE_ID, body);
+    final Response response =
+        pricingApiClient.addModifier(adminToken(), PricingTestDataSeeder.GAS_SAFETY_RULE_ID, body);
     storeLastResponse(response);
     if (response.statusCode() == 201) {
       // find the new modifier id from the returned rule's modifiers
       final List<Map<String, Object>> modifiers = response.path("data.modifiers");
       if (modifiers != null) {
         modifiers.stream()
-            .filter(m -> row.get("modifier_type").equals(m.get("modifierType"))
-                || row.get("modifier_type").equals(m.get("modifier_type")))
+            .filter(
+                m ->
+                    row.get("modifier_type").equals(m.get("modifierType"))
+                        || row.get("modifier_type").equals(m.get("modifier_type")))
             .map(m -> m.get("id"))
             .filter(id -> id != null)
             .findFirst()
-            .ifPresent(id -> scenarioContext.put(
-                ScenarioContext.CURRENT_MODIFIER_ID, UUID.fromString(String.valueOf(id))));
+            .ifPresent(
+                id ->
+                    scenarioContext.put(
+                        ScenarioContext.CURRENT_MODIFIER_ID, UUID.fromString(String.valueOf(id))));
       }
     }
   }
@@ -367,37 +378,48 @@ public class PricingSteps {
   @When("the admin adds a modifier with modifier_type {string}")
   public void adminAddsModifierWithModifierType(final String modifierType) {
     final Map<String, Object> body = Map.of("modifier_type", modifierType, "modifier_pence", 500);
-    storeLastResponse(pricingApiClient.addModifier(
-        adminToken(), PricingTestDataSeeder.GAS_SAFETY_RULE_ID, body));
+    storeLastResponse(
+        pricingApiClient.addModifier(adminToken(), PricingTestDataSeeder.GAS_SAFETY_RULE_ID, body));
   }
 
   @When("the admin adds a modifier with modifier_pence {int}")
   public void adminAddsModifierWithModifierPence(final int modifierPence) {
-    final Map<String, Object> body = Map.of("modifier_type", "BEDROOMS", "modifier_pence", modifierPence);
-    storeLastResponse(pricingApiClient.addModifier(
-        adminToken(), PricingTestDataSeeder.GAS_SAFETY_RULE_ID, body));
+    final Map<String, Object> body =
+        Map.of("modifier_type", "BEDROOMS", "modifier_pence", modifierPence);
+    storeLastResponse(
+        pricingApiClient.addModifier(adminToken(), PricingTestDataSeeder.GAS_SAFETY_RULE_ID, body));
   }
 
   @When("the admin adds a BEDROOMS modifier with condition_min={int} and condition_max={int}")
   public void adminAddsBedroomsModifierWithConditions(final int min, final int max) {
-    final Map<String, Object> body = Map.of(
-        "modifier_type", "BEDROOMS",
-        "modifier_pence", 1000,
-        "condition_min", new BigDecimal(min),
-        "condition_max", new BigDecimal(max));
-    storeLastResponse(pricingApiClient.addModifier(
-        adminToken(), PricingTestDataSeeder.GAS_SAFETY_RULE_ID, body));
+    final Map<String, Object> body =
+        Map.of(
+            "modifier_type",
+            "BEDROOMS",
+            "modifier_pence",
+            1000,
+            "condition_min",
+            new BigDecimal(min),
+            "condition_max",
+            new BigDecimal(max));
+    storeLastResponse(
+        pricingApiClient.addModifier(adminToken(), PricingTestDataSeeder.GAS_SAFETY_RULE_ID, body));
   }
 
   @When("the admin adds a BEDROOMS modifier for {int}-{int} bedrooms at {int} pence to GAS_SAFETY")
   public void adminAddsBedroomsModifierRange(final int min, final int max, final int pence) {
-    final Map<String, Object> body = Map.of(
-        "modifier_type", "BEDROOMS",
-        "modifier_pence", pence,
-        "condition_min", new BigDecimal(min),
-        "condition_max", new BigDecimal(max));
-    storeLastResponse(pricingApiClient.addModifier(
-        adminToken(), PricingTestDataSeeder.GAS_SAFETY_RULE_ID, body));
+    final Map<String, Object> body =
+        Map.of(
+            "modifier_type",
+            "BEDROOMS",
+            "modifier_pence",
+            pence,
+            "condition_min",
+            new BigDecimal(min),
+            "condition_max",
+            new BigDecimal(max));
+    storeLastResponse(
+        pricingApiClient.addModifier(adminToken(), PricingTestDataSeeder.GAS_SAFETY_RULE_ID, body));
   }
 
   @When("the admin deletes that modifier")
@@ -414,10 +436,9 @@ public class PricingSteps {
 
   @When("the admin deletes modifier {string} from the GAS_SAFETY rule")
   public void adminDeletesModifierById(final String modifierId) {
-    final Response response = pricingApiClient.removeModifier(
-        adminToken(),
-        PricingTestDataSeeder.GAS_SAFETY_RULE_ID,
-        UUID.fromString(modifierId));
+    final Response response =
+        pricingApiClient.removeModifier(
+            adminToken(), PricingTestDataSeeder.GAS_SAFETY_RULE_ID, UUID.fromString(modifierId));
     storeLastResponse(response);
   }
 
@@ -427,18 +448,20 @@ public class PricingSteps {
 
   @When("the admin updates the PRIORITY multiplier to {bigdecimal}")
   public void adminUpdatesPriorityMultiplier(final BigDecimal multiplier) {
-    storeLastResponse(pricingApiClient.updateMultiplier(
-        adminToken(),
-        PricingTestDataSeeder.PRIORITY_MULTIPLIER_ID,
-        Map.of("multiplier", multiplier)));
+    storeLastResponse(
+        pricingApiClient.updateMultiplier(
+            adminToken(),
+            PricingTestDataSeeder.PRIORITY_MULTIPLIER_ID,
+            Map.of("multiplier", multiplier)));
   }
 
   @When("the admin updates the EMERGENCY multiplier to {bigdecimal}")
   public void adminUpdatesEmergencyMultiplier(final BigDecimal multiplier) {
-    storeLastResponse(pricingApiClient.updateMultiplier(
-        adminToken(),
-        PricingTestDataSeeder.EMERGENCY_MULTIPLIER_ID,
-        Map.of("multiplier", multiplier)));
+    storeLastResponse(
+        pricingApiClient.updateMultiplier(
+            adminToken(),
+            PricingTestDataSeeder.EMERGENCY_MULTIPLIER_ID,
+            Map.of("multiplier", multiplier)));
   }
 
   // ═══════════════════════════════════════════════════════
@@ -502,8 +525,11 @@ public class PricingSteps {
   @Then("the error code is {string}")
   public void theErrorCodeIs(final String expectedCode) {
     final String actual = lastResponse().path("error");
-    assertThat(actual).as("Expected error code '%s' but got '%s'. Body: %s",
-        expectedCode, actual, lastResponse().getBody().asString()).isEqualTo(expectedCode);
+    assertThat(actual)
+        .as(
+            "Expected error code '%s' but got '%s'. Body: %s",
+            expectedCode, actual, lastResponse().getBody().asString())
+        .isEqualTo(expectedCode);
   }
 
   // ═══════════════════════════════════════════════════════
@@ -533,19 +559,22 @@ public class PricingSteps {
 
   @Then("the breakdown includes a modifier {string} of {int} pence")
   public void theBreakdownIncludesModifier(final String modifierType, final int amountPence) {
-    final List<Map<String, Object>> modifiers = lastResponse().path("data.breakdown.modifiers_applied");
+    final List<Map<String, Object>> modifiers =
+        lastResponse().path("data.breakdown.modifiers_applied");
     assertThat(modifiers)
         .as("Expected modifier '%s' of %d pence", modifierType, amountPence)
         .isNotNull()
-        .anySatisfy(m -> {
-          assertThat(String.valueOf(m.get("type"))).isEqualTo(modifierType);
-          assertThat(((Number) m.get("amount_pence")).intValue()).isEqualTo(amountPence);
-        });
+        .anySatisfy(
+            m -> {
+              assertThat(String.valueOf(m.get("type"))).isEqualTo(modifierType);
+              assertThat(((Number) m.get("amount_pence")).intValue()).isEqualTo(amountPence);
+            });
   }
 
   @Then("the breakdown does not include a modifier containing {string}")
   public void theBreakdownDoesNotIncludeModifierContaining(final String partialType) {
-    final List<Map<String, Object>> modifiers = lastResponse().path("data.breakdown.modifiers_applied");
+    final List<Map<String, Object>> modifiers =
+        lastResponse().path("data.breakdown.modifiers_applied");
     if (modifiers == null || modifiers.isEmpty()) {
       return;
     }
@@ -593,18 +622,21 @@ public class PricingSteps {
   @Then("the {string} rule has base_price_pence of {int}")
   public void theRuleHasBasePricePence(final String certType, final int expected) {
     final List<Map<String, Object>> rules = lastResponse().path("data");
-    assertThat(rules).anySatisfy(r -> {
-      assertThat(String.valueOf(r.get("certificate_type"))).isEqualTo(certType);
-      assertThat(((Number) r.get("base_price_pence")).intValue()).isEqualTo(expected);
-    });
+    assertThat(rules)
+        .anySatisfy(
+            r -> {
+              assertThat(String.valueOf(r.get("certificate_type"))).isEqualTo(certType);
+              assertThat(((Number) r.get("base_price_pence")).intValue()).isEqualTo(expected);
+            });
   }
 
   @Then("the {string} rule has at least {int} modifiers")
   public void theRuleHasAtLeastNModifiers(final String certType, final int minCount) {
     final List<Map<String, Object>> rules = lastResponse().path("data");
-    final Optional<Map<String, Object>> rule = rules.stream()
-        .filter(r -> certType.equals(String.valueOf(r.get("certificate_type"))))
-        .findFirst();
+    final Optional<Map<String, Object>> rule =
+        rules.stream()
+            .filter(r -> certType.equals(String.valueOf(r.get("certificate_type"))))
+            .findFirst();
     assertThat(rule).isPresent();
     final List<?> modifiers = (List<?>) rule.get().get("modifiers");
     assertThat(modifiers).hasSizeGreaterThanOrEqualTo(minCount);
@@ -613,9 +645,10 @@ public class PricingSteps {
   @Then("the EPC rule has is_active of false")
   public void theEpcRuleHasIsActiveFalse() {
     final List<Map<String, Object>> rules = lastResponse().path("data");
-    final Optional<Map<String, Object>> rule = rules.stream()
-        .filter(r -> "EPC".equals(String.valueOf(r.get("certificate_type"))))
-        .findFirst();
+    final Optional<Map<String, Object>> rule =
+        rules.stream()
+            .filter(r -> "EPC".equals(String.valueOf(r.get("certificate_type"))))
+            .findFirst();
     assertThat(rule).isPresent();
     assertThat(rule.get().get("is_active")).isEqualTo(false);
   }
@@ -650,10 +683,12 @@ public class PricingSteps {
   @Then("the GAS_SAFETY rule now has a BEDROOMS modifier for 7+ bedrooms of {int} pence")
   public void gasSafetyRuleHasBedroomsModifierFor7Plus(final int pence) {
     final List<Map<String, Object>> modifiers = lastResponse().path("data.modifiers");
-    assertThat(modifiers).anySatisfy(m -> {
-      assertThat(String.valueOf(m.get("modifier_type"))).isEqualTo("BEDROOMS");
-      assertThat(((Number) m.get("modifier_pence")).intValue()).isEqualTo(pence);
-    });
+    assertThat(modifiers)
+        .anySatisfy(
+            m -> {
+              assertThat(String.valueOf(m.get("modifier_type"))).isEqualTo("BEDROOMS");
+              assertThat(((Number) m.get("modifier_pence")).intValue()).isEqualTo(pence);
+            });
   }
 
   @Then("the GAS_SAFETY rule no longer contains a BEDROOMS modifier for 3-4 bedrooms")
@@ -661,20 +696,26 @@ public class PricingSteps {
     // Re-fetch the rule list to verify
     final Response rulesResponse = pricingApiClient.listRules(adminToken(), null);
     final List<Map<String, Object>> rules = rulesResponse.path("data");
-    final Optional<Map<String, Object>> gasSafetyRule = rules.stream()
-        .filter(r -> "GAS_SAFETY".equals(String.valueOf(r.get("certificate_type"))))
-        .findFirst();
+    final Optional<Map<String, Object>> gasSafetyRule =
+        rules.stream()
+            .filter(r -> "GAS_SAFETY".equals(String.valueOf(r.get("certificate_type"))))
+            .findFirst();
     assertThat(gasSafetyRule).isPresent();
     @SuppressWarnings("unchecked")
-    final List<Map<String, Object>> modifiers = (List<Map<String, Object>>) gasSafetyRule.get().get("modifiers");
+    final List<Map<String, Object>> modifiers =
+        (List<Map<String, Object>>) gasSafetyRule.get().get("modifiers");
     if (modifiers != null) {
-      assertThat(modifiers).noneMatch(m -> {
-        final Object condMin = m.get("condition_min");
-        final Object condMax = m.get("condition_max");
-        return "BEDROOMS".equals(String.valueOf(m.get("modifier_type")))
-            && condMin != null && new BigDecimal(condMin.toString()).compareTo(new BigDecimal("3")) == 0
-            && condMax != null && new BigDecimal(condMax.toString()).compareTo(new BigDecimal("4")) == 0;
-      });
+      assertThat(modifiers)
+          .noneMatch(
+              m -> {
+                final Object condMin = m.get("condition_min");
+                final Object condMax = m.get("condition_max");
+                return "BEDROOMS".equals(String.valueOf(m.get("modifier_type")))
+                    && condMin != null
+                    && new BigDecimal(condMin.toString()).compareTo(new BigDecimal("3")) == 0
+                    && condMax != null
+                    && new BigDecimal(condMax.toString()).compareTo(new BigDecimal("4")) == 0;
+              });
     }
   }
 
@@ -690,11 +731,14 @@ public class PricingSteps {
       final String urgency = expectedRow.get("urgency");
       final BigDecimal multiplier = new BigDecimal(expectedRow.get("multiplier"));
       final boolean isActive = Boolean.parseBoolean(expectedRow.get("is_active"));
-      assertThat(multipliers).anySatisfy(m -> {
-        assertThat(String.valueOf(m.get("urgency"))).isEqualTo(urgency);
-        assertThat(new BigDecimal(m.get("multiplier").toString()).compareTo(multiplier)).isZero();
-        assertThat(m.get("is_active")).isEqualTo(isActive);
-      });
+      assertThat(multipliers)
+          .anySatisfy(
+              m -> {
+                assertThat(String.valueOf(m.get("urgency"))).isEqualTo(urgency);
+                assertThat(new BigDecimal(m.get("multiplier").toString()).compareTo(multiplier))
+                    .isZero();
+                assertThat(m.get("is_active")).isEqualTo(isActive);
+              });
     }
   }
 
@@ -717,16 +761,18 @@ public class PricingSteps {
   // ═══════════════════════════════════════════════════════
 
   private String registerVerifyAndLogin(final String email, final String role) {
-    final Map<String, Object> request = "ENGINEER".equalsIgnoreCase(role)
-        ? RequestFactory.validEngineerRegistration()
-        : RequestFactory.validCustomerRegistration();
+    final Map<String, Object> request =
+        "ENGINEER".equalsIgnoreCase(role)
+            ? RequestFactory.validEngineerRegistration()
+            : RequestFactory.validCustomerRegistration();
     request.put("email", email);
     request.put("role", role.toUpperCase());
     request.put("phone", "+447900" + String.format("%06d", Math.abs(email.hashCode() % 1_000_000)));
 
     final Response registerResponse = authApiClient.register(request);
-    assertThat(registerResponse.statusCode()).as(
-        "Registration failed for %s. Body: %s", email, registerResponse.getBody().asString()).isEqualTo(201);
+    assertThat(registerResponse.statusCode())
+        .as("Registration failed for %s. Body: %s", email, registerResponse.getBody().asString())
+        .isEqualTo(201);
 
     // Wait for verification email and verify
     Awaitility.await()
@@ -736,14 +782,18 @@ public class PricingSteps {
 
     final String verificationCode = wireMockUtils.extractVerificationToken(email).orElseThrow();
     final Response verifyResponse = authApiClient.verifyEmail(Map.of("code", verificationCode));
-    assertThat(verifyResponse.statusCode()).as(
-        "Email verification failed for %s. Body: %s", email, verifyResponse.getBody().asString()).isEqualTo(200);
+    assertThat(verifyResponse.statusCode())
+        .as(
+            "Email verification failed for %s. Body: %s",
+            email, verifyResponse.getBody().asString())
+        .isEqualTo(200);
 
     // Login
-    final Response loginResponse = authApiClient.login(
-        RequestFactory.validLogin(email, "Password1!"));
-    assertThat(loginResponse.statusCode()).as(
-        "Login failed for %s. Body: %s", email, loginResponse.getBody().asString()).isEqualTo(200);
+    final Response loginResponse =
+        authApiClient.login(RequestFactory.validLogin(email, "Password1!"));
+    assertThat(loginResponse.statusCode())
+        .as("Login failed for %s. Body: %s", email, loginResponse.getBody().asString())
+        .isEqualTo(200);
 
     return loginResponse.path("data.access_token");
   }
@@ -756,21 +806,26 @@ public class PricingSteps {
     request.put("role", "CUSTOMER");
 
     final Response registerResponse = authApiClient.register(request);
-    assertThat(registerResponse.statusCode()).as(
-        "Admin registration failed. Body: %s", registerResponse.getBody().asString()).isEqualTo(201);
+    assertThat(registerResponse.statusCode())
+        .as("Admin registration failed. Body: %s", registerResponse.getBody().asString())
+        .isEqualTo(201);
 
     // Promote to ADMIN and set email_verified + status directly
-    databaseUtils.findUserByEmail(email).ifPresent(u -> {
-      final String userId = String.valueOf(u.get("id"));
-      // Use JdbcTemplate via DatabaseUtils to promote
-      promoteToAdmin(userId);
-    });
+    databaseUtils
+        .findUserByEmail(email)
+        .ifPresent(
+            u -> {
+              final String userId = String.valueOf(u.get("id"));
+              // Use JdbcTemplate via DatabaseUtils to promote
+              promoteToAdmin(userId);
+            });
 
     // Login to get admin token
-    final Response loginResponse = authApiClient.login(
-        RequestFactory.validLogin(email, "Password1!"));
-    assertThat(loginResponse.statusCode()).as(
-        "Admin login failed. Body: %s", loginResponse.getBody().asString()).isEqualTo(200);
+    final Response loginResponse =
+        authApiClient.login(RequestFactory.validLogin(email, "Password1!"));
+    assertThat(loginResponse.statusCode())
+        .as("Admin login failed. Body: %s", loginResponse.getBody().asString())
+        .isEqualTo(200);
 
     final String adminToken = loginResponse.path("data.access_token");
     final String userId = loginResponse.path("data.user.id");
@@ -853,53 +908,60 @@ public class PricingSteps {
     final String jsonPath = "data." + field;
     final Object actual = response.path(jsonPath);
     assertThat(actual)
-        .as("Field '%s' expected '%s' but was '%s'. Body: %s",
+        .as(
+            "Field '%s' expected '%s' but was '%s'. Body: %s",
             field, expectedValue, actual, response.getBody().asString())
         .isNotNull();
 
     if ("commission_rate".equals(field)) {
-      assertThat(new BigDecimal(actual.toString()).compareTo(new BigDecimal(expectedValue))).isZero();
+      assertThat(new BigDecimal(actual.toString()).compareTo(new BigDecimal(expectedValue)))
+          .isZero();
     } else {
       assertThat(((Number) actual).intValue()).isEqualTo(Integer.parseInt(expectedValue));
     }
   }
 
   private void findAndStoreBedroomsModifier34() {
-    final List<Map<String, Object>> modifiers = databaseUtils.findModifiersForRule(
-        PricingTestDataSeeder.GAS_SAFETY_RULE_ID.toString());
+    final List<Map<String, Object>> modifiers =
+        databaseUtils.findModifiersForRule(PricingTestDataSeeder.GAS_SAFETY_RULE_ID.toString());
     modifiers.stream()
         .filter(m -> "BEDROOMS".equals(String.valueOf(m.get("modifier_type"))))
-        .filter(m -> {
-          final Object min = m.get("condition_min");
-          final Object max = m.get("condition_max");
-          return min != null
-              && new BigDecimal(min.toString()).compareTo(new BigDecimal("3")) == 0
-              && max != null
-              && new BigDecimal(max.toString()).compareTo(new BigDecimal("4")) == 0;
-        })
+        .filter(
+            m -> {
+              final Object min = m.get("condition_min");
+              final Object max = m.get("condition_max");
+              return min != null
+                  && new BigDecimal(min.toString()).compareTo(new BigDecimal("3")) == 0
+                  && max != null
+                  && new BigDecimal(max.toString()).compareTo(new BigDecimal("4")) == 0;
+            })
         .findFirst()
-        .ifPresent(m -> scenarioContext.put(
-            ScenarioContext.CURRENT_MODIFIER_ID,
-            UUID.fromString(String.valueOf(m.get("id")))));
+        .ifPresent(
+            m ->
+                scenarioContext.put(
+                    ScenarioContext.CURRENT_MODIFIER_ID,
+                    UUID.fromString(String.valueOf(m.get("id")))));
   }
 
   private void deleteBedroomsModifierByRange(final UUID ruleId, final int min, final int max) {
-    final List<Map<String, Object>> modifiers = databaseUtils.findModifiersForRule(ruleId.toString());
+    final List<Map<String, Object>> modifiers =
+        databaseUtils.findModifiersForRule(ruleId.toString());
     modifiers.stream()
         .filter(m -> "BEDROOMS".equals(String.valueOf(m.get("modifier_type"))))
-        .filter(m -> {
-          final Object condMin = m.get("condition_min");
-          final Object condMax = m.get("condition_max");
-          return condMin != null
-              && new BigDecimal(condMin.toString()).compareTo(new BigDecimal(min)) == 0
-              && condMax != null
-              && new BigDecimal(condMax.toString()).compareTo(new BigDecimal(max)) == 0;
-        })
+        .filter(
+            m -> {
+              final Object condMin = m.get("condition_min");
+              final Object condMax = m.get("condition_max");
+              return condMin != null
+                  && new BigDecimal(condMin.toString()).compareTo(new BigDecimal(min)) == 0
+                  && condMax != null
+                  && new BigDecimal(condMax.toString()).compareTo(new BigDecimal(max)) == 0;
+            })
         .findFirst()
-        .ifPresent(m -> {
-          final UUID modifierId = UUID.fromString(String.valueOf(m.get("id")));
-          storeLastResponse(pricingApiClient.removeModifier(adminToken(), ruleId, modifierId));
-        });
+        .ifPresent(
+            m -> {
+              final UUID modifierId = UUID.fromString(String.valueOf(m.get("id")));
+              storeLastResponse(pricingApiClient.removeModifier(adminToken(), ruleId, modifierId));
+            });
   }
-
 }

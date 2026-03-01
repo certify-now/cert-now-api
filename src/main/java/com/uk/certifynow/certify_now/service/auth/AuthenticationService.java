@@ -2,8 +2,8 @@ package com.uk.certifynow.certify_now.service.auth;
 
 import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.events.UserLoggedInEvent;
+import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.repos.UserRepository;
-import com.uk.certifynow.certify_now.shared.exception.BusinessException;
 import java.time.Clock;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
@@ -102,9 +102,5 @@ public class AuthenticationService {
           "ACCOUNT_SUSPENDED",
           "Your account has been suspended. Please contact support.");
     }
-
-    // PENDING_VERIFICATION users can still log in (they just can't access certain
-    // features)
-    // This is handled by authorization logic, not authentication
   }
 }

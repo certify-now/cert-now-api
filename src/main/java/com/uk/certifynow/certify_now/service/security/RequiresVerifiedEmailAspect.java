@@ -1,8 +1,8 @@
-package com.uk.certifynow.certify_now.shared.security;
+package com.uk.certifynow.certify_now.service.security;
 
 import com.uk.certifynow.certify_now.domain.User;
+import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.repos.UserRepository;
-import com.uk.certifynow.certify_now.shared.exception.BusinessException;
 import java.util.UUID;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;

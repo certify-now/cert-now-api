@@ -1,4 +1,4 @@
-package com.uk.certifynow.certify_now.shared.service;
+package com.uk.certifynow.certify_now.service;
 
 import com.uk.certifynow.certify_now.exception.EmailDeliveryException;
 import jakarta.mail.MessagingException;

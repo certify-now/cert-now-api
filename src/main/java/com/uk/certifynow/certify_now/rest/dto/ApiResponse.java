@@ -1,4 +1,4 @@
-package com.uk.certifynow.certify_now.shared.dto;
+package com.uk.certifynow.certify_now.rest.dto;
 
 import java.time.Instant;
 import java.util.UUID;

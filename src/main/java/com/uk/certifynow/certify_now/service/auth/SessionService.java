@@ -2,9 +2,9 @@ package com.uk.certifynow.certify_now.service.auth;
 
 import com.uk.certifynow.certify_now.domain.RefreshToken;
 import com.uk.certifynow.certify_now.domain.User;
-import com.uk.certifynow.certify_now.shared.exception.BusinessException;
-import com.uk.certifynow.certify_now.shared.security.JwtTokenProvider;
-import com.uk.certifynow.certify_now.shared.security.TokenDenylistService;
+import com.uk.certifynow.certify_now.exception.BusinessException;
+import com.uk.certifynow.certify_now.service.security.JwtTokenProvider;
+import com.uk.certifynow.certify_now.service.security.TokenDenylistService;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;

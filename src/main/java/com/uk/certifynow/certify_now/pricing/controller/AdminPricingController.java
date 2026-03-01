@@ -1,5 +1,6 @@
 package com.uk.certifynow.certify_now.pricing.controller;
 
+import com.uk.certifynow.certify_now.config.RequestIdFilter;
 import com.uk.certifynow.certify_now.pricing.dto.CreatePricingModifierRequest;
 import com.uk.certifynow.certify_now.pricing.dto.CreatePricingRuleRequest;
 import com.uk.certifynow.certify_now.pricing.dto.PricingRuleResponse;
@@ -7,8 +8,7 @@ import com.uk.certifynow.certify_now.pricing.dto.UpdatePricingRuleRequest;
 import com.uk.certifynow.certify_now.pricing.dto.UpdateUrgencyMultiplierRequest;
 import com.uk.certifynow.certify_now.pricing.dto.UrgencyMultiplierResponse;
 import com.uk.certifynow.certify_now.pricing.service.PricingService;
-import com.uk.certifynow.certify_now.shared.config.RequestIdFilter;
-import com.uk.certifynow.certify_now.shared.dto.ApiResponse;
+import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -43,15 +43,13 @@ public class AdminPricingController {
   public ApiResponse<List<PricingRuleResponse>> listRules(
       @RequestParam(value = "active_only", defaultValue = "true") final boolean activeOnly,
       final HttpServletRequest request) {
-    return ApiResponse.of(
-        pricingService.getActivePricingRules(activeOnly), requestId(request));
+    return ApiResponse.of(pricingService.getActivePricingRules(activeOnly), requestId(request));
   }
 
   @PostMapping("/rules")
   @ResponseStatus(HttpStatus.CREATED)
   public ApiResponse<PricingRuleResponse> createRule(
-      @Valid @RequestBody final CreatePricingRuleRequest body,
-      final HttpServletRequest request) {
+      @Valid @RequestBody final CreatePricingRuleRequest body, final HttpServletRequest request) {
     return ApiResponse.of(pricingService.createPricingRule(body), requestId(request));
   }
 
@@ -78,8 +76,7 @@ public class AdminPricingController {
 
   @DeleteMapping("/rules/{ruleId}/modifiers/{modifierId}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  public void removeModifier(
-      @PathVariable final UUID ruleId, @PathVariable final UUID modifierId) {
+  public void removeModifier(@PathVariable final UUID ruleId, @PathVariable final UUID modifierId) {
     pricingService.removeModifier(ruleId, modifierId);
   }
 
@@ -98,8 +95,7 @@ public class AdminPricingController {
       @PathVariable final UUID id,
       @Valid @RequestBody final UpdateUrgencyMultiplierRequest body,
       final HttpServletRequest request) {
-    return ApiResponse.of(
-        pricingService.updateUrgencyMultiplier(id, body), requestId(request));
+    return ApiResponse.of(pricingService.updateUrgencyMultiplier(id, body), requestId(request));
   }
 
   private String requestId(final HttpServletRequest request) {

@@ -1,4 +1,4 @@
-package com.uk.certifynow.certify_now.shared.security;
+package com.uk.certifynow.certify_now.service.security;
 
 import java.time.Clock;
 import java.time.Instant;

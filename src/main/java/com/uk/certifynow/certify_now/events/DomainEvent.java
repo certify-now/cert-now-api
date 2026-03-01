@@ -1,4 +1,4 @@
-package com.uk.certifynow.certify_now.shared.event;
+package com.uk.certifynow.certify_now.events;
 
 import java.time.Instant;
 import java.util.UUID;

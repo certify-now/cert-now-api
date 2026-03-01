@@ -20,4 +20,3 @@ import org.junit.platform.suite.api.Suite;
     value = "pretty, html:target/cucumber-reports/auth-report.html")
 @ConfigurationParameter(key = FILTER_TAGS_PROPERTY_NAME, value = "not @wip")
 public class AuthTestRunner {}
-

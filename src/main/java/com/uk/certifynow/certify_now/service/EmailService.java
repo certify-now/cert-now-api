@@ -1,4 +1,4 @@
-package com.uk.certifynow.certify_now.shared.service;
+package com.uk.certifynow.certify_now.service;
 
 /**
  * Email service interface for sending transactional emails.

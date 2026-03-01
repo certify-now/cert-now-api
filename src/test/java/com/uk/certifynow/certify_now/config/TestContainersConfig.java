@@ -3,7 +3,7 @@ package com.uk.certifynow.certify_now.config;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
-import com.uk.certifynow.certify_now.shared.service.EmailService;
+import com.uk.certifynow.certify_now.service.EmailService;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;

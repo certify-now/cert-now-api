@@ -1,6 +1,5 @@
 package com.uk.certifynow.certify_now.events;
 
-import com.uk.certifynow.certify_now.shared.event.DomainEvent;
 import java.util.UUID;
 
 /**

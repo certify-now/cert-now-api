@@ -9,18 +9,16 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 /**
- * Inserts standard pricing seed data for each test scenario.
- * Mirrors the data from PricingDataInitializer (which is disabled in the test profile).
+ * Inserts standard pricing seed data for each test scenario. Mirrors the data from
+ * PricingDataInitializer (which is disabled in the test profile).
  */
 @Component
 public class PricingTestDataSeeder {
 
   public static final UUID GAS_SAFETY_RULE_ID =
       UUID.fromString("a0000001-0000-0000-0000-000000000001");
-  public static final UUID EPC_RULE_ID =
-      UUID.fromString("a0000001-0000-0000-0000-000000000002");
-  public static final UUID EICR_RULE_ID =
-      UUID.fromString("a0000001-0000-0000-0000-000000000003");
+  public static final UUID EPC_RULE_ID = UUID.fromString("a0000001-0000-0000-0000-000000000002");
+  public static final UUID EICR_RULE_ID = UUID.fromString("a0000001-0000-0000-0000-000000000003");
 
   public static final UUID STANDARD_MULTIPLIER_ID =
       UUID.fromString("b0000001-0000-0000-0000-000000000001");
@@ -52,74 +50,137 @@ public class PricingTestDataSeeder {
 
   private void seedGasSafetyModifiers(final OffsetDateTime now) {
     // Bedroom brackets: 3-4 → 1000, 4-5 → 2000, 5+ → 3000
-    insertModifier(UUID.randomUUID(), GAS_SAFETY_RULE_ID, "BEDROOMS",
-        new BigDecimal("3"), new BigDecimal("4"), 1000, now);
-    insertModifier(UUID.randomUUID(), GAS_SAFETY_RULE_ID, "BEDROOMS",
-        new BigDecimal("4"), new BigDecimal("5"), 2000, now);
-    insertModifier(UUID.randomUUID(), GAS_SAFETY_RULE_ID, "BEDROOMS",
-        new BigDecimal("5"), null, 3000, now);
+    insertModifier(
+        UUID.randomUUID(),
+        GAS_SAFETY_RULE_ID,
+        "BEDROOMS",
+        new BigDecimal("3"),
+        new BigDecimal("4"),
+        1000,
+        now);
+    insertModifier(
+        UUID.randomUUID(),
+        GAS_SAFETY_RULE_ID,
+        "BEDROOMS",
+        new BigDecimal("4"),
+        new BigDecimal("5"),
+        2000,
+        now);
+    insertModifier(
+        UUID.randomUUID(), GAS_SAFETY_RULE_ID, "BEDROOMS", new BigDecimal("5"), null, 3000, now);
 
     // Appliance brackets: 3-4 → 1000, 4-5 → 2000, 5+ → 3000
-    insertModifier(UUID.randomUUID(), GAS_SAFETY_RULE_ID, "APPLIANCES",
-        new BigDecimal("3"), new BigDecimal("4"), 1000, now);
-    insertModifier(UUID.randomUUID(), GAS_SAFETY_RULE_ID, "APPLIANCES",
-        new BigDecimal("4"), new BigDecimal("5"), 2000, now);
-    insertModifier(UUID.randomUUID(), GAS_SAFETY_RULE_ID, "APPLIANCES",
-        new BigDecimal("5"), null, 3000, now);
+    insertModifier(
+        UUID.randomUUID(),
+        GAS_SAFETY_RULE_ID,
+        "APPLIANCES",
+        new BigDecimal("3"),
+        new BigDecimal("4"),
+        1000,
+        now);
+    insertModifier(
+        UUID.randomUUID(),
+        GAS_SAFETY_RULE_ID,
+        "APPLIANCES",
+        new BigDecimal("4"),
+        new BigDecimal("5"),
+        2000,
+        now);
+    insertModifier(
+        UUID.randomUUID(), GAS_SAFETY_RULE_ID, "APPLIANCES", new BigDecimal("5"), null, 3000, now);
 
     // Property type modifiers
-    insertModifier(UUID.randomUUID(), GAS_SAFETY_RULE_ID, "PROPERTY_TYPE_SEMI_DETACHED",
-        null, null, 500, now);
-    insertModifier(UUID.randomUUID(), GAS_SAFETY_RULE_ID, "PROPERTY_TYPE_DETACHED",
-        null, null, 1000, now);
-    insertModifier(UUID.randomUUID(), GAS_SAFETY_RULE_ID, "PROPERTY_TYPE_HMO",
-        null, null, 3000, now);
+    insertModifier(
+        UUID.randomUUID(), GAS_SAFETY_RULE_ID, "PROPERTY_TYPE_SEMI_DETACHED", null, null, 500, now);
+    insertModifier(
+        UUID.randomUUID(), GAS_SAFETY_RULE_ID, "PROPERTY_TYPE_DETACHED", null, null, 1000, now);
+    insertModifier(
+        UUID.randomUUID(), GAS_SAFETY_RULE_ID, "PROPERTY_TYPE_HMO", null, null, 3000, now);
   }
 
   private void seedEpcModifiers(final OffsetDateTime now) {
     // Bedroom brackets: 3-4 → 1500, 4-5 → 2500, 5+ → 4000
-    insertModifier(UUID.randomUUID(), EPC_RULE_ID, "BEDROOMS",
-        new BigDecimal("3"), new BigDecimal("4"), 1500, now);
-    insertModifier(UUID.randomUUID(), EPC_RULE_ID, "BEDROOMS",
-        new BigDecimal("4"), new BigDecimal("5"), 2500, now);
-    insertModifier(UUID.randomUUID(), EPC_RULE_ID, "BEDROOMS",
-        new BigDecimal("5"), null, 4000, now);
+    insertModifier(
+        UUID.randomUUID(),
+        EPC_RULE_ID,
+        "BEDROOMS",
+        new BigDecimal("3"),
+        new BigDecimal("4"),
+        1500,
+        now);
+    insertModifier(
+        UUID.randomUUID(),
+        EPC_RULE_ID,
+        "BEDROOMS",
+        new BigDecimal("4"),
+        new BigDecimal("5"),
+        2500,
+        now);
+    insertModifier(
+        UUID.randomUUID(), EPC_RULE_ID, "BEDROOMS", new BigDecimal("5"), null, 4000, now);
 
     // Floor area brackets: 50-80 → 500, 80-120 → 1500, 120-180 → 2500, 180+ → 4000
-    insertModifier(UUID.randomUUID(), EPC_RULE_ID, "FLOOR_AREA",
-        new BigDecimal("50"), new BigDecimal("80"), 500, now);
-    insertModifier(UUID.randomUUID(), EPC_RULE_ID, "FLOOR_AREA",
-        new BigDecimal("80"), new BigDecimal("120"), 1500, now);
-    insertModifier(UUID.randomUUID(), EPC_RULE_ID, "FLOOR_AREA",
-        new BigDecimal("120"), new BigDecimal("180"), 2500, now);
-    insertModifier(UUID.randomUUID(), EPC_RULE_ID, "FLOOR_AREA",
-        new BigDecimal("180"), null, 4000, now);
+    insertModifier(
+        UUID.randomUUID(),
+        EPC_RULE_ID,
+        "FLOOR_AREA",
+        new BigDecimal("50"),
+        new BigDecimal("80"),
+        500,
+        now);
+    insertModifier(
+        UUID.randomUUID(),
+        EPC_RULE_ID,
+        "FLOOR_AREA",
+        new BigDecimal("80"),
+        new BigDecimal("120"),
+        1500,
+        now);
+    insertModifier(
+        UUID.randomUUID(),
+        EPC_RULE_ID,
+        "FLOOR_AREA",
+        new BigDecimal("120"),
+        new BigDecimal("180"),
+        2500,
+        now);
+    insertModifier(
+        UUID.randomUUID(), EPC_RULE_ID, "FLOOR_AREA", new BigDecimal("180"), null, 4000, now);
 
     // Property type modifiers
-    insertModifier(UUID.randomUUID(), EPC_RULE_ID, "PROPERTY_TYPE_SEMI_DETACHED",
-        null, null, 500, now);
-    insertModifier(UUID.randomUUID(), EPC_RULE_ID, "PROPERTY_TYPE_DETACHED",
-        null, null, 1000, now);
-    insertModifier(UUID.randomUUID(), EPC_RULE_ID, "PROPERTY_TYPE_HMO",
-        null, null, 3000, now);
+    insertModifier(
+        UUID.randomUUID(), EPC_RULE_ID, "PROPERTY_TYPE_SEMI_DETACHED", null, null, 500, now);
+    insertModifier(UUID.randomUUID(), EPC_RULE_ID, "PROPERTY_TYPE_DETACHED", null, null, 1000, now);
+    insertModifier(UUID.randomUUID(), EPC_RULE_ID, "PROPERTY_TYPE_HMO", null, null, 3000, now);
   }
 
   private void seedEicrModifiers(final OffsetDateTime now) {
     // Bedroom brackets: 3-4 → 3000, 4-5 → 6000, 5+ → 10000
-    insertModifier(UUID.randomUUID(), EICR_RULE_ID, "BEDROOMS",
-        new BigDecimal("3"), new BigDecimal("4"), 3000, now);
-    insertModifier(UUID.randomUUID(), EICR_RULE_ID, "BEDROOMS",
-        new BigDecimal("4"), new BigDecimal("5"), 6000, now);
-    insertModifier(UUID.randomUUID(), EICR_RULE_ID, "BEDROOMS",
-        new BigDecimal("5"), null, 10000, now);
+    insertModifier(
+        UUID.randomUUID(),
+        EICR_RULE_ID,
+        "BEDROOMS",
+        new BigDecimal("3"),
+        new BigDecimal("4"),
+        3000,
+        now);
+    insertModifier(
+        UUID.randomUUID(),
+        EICR_RULE_ID,
+        "BEDROOMS",
+        new BigDecimal("4"),
+        new BigDecimal("5"),
+        6000,
+        now);
+    insertModifier(
+        UUID.randomUUID(), EICR_RULE_ID, "BEDROOMS", new BigDecimal("5"), null, 10000, now);
 
     // Property type modifiers
-    insertModifier(UUID.randomUUID(), EICR_RULE_ID, "PROPERTY_TYPE_SEMI_DETACHED",
-        null, null, 500, now);
-    insertModifier(UUID.randomUUID(), EICR_RULE_ID, "PROPERTY_TYPE_DETACHED",
-        null, null, 1000, now);
-    insertModifier(UUID.randomUUID(), EICR_RULE_ID, "PROPERTY_TYPE_HMO",
-        null, null, 3000, now);
+    insertModifier(
+        UUID.randomUUID(), EICR_RULE_ID, "PROPERTY_TYPE_SEMI_DETACHED", null, null, 500, now);
+    insertModifier(
+        UUID.randomUUID(), EICR_RULE_ID, "PROPERTY_TYPE_DETACHED", null, null, 1000, now);
+    insertModifier(UUID.randomUUID(), EICR_RULE_ID, "PROPERTY_TYPE_HMO", null, null, 3000, now);
   }
 
   private void seedUrgencyMultipliers(final OffsetDateTime now, final LocalDate today) {
@@ -143,8 +204,15 @@ public class PricingTestDataSeeder {
            effective_from, effective_to, created_at, date_created, last_updated)
         VALUES (?::uuid, ?, ?, ?, TRUE, ?, ?, ?, ?, ?)
         """,
-        id.toString(), certificateType, region, basePricePence,
-        effectiveFrom, effectiveTo, now, now, now);
+        id.toString(),
+        certificateType,
+        region,
+        basePricePence,
+        effectiveFrom,
+        effectiveTo,
+        now,
+        now,
+        now);
   }
 
   private void insertModifier(
@@ -162,8 +230,15 @@ public class PricingTestDataSeeder {
            modifier_pence, created_at, date_created, last_updated)
         VALUES (?::uuid, ?::uuid, ?, ?, ?, ?, ?, ?, ?)
         """,
-        id.toString(), ruleId.toString(), modifierType,
-        conditionMin, conditionMax, modifierPence, now, now, now);
+        id.toString(),
+        ruleId.toString(),
+        modifierType,
+        conditionMin,
+        conditionMax,
+        modifierPence,
+        now,
+        now,
+        now);
   }
 
   private void insertMultiplier(
@@ -179,12 +254,16 @@ public class PricingTestDataSeeder {
            created_at, date_created, last_updated)
         VALUES (?::uuid, ?, ?, TRUE, ?, ?, ?, ?)
         """,
-        id.toString(), urgency, multiplier, effectiveFrom, now, now, now);
+        id.toString(),
+        urgency,
+        multiplier,
+        effectiveFrom,
+        now,
+        now,
+        now);
   }
 
-  /**
-   * Returns all seeded pricing rule IDs indexed by their certificate type.
-   */
+  /** Returns all seeded pricing rule IDs indexed by their certificate type. */
   public UUID getRuleIdForType(final String certificateType) {
     return switch (certificateType) {
       case "GAS_SAFETY" -> GAS_SAFETY_RULE_ID;
@@ -194,9 +273,7 @@ public class PricingTestDataSeeder {
     };
   }
 
-  /**
-   * Returns all seeded urgency multiplier IDs.
-   */
+  /** Returns all seeded urgency multiplier IDs. */
   public static List<UUID> allMultiplierIds() {
     return List.of(STANDARD_MULTIPLIER_ID, PRIORITY_MULTIPLIER_ID, EMERGENCY_MULTIPLIER_ID);
   }

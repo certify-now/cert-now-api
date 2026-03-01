@@ -1,4 +1,4 @@
-package com.uk.certifynow.certify_now.shared.security;
+package com.uk.certifynow.certify_now.service.security;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

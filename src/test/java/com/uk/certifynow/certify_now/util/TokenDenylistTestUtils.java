@@ -1,6 +1,6 @@
 package com.uk.certifynow.certify_now.util;
 
-import com.uk.certifynow.certify_now.shared.security.InMemoryTokenDenylistService;
+import com.uk.certifynow.certify_now.service.security.InMemoryTokenDenylistService;
 import org.springframework.stereotype.Component;
 
 @Component

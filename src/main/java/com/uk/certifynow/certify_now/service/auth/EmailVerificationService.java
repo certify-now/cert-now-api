@@ -2,10 +2,10 @@ package com.uk.certifynow.certify_now.service.auth;
 
 import com.uk.certifynow.certify_now.domain.EmailVerificationToken;
 import com.uk.certifynow.certify_now.domain.User;
+import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.repos.EmailVerificationTokenRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
-import com.uk.certifynow.certify_now.shared.exception.BusinessException;
-import com.uk.certifynow.certify_now.shared.service.EmailService;
+import com.uk.certifynow.certify_now.service.EmailService;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.OffsetDateTime;

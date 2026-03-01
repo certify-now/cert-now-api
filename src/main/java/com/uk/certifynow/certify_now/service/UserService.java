@@ -2,6 +2,7 @@ package com.uk.certifynow.certify_now.service;
 
 import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.events.BeforeDeleteUser;
+import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.model.UpdateMeRequest;
 import com.uk.certifynow.certify_now.model.UserDTO;
 import com.uk.certifynow.certify_now.model.UserMeDTO;
@@ -9,7 +10,6 @@ import com.uk.certifynow.certify_now.repos.UserRepository;
 import com.uk.certifynow.certify_now.service.auth.AuthProvider;
 import com.uk.certifynow.certify_now.service.auth.UserRole;
 import com.uk.certifynow.certify_now.service.auth.UserStatus;
-import com.uk.certifynow.certify_now.shared.exception.BusinessException;
 import com.uk.certifynow.certify_now.util.NotFoundException;
 import java.time.OffsetDateTime;
 import java.util.List;

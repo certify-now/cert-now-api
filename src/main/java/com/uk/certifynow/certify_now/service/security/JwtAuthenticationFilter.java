@@ -1,4 +1,4 @@
-package com.uk.certifynow.certify_now.shared.security;
+package com.uk.certifynow.certify_now.service.security;
 
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;

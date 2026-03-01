@@ -1,13 +1,13 @@
 package com.uk.certifynow.certify_now.service.auth;
 
 import com.uk.certifynow.certify_now.domain.User;
+import com.uk.certifynow.certify_now.exception.AccountNotActiveException;
+import com.uk.certifynow.certify_now.exception.EmailNotVerifiedException;
 import com.uk.certifynow.certify_now.service.auth.dto.AuthResponse;
 import com.uk.certifynow.certify_now.service.auth.dto.LoginRequest;
 import com.uk.certifynow.certify_now.service.auth.dto.RefreshRequest;
 import com.uk.certifynow.certify_now.service.auth.dto.RegisterRequest;
 import com.uk.certifynow.certify_now.service.mappers.AuthMapper;
-import com.uk.certifynow.certify_now.shared.exception.AccountNotActiveException;
-import com.uk.certifynow.certify_now.shared.exception.EmailNotVerifiedException;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;

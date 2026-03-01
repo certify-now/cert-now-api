@@ -1,10 +1,10 @@
 package com.uk.certifynow.certify_now.pricing.service;
 
 import com.uk.certifynow.certify_now.domain.Property;
+import com.uk.certifynow.certify_now.exception.EntityNotFoundException;
+import com.uk.certifynow.certify_now.interfaces.PricingCalculator;
 import com.uk.certifynow.certify_now.pricing.dto.PriceBreakdown;
 import com.uk.certifynow.certify_now.repos.PropertyRepository;
-import com.uk.certifynow.certify_now.shared.exception.EntityNotFoundException;
-import com.uk.certifynow.certify_now.shared.interfaces.PricingCalculator;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 
@@ -26,8 +26,7 @@ public class PricingCalculatorImpl implements PricingCalculator {
     final Property property =
         propertyRepository
             .findById(propertyId)
-            .orElseThrow(
-                () -> new EntityNotFoundException("Property not found: " + propertyId));
+            .orElseThrow(() -> new EntityNotFoundException("Property not found: " + propertyId));
     return pricingService.calculatePrice(certificateType, property, urgency);
   }
 }

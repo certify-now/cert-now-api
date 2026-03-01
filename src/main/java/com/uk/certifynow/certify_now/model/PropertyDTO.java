@@ -35,11 +35,9 @@ public class PropertyDTO {
 
   private Integer gasApplianceCount;
 
-  @NotNull
-  private Boolean hasElectric;
+  @NotNull private Boolean hasElectric;
 
-  @NotNull
-  private Boolean hasGasSupply;
+  @NotNull private Boolean hasGasSupply;
 
   private Boolean isActive;
 
@@ -76,7 +74,9 @@ public class PropertyDTO {
 
   @NotNull
   @Size(max = 255)
-  @Pattern(regexp = "^(FLAT|TERRACED|SEMI_DETACHED|DETACHED|BUNGALOW|MAISONETTE|COMMERCIAL|OTHER|HMO)$", message = "Invalid property type")
+  @Pattern(
+      regexp = "^(FLAT|TERRACED|SEMI_DETACHED|DETACHED|BUNGALOW|MAISONETTE|COMMERCIAL|OTHER|HMO)$",
+      message = "Invalid property type")
   private String propertyType;
 
   private String complianceStatus;

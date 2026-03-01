@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.MapperFeature;
+import tools.jackson.databind.PropertyNamingStrategies;
 
 @Configuration
 public class JacksonConfig {
@@ -15,6 +16,7 @@ public class JacksonConfig {
         jsonMapperBuilder
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
             .disable(DeserializationFeature.ACCEPT_FLOAT_AS_INT)
-            .disable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY);
+            .disable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY)
+            .propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
   }
 }

@@ -1,4 +1,4 @@
-package com.uk.certifynow.certify_now.shared.security;
+package com.uk.certifynow.certify_now.service.security;
 
 import com.uk.certifynow.certify_now.domain.User;
 import io.jsonwebtoken.Claims;

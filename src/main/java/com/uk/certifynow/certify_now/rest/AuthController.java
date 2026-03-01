@@ -1,5 +1,7 @@
 package com.uk.certifynow.certify_now.rest;
 
+import com.uk.certifynow.certify_now.config.RequestIdFilter;
+import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
 import com.uk.certifynow.certify_now.service.auth.AuthFacade;
 import com.uk.certifynow.certify_now.service.auth.EmailVerificationService;
 import com.uk.certifynow.certify_now.service.auth.dto.AuthResponse;
@@ -8,8 +10,6 @@ import com.uk.certifynow.certify_now.service.auth.dto.LogoutRequest;
 import com.uk.certifynow.certify_now.service.auth.dto.RefreshRequest;
 import com.uk.certifynow.certify_now.service.auth.dto.RegisterRequest;
 import com.uk.certifynow.certify_now.service.auth.dto.VerifyEmailRequest;
-import com.uk.certifynow.certify_now.shared.config.RequestIdFilter;
-import com.uk.certifynow.certify_now.shared.dto.ApiResponse;
 import com.uk.certifynow.certify_now.util.IpAddressUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;

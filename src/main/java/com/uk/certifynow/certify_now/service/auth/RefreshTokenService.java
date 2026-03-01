@@ -2,8 +2,8 @@ package com.uk.certifynow.certify_now.service.auth;
 
 import com.uk.certifynow.certify_now.domain.RefreshToken;
 import com.uk.certifynow.certify_now.domain.User;
+import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.repos.RefreshTokenRepository;
-import com.uk.certifynow.certify_now.shared.exception.BusinessException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;

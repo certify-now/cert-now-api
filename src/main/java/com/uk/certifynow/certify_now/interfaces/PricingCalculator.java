@@ -1,4 +1,4 @@
-package com.uk.certifynow.certify_now.shared.interfaces;
+package com.uk.certifynow.certify_now.interfaces;
 
 import com.uk.certifynow.certify_now.pricing.dto.PriceBreakdown;
 import java.util.UUID;

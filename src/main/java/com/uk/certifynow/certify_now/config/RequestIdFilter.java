@@ -1,4 +1,4 @@
-package com.uk.certifynow.certify_now.shared.config;
+package com.uk.certifynow.certify_now.config;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

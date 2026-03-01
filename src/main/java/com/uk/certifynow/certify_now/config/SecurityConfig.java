@@ -1,7 +1,7 @@
-package com.uk.certifynow.certify_now.shared.config;
+package com.uk.certifynow.certify_now.config;
 
-import com.uk.certifynow.certify_now.shared.security.JwtAuthenticationFilter;
-import com.uk.certifynow.certify_now.shared.security.SecurityResponseWriter;
+import com.uk.certifynow.certify_now.service.security.JwtAuthenticationFilter;
+import com.uk.certifynow.certify_now.service.security.SecurityResponseWriter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;

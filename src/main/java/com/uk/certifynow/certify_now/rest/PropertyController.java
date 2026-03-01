@@ -1,9 +1,9 @@
 package com.uk.certifynow.certify_now.rest;
 
+import com.uk.certifynow.certify_now.config.RequestIdFilter;
 import com.uk.certifynow.certify_now.model.PropertyDTO;
+import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
 import com.uk.certifynow.certify_now.service.PropertyService;
-import com.uk.certifynow.certify_now.shared.config.RequestIdFilter;
-import com.uk.certifynow.certify_now.shared.dto.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.UUID;

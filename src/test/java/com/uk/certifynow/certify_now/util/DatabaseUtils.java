@@ -152,8 +152,7 @@ public class DatabaseUtils {
   }
 
   public List<Map<String, Object>> findAllUrgencyMultipliers() {
-    return jdbcTemplate.queryForList(
-        "select * from urgency_multiplier order by urgency");
+    return jdbcTemplate.queryForList("select * from urgency_multiplier order by urgency");
   }
 
   public void deactivatePricingRulesByType(final String certificateType) {
@@ -162,8 +161,7 @@ public class DatabaseUtils {
   }
 
   public void deactivatePricingRule(final String ruleId) {
-    jdbcTemplate.update(
-        "update pricing_rule set is_active = false where id = ?::uuid", ruleId);
+    jdbcTemplate.update("update pricing_rule set is_active = false where id = ?::uuid", ruleId);
   }
 
   public void deactivateUrgencyMultiplier(final String urgency) {
@@ -182,10 +180,7 @@ public class DatabaseUtils {
   }
 
   public void insertAdminUser(
-      final String id,
-      final String email,
-      final String passwordHash,
-      final String fullName) {
+      final String id, final String email, final String passwordHash, final String fullName) {
     jdbcTemplate.update(
         """
         INSERT INTO "user" (
@@ -198,7 +193,10 @@ public class DatabaseUtils {
           NOW(), NOW(), NOW(), NOW()
         )
         """,
-        id, email, passwordHash, fullName);
+        id,
+        email,
+        passwordHash,
+        fullName);
   }
 
   public int getCustomerTotalProperties(final String userId) {

@@ -34,19 +34,27 @@ public class PricingApiClient {
       final UUID propertyId,
       final String certificateType,
       final String urgency) {
-    final String path = "/api/v1/pricing/calculate"
-        + "?property_id=" + propertyId
-        + "&certificate_type=" + certificateType
-        + "&urgency=" + urgency;
+    final String path =
+        "/api/v1/pricing/calculate"
+            + "?property_id="
+            + propertyId
+            + "&certificate_type="
+            + certificateType
+            + "&urgency="
+            + urgency;
     return send("GET", path, accessToken, null);
   }
 
   public Response calculatePriceNoAuth(
       final UUID propertyId, final String certificateType, final String urgency) {
-    final String path = "/api/v1/pricing/calculate"
-        + "?property_id=" + propertyId
-        + "&certificate_type=" + certificateType
-        + "&urgency=" + urgency;
+    final String path =
+        "/api/v1/pricing/calculate"
+            + "?property_id="
+            + propertyId
+            + "&certificate_type="
+            + certificateType
+            + "&urgency="
+            + urgency;
     return send("GET", path, null, null);
   }
 
@@ -57,9 +65,10 @@ public class PricingApiClient {
   // ── Admin pricing rules ──────────────────────────────────────────────────
 
   public Response listRules(final String adminToken, final Boolean activeOnly) {
-    final String path = activeOnly == null
-        ? "/api/v1/admin/pricing/rules"
-        : "/api/v1/admin/pricing/rules?active_only=" + activeOnly;
+    final String path =
+        activeOnly == null
+            ? "/api/v1/admin/pricing/rules"
+            : "/api/v1/admin/pricing/rules?active_only=" + activeOnly;
     return send("GET", path, adminToken, null);
   }
 
@@ -67,23 +76,25 @@ public class PricingApiClient {
     return send("POST", "/api/v1/admin/pricing/rules", adminToken, body);
   }
 
-  public Response updateRule(final String adminToken, final UUID ruleId,
-      final Map<String, Object> body) {
+  public Response updateRule(
+      final String adminToken, final UUID ruleId, final Map<String, Object> body) {
     return send("PUT", "/api/v1/admin/pricing/rules/" + ruleId, adminToken, body);
   }
 
   // ── Admin modifiers ──────────────────────────────────────────────────────
 
-  public Response addModifier(final String adminToken, final UUID ruleId,
-      final Map<String, Object> body) {
+  public Response addModifier(
+      final String adminToken, final UUID ruleId, final Map<String, Object> body) {
     return send("POST", "/api/v1/admin/pricing/rules/" + ruleId + "/modifiers", adminToken, body);
   }
 
-  public Response removeModifier(final String adminToken, final UUID ruleId,
-      final UUID modifierId) {
-    return send("DELETE",
+  public Response removeModifier(
+      final String adminToken, final UUID ruleId, final UUID modifierId) {
+    return send(
+        "DELETE",
         "/api/v1/admin/pricing/rules/" + ruleId + "/modifiers/" + modifierId,
-        adminToken, null);
+        adminToken,
+        null);
   }
 
   // ── Admin urgency multipliers ────────────────────────────────────────────
@@ -92,10 +103,10 @@ public class PricingApiClient {
     return send("GET", "/api/v1/admin/pricing/urgency-multipliers", adminToken, null);
   }
 
-  public Response updateMultiplier(final String adminToken, final UUID multiplierId,
-      final Map<String, Object> body) {
-    return send("PUT", "/api/v1/admin/pricing/urgency-multipliers/" + multiplierId,
-        adminToken, body);
+  public Response updateMultiplier(
+      final String adminToken, final UUID multiplierId, final Map<String, Object> body) {
+    return send(
+        "PUT", "/api/v1/admin/pricing/urgency-multipliers/" + multiplierId, adminToken, body);
   }
 
   // ── Generic call (for access-control scenarios) ──────────────────────────
@@ -124,10 +135,10 @@ public class PricingApiClient {
         final String json = objectMapper.writeValueAsString(body);
         builder.header("Content-Type", "application/json");
         switch (method) {
-          case "POST" -> builder.POST(
-              HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8));
-          case "PUT" -> builder.PUT(
-              HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8));
+          case "POST" ->
+              builder.POST(HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8));
+          case "PUT" ->
+              builder.PUT(HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8));
           default -> throw new IllegalArgumentException("Body not supported for: " + method);
         }
       } else {
@@ -146,8 +157,7 @@ public class PricingApiClient {
       return new ResponseBuilder()
           .setStatusCode(response.statusCode())
           .setBody(response.body() == null ? "" : response.body())
-          .setContentType(
-              response.headers().firstValue("Content-Type").orElse("application/json"))
+          .setContentType(response.headers().firstValue("Content-Type").orElse("application/json"))
           .build();
     } catch (Exception ex) {
       throw new RuntimeException("HTTP request failed: " + method + " " + path, ex);

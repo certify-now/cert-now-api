@@ -1,13 +1,13 @@
 package com.uk.certifynow.certify_now.pricing.controller;
 
+import com.uk.certifynow.certify_now.config.RequestIdFilter;
 import com.uk.certifynow.certify_now.domain.Property;
+import com.uk.certifynow.certify_now.exception.BusinessException;
+import com.uk.certifynow.certify_now.exception.EntityNotFoundException;
 import com.uk.certifynow.certify_now.pricing.dto.PriceBreakdown;
 import com.uk.certifynow.certify_now.pricing.service.PricingService;
 import com.uk.certifynow.certify_now.repos.PropertyRepository;
-import com.uk.certifynow.certify_now.shared.config.RequestIdFilter;
-import com.uk.certifynow.certify_now.shared.dto.ApiResponse;
-import com.uk.certifynow.certify_now.shared.exception.BusinessException;
-import com.uk.certifynow.certify_now.shared.exception.EntityNotFoundException;
+import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -55,8 +55,8 @@ public class PricingController {
     if (!isAdmin) {
       final UUID requesterId = UUID.fromString((String) authentication.getPrincipal());
       if (!property.getOwner().getId().equals(requesterId)) {
-        throw new BusinessException(HttpStatus.FORBIDDEN, "ACCESS_DENIED",
-            "You do not have access to this property");
+        throw new BusinessException(
+            HttpStatus.FORBIDDEN, "ACCESS_DENIED", "You do not have access to this property");
       }
     }
 
@@ -70,7 +70,8 @@ public class PricingController {
     // Validate gas supply for GAS_SAFETY
     if ("GAS_SAFETY".equals(certificateType) && Boolean.FALSE.equals(property.getHasGasSupply())) {
       throw new BusinessException(
-          HttpStatus.BAD_REQUEST, "NO_GAS_SUPPLY",
+          HttpStatus.BAD_REQUEST,
+          "NO_GAS_SUPPLY",
           "Property does not have a gas supply — GAS_SAFETY certificate cannot be issued");
     }
 

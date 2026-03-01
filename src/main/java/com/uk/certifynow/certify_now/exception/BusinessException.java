@@ -1,4 +1,4 @@
-package com.uk.certifynow.certify_now.shared.exception;
+package com.uk.certifynow.certify_now.exception;
 
 import java.util.List;
 import java.util.Map;

@@ -1,6 +1,6 @@
-package com.uk.certifynow.certify_now.shared.security;
+package com.uk.certifynow.certify_now.service.security;
 
-import com.uk.certifynow.certify_now.shared.config.RequestIdFilter;
+import com.uk.certifynow.certify_now.config.RequestIdFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;

@@ -7,7 +7,7 @@ spring:
     compose:
       lifecycle-management: start-only
   datasource:
-    url: ${JDBC_DATABASE_URL:jdbc:postgresql://localhost:5433/certify-now}
+    url: ${JDBC_DATABASE_URL:jdbc:postgresql://localhost:5433/cert-now-api}
     username: ${JDBC_DATABASE_USERNAME:postgres}
     password: ${JDBC_DATABASE_PASSWORD:P4ssword!}
     hikari:

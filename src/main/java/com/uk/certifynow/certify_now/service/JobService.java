@@ -18,7 +18,7 @@ import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.exception.EntityNotFoundException;
 import com.uk.certifynow.certify_now.exception.InvalidStateTransitionException;
 import com.uk.certifynow.certify_now.interfaces.PricingCalculator;
-import com.uk.certifynow.certify_now.pricing.dto.PriceBreakdown;
+import com.uk.certifynow.certify_now.rest.dto.pricing.PriceBreakdown;
 import com.uk.certifynow.certify_now.repos.JobMatchLogRepository;
 import com.uk.certifynow.certify_now.repos.JobRepository;
 import com.uk.certifynow.certify_now.repos.JobStatusHistoryRepository;

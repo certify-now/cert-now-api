@@ -1,4 +1,4 @@
-package com.uk.certifynow.certify_now.pricing.service;
+package com.uk.certifynow.certify_now.service;
 
 import com.uk.certifynow.certify_now.domain.PricingModifier;
 import com.uk.certifynow.certify_now.domain.PricingRule;
@@ -6,14 +6,14 @@ import com.uk.certifynow.certify_now.domain.Property;
 import com.uk.certifynow.certify_now.domain.UrgencyMultiplier;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.exception.EntityNotFoundException;
-import com.uk.certifynow.certify_now.pricing.dto.CreatePricingModifierRequest;
-import com.uk.certifynow.certify_now.pricing.dto.CreatePricingRuleRequest;
-import com.uk.certifynow.certify_now.pricing.dto.PriceBreakdown;
-import com.uk.certifynow.certify_now.pricing.dto.PricingModifierResponse;
-import com.uk.certifynow.certify_now.pricing.dto.PricingRuleResponse;
-import com.uk.certifynow.certify_now.pricing.dto.UpdatePricingRuleRequest;
-import com.uk.certifynow.certify_now.pricing.dto.UpdateUrgencyMultiplierRequest;
-import com.uk.certifynow.certify_now.pricing.dto.UrgencyMultiplierResponse;
+import com.uk.certifynow.certify_now.rest.dto.pricing.CreatePricingModifierRequest;
+import com.uk.certifynow.certify_now.rest.dto.pricing.CreatePricingRuleRequest;
+import com.uk.certifynow.certify_now.rest.dto.pricing.PriceBreakdown;
+import com.uk.certifynow.certify_now.rest.dto.pricing.PricingModifierResponse;
+import com.uk.certifynow.certify_now.rest.dto.pricing.PricingRuleResponse;
+import com.uk.certifynow.certify_now.rest.dto.pricing.UpdatePricingRuleRequest;
+import com.uk.certifynow.certify_now.rest.dto.pricing.UpdateUrgencyMultiplierRequest;
+import com.uk.certifynow.certify_now.rest.dto.pricing.UrgencyMultiplierResponse;
 import com.uk.certifynow.certify_now.repos.PricingModifierRepository;
 import com.uk.certifynow.certify_now.repos.PricingRuleRepository;
 import com.uk.certifynow.certify_now.repos.PropertyRepository;

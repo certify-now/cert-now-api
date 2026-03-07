@@ -1,6 +1,6 @@
 package com.uk.certifynow.certify_now.interfaces;
 
-import com.uk.certifynow.certify_now.pricing.dto.PriceBreakdown;
+import com.uk.certifynow.certify_now.rest.dto.pricing.PriceBreakdown;
 import java.util.UUID;
 
 public interface PricingCalculator {

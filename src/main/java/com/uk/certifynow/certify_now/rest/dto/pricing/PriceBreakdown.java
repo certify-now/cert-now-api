@@ -1,4 +1,4 @@
-package com.uk.certifynow.certify_now.pricing.dto;
+package com.uk.certifynow.certify_now.rest.dto.pricing;
 
 import java.math.BigDecimal;
 import java.util.List;

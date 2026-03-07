@@ -1,9 +1,9 @@
-package com.uk.certifynow.certify_now.pricing.service;
+package com.uk.certifynow.certify_now.service;
 
 import com.uk.certifynow.certify_now.domain.Property;
 import com.uk.certifynow.certify_now.exception.EntityNotFoundException;
 import com.uk.certifynow.certify_now.interfaces.PricingCalculator;
-import com.uk.certifynow.certify_now.pricing.dto.PriceBreakdown;
+import com.uk.certifynow.certify_now.rest.dto.pricing.PriceBreakdown;
 import com.uk.certifynow.certify_now.repos.PropertyRepository;
 import java.util.UUID;
 import org.springframework.stereotype.Service;

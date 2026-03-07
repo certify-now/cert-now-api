@@ -493,7 +493,7 @@ public class JobService {
   // ────────────────────────────────────────────────────────────────────────────
 
   @CacheEvict(value = "jobs", key = "#jobId")
-  @Transactional
+  @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
   public void certifyJob(final UUID jobId) {
     final Job job = loadJobOrThrow(jobId);
     validateTransition(JobStatus.fromString(job.getStatus()), JobStatus.CERTIFIED);

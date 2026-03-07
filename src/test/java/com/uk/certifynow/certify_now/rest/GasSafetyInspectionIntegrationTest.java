@@ -1,6 +1,7 @@
 package com.uk.certifynow.certify_now.rest;
 
 import static io.restassured.RestAssured.given;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
@@ -29,6 +30,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -144,14 +146,19 @@ class GasSafetyInspectionIntegrationTest {
         .body("data.final_checks.gas_tightness_pass", equalTo("YES"))
         .body("data.signatures.engineer_signed", equalTo(true));
 
-    // Verify job transitioned to CERTIFIED
-    given()
-        .header("Authorization", "Bearer " + engineerToken)
-        .when()
-        .get("/api/v1/jobs/" + jobId)
-        .then()
-        .statusCode(200)
-        .body("data.status", equalTo("CERTIFIED"));
+    // Verify job transitioned to CERTIFIED (event listener runs after commit)
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .pollInterval(200, TimeUnit.MILLISECONDS)
+        .untilAsserted(
+            () ->
+                given()
+                    .header("Authorization", "Bearer " + engineerToken)
+                    .when()
+                    .get("/api/v1/jobs/" + jobId)
+                    .then()
+                    .statusCode(200)
+                    .body("data.status", equalTo("CERTIFIED")));
 
     // Verify GET endpoint returns the record
     given()

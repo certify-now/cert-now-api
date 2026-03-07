@@ -110,6 +110,12 @@ public class SecurityConfig {
                     // cancel + GET /jobs endpoints: role checked in service layer
 
                     // ═══════════════════════════════════════════════════════
+                    // ENGINEER ONBOARDING ENDPOINTS
+                    // ═══════════════════════════════════════════════════════
+                    .requestMatchers("/api/v1/engineer/**")
+                    .hasRole("ENGINEER")
+
+                    // ═══════════════════════════════════════════════════════
                     // ALL OTHER ENDPOINTS REQUIRE AUTHENTICATION
                     // ═══════════════════════════════════════════════════════
                     .anyRequest()

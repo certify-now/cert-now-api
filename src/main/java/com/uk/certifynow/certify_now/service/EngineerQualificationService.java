@@ -6,26 +6,36 @@ import com.uk.certifynow.certify_now.events.BeforeDeleteEngineerProfile;
 import com.uk.certifynow.certify_now.model.EngineerQualificationDTO;
 import com.uk.certifynow.certify_now.repos.EngineerProfileRepository;
 import com.uk.certifynow.certify_now.repos.EngineerQualificationRepository;
+import com.uk.certifynow.certify_now.rest.dto.engineer.AddQualificationRequest;
+import com.uk.certifynow.certify_now.rest.dto.engineer.QualificationResponse;
 import com.uk.certifynow.certify_now.util.NotFoundException;
 import com.uk.certifynow.certify_now.util.ReferencedException;
+import java.time.Clock;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class EngineerQualificationService {
 
   private final EngineerQualificationRepository engineerQualificationRepository;
   private final EngineerProfileRepository engineerProfileRepository;
+  private final Clock clock;
 
   public EngineerQualificationService(
       final EngineerQualificationRepository engineerQualificationRepository,
-      final EngineerProfileRepository engineerProfileRepository) {
+      final EngineerProfileRepository engineerProfileRepository,
+      final Clock clock) {
     this.engineerQualificationRepository = engineerQualificationRepository;
     this.engineerProfileRepository = engineerProfileRepository;
+    this.clock = clock;
   }
+
+  // -- Existing generic CRUD methods (kept for backward compat) ---------------
 
   public List<EngineerQualificationDTO> findAll() {
     final List<EngineerQualification> engineerQualifications =
@@ -64,6 +74,77 @@ public class EngineerQualificationService {
         engineerQualificationRepository.findById(id).orElseThrow(NotFoundException::new);
     engineerQualificationRepository.delete(engineerQualification);
   }
+
+  // -- New business methods (Phase 5) -----------------------------------------
+
+  @Transactional
+  public QualificationResponse addQualification(
+      final UUID userId, final AddQualificationRequest request) {
+    final EngineerProfile profile = resolveProfileByUserId(userId);
+    final OffsetDateTime now = OffsetDateTime.now(clock);
+    final EngineerQualification qualification = new EngineerQualification();
+    qualification.setEngineerProfile(profile);
+    qualification.setType(request.type());
+    qualification.setRegistrationNumber(request.registrationNumber());
+    qualification.setIssueDate(request.issueDate());
+    qualification.setExpiryDate(request.expiryDate());
+    qualification.setSchemeName(request.schemeName());
+    qualification.setDocumentUrl(request.documentUrl());
+    qualification.setVerificationStatus("PENDING");
+    qualification.setExternalVerified(false);
+    qualification.setCreatedAt(now);
+    qualification.setUpdatedAt(now);
+    return toResponse(engineerQualificationRepository.save(qualification));
+  }
+
+  public List<QualificationResponse> getMyQualifications(final UUID userId) {
+    final EngineerProfile profile = resolveProfileByUserId(userId);
+    return engineerQualificationRepository.findAllByEngineerProfileId(profile.getId()).stream()
+        .map(this::toResponse)
+        .toList();
+  }
+
+  @Transactional
+  public QualificationResponse verifyQualification(
+      final UUID qualificationId, final UUID adminId, final String newStatus) {
+    final EngineerQualification qualification =
+        engineerQualificationRepository
+            .findById(qualificationId)
+            .orElseThrow(NotFoundException::new);
+    qualification.setVerificationStatus(newStatus);
+    qualification.setVerifiedAt(OffsetDateTime.now(clock));
+    qualification.setVerifiedBy(adminId);
+    qualification.setUpdatedAt(OffsetDateTime.now(clock));
+    return toResponse(engineerQualificationRepository.save(qualification));
+  }
+
+  // -- Mapping helpers --------------------------------------------------------
+
+  private EngineerProfile resolveProfileByUserId(final UUID userId) {
+    return engineerProfileRepository
+        .findByUserId(userId)
+        .orElseThrow(() -> new NotFoundException("Engineer profile not found for user"));
+  }
+
+  private QualificationResponse toResponse(final EngineerQualification q) {
+    return new QualificationResponse(
+        q.getId(),
+        q.getEngineerProfile() == null ? null : q.getEngineerProfile().getId(),
+        q.getType(),
+        q.getRegistrationNumber(),
+        q.getIssueDate(),
+        q.getExpiryDate(),
+        q.getSchemeName(),
+        q.getDocumentUrl(),
+        q.getVerificationStatus(),
+        q.getExternalVerified(),
+        q.getVerifiedAt(),
+        q.getVerifiedBy(),
+        q.getCreatedAt(),
+        q.getUpdatedAt());
+  }
+
+  // -- Existing DTO mapping (kept for backward compat) ------------------------
 
   private EngineerQualificationDTO mapToDTO(
       final EngineerQualification engineerQualification,

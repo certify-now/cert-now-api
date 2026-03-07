@@ -743,6 +743,7 @@ public class JobService {
     log.setEngineer(engineer);
     log.setMatchScore(score);
     log.setDistanceMiles(distance);
+    log.setNotifiedAt(OffsetDateTime.now());
     log.setOfferedAt(OffsetDateTime.now());
     log.setCreatedAt(OffsetDateTime.now());
     matchLogRepository.save(log);

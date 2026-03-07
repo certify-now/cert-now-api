@@ -52,6 +52,12 @@ error:
       5xx: ERROR
     exception-logging: NO_LOGGING
 
+certifynow:
+  matching:
+    broadcast-expiry-minutes: 15
+    unmatched-job-check-interval-ms: 30000
+    expired-broadcast-check-interval-ms: 30000
+
 app:
   pricing:
     commission-rate: 0.15

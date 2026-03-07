@@ -4,19 +4,16 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-/**
- * Lightweight job summary for GET /api/v1/jobs (list view).
- */
+/** Lightweight job summary for GET /api/v1/jobs (list view). */
 public record JobSummaryResponse(
-        UUID id,
-        String referenceNumber,
-        String certificateType,
-        String status,
-        String urgency,
-        int totalPricePence,
-        LocalDate scheduledDate,
-        String scheduledTimeSlot,
-        String propertyAddressSummary,
-        String engineerName,
-        OffsetDateTime createdAt) {
-}
+    UUID id,
+    String referenceNumber,
+    String certificateType,
+    String status,
+    String urgency,
+    int totalPricePence,
+    LocalDate scheduledDate,
+    String scheduledTimeSlot,
+    String propertyAddressSummary,
+    String engineerName,
+    OffsetDateTime createdAt) {}

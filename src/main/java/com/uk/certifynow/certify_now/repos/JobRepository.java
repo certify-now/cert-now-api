@@ -44,10 +44,11 @@ public interface JobRepository extends JpaRepository<Job, UUID> {
       UUID engineerId, String status, String certificateType, Pageable pageable);
 
   // ── Admin list queries (all jobs with optional filters) ───────────────────
-  @Query("SELECT j FROM Job j WHERE "
-      + "(:status IS NULL OR j.status = :status) AND "
-      + "(:certificateType IS NULL OR j.certificateType = :certificateType) "
-      + "ORDER BY j.createdAt DESC")
+  @Query(
+      "SELECT j FROM Job j WHERE "
+          + "(:status IS NULL OR j.status = :status) AND "
+          + "(:certificateType IS NULL OR j.certificateType = :certificateType) "
+          + "ORDER BY j.createdAt DESC")
   Page<Job> findAllWithFilters(
       @Param("status") String status,
       @Param("certificateType") String certificateType,
@@ -57,8 +58,10 @@ public interface JobRepository extends JpaRepository<Job, UUID> {
   Optional<Job> findByReferenceNumber(String referenceNumber);
 
   // ── Validation: prevent deactivating a property with active jobs ──────────
-  @Query("SELECT CASE WHEN COUNT(j) > 0 THEN true ELSE false END FROM Job j "
-      + "WHERE j.property.id = :propertyId AND j.status NOT IN :terminalStatuses")
+  @Query(
+      "SELECT CASE WHEN COUNT(j) > 0 THEN true ELSE false END FROM Job j "
+          + "WHERE j.property.id = :propertyId AND j.status NOT IN :terminalStatuses")
   boolean existsByPropertyIdAndStatusNotIn(
-      @Param("propertyId") UUID propertyId, @Param("terminalStatuses") List<String> terminalStatuses);
+      @Param("propertyId") UUID propertyId,
+      @Param("terminalStatuses") List<String> terminalStatuses);
 }

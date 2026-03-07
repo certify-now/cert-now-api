@@ -41,6 +41,7 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
@@ -66,15 +67,15 @@ public class GasSafetyRecordService {
     this.publisher = publisher;
   }
 
+  @CacheEvict(value = "jobs", key = "#jobId")
   @Transactional
   public GasSafetyRecordResponse submitGasSafetyRecord(
       final UUID jobId, final UUID engineerId, final GasSafetyRecordRequest request) {
 
     // 1. Load job
-    final Job job =
-        jobRepository
-            .findById(jobId)
-            .orElseThrow(() -> new EntityNotFoundException("Job not found: " + jobId));
+    final Job job = jobRepository
+        .findById(jobId)
+        .orElseThrow(() -> new EntityNotFoundException("Job not found: " + jobId));
 
     // 2. Validate job is in COMPLETED status
     final JobStatus currentStatus = JobStatus.fromString(job.getStatus());
@@ -130,7 +131,15 @@ public class GasSafetyRecordService {
     // 9. Supersede any existing active certificate for same property + type
     supersedePreviousCertificates(job, certificate);
 
-    // 10. Publish CertificateIssuedEvent
+    // 10. Transition job to CERTIFIED status (within this transaction for
+    // atomicity)
+    job.setStatus("CERTIFIED");
+    job.setCertifiedAt(OffsetDateTime.now());
+    job.setUpdatedAt(OffsetDateTime.now());
+    jobRepository.save(job);
+
+    // 11. Publish CertificateIssuedEvent (for downstream notifications, e.g.
+    // property compliance)
     publisher.publishEvent(
         new CertificateIssuedEvent(
             jobId, certificate.getId(), job.getProperty().getId(), "GAS_SAFETY"));
@@ -140,11 +149,10 @@ public class GasSafetyRecordService {
 
   @Transactional(readOnly = true)
   public GasSafetyRecordResponse getGasSafetyRecord(final UUID jobId) {
-    final GasSafetyRecord record =
-        gasSafetyRecordRepository
-            .findByJobId(jobId)
-            .orElseThrow(
-                () -> new EntityNotFoundException("No gas safety record found for job: " + jobId));
+    final GasSafetyRecord record = gasSafetyRecordRepository
+        .findByJobId(jobId)
+        .orElseThrow(
+            () -> new EntityNotFoundException("No gas safety record found for job: " + jobId));
     return toResponse(record);
   }
 
@@ -166,9 +174,8 @@ public class GasSafetyRecordService {
 
   private void supersedePreviousCertificates(final Job job, final Certificate newCertificate) {
     final UUID propertyId = job.getProperty().getId();
-    final List<Certificate> activeCerts =
-        certificateRepository.findByPropertyIdAndCertificateTypeAndStatus(
-            propertyId, "GAS_SAFETY", "ACTIVE");
+    final List<Certificate> activeCerts = certificateRepository.findByPropertyIdAndCertificateTypeAndStatus(
+        propertyId, "GAS_SAFETY", "ACTIVE");
     for (final Certificate existing : activeCerts) {
       if (!existing.getId().equals(newCertificate.getId())) {
         existing.setStatus("SUPERSEDED");
@@ -364,61 +371,54 @@ public class GasSafetyRecordService {
   // ---- Mapping: Entity to Response ----
 
   private GasSafetyRecordResponse toResponse(final GasSafetyRecord record) {
-    final EngineerSummary engineer =
-        new EngineerSummary(
-            record.getEngineerName(),
-            record.getEngineerGasSafeNumber(),
-            record.getEngineerLicenceCardNumber(),
-            record.getTimeOfArrival(),
-            record.getTimeOfDeparture(),
-            record.getReportIssuedDate(),
-            record.getEngineerNotes());
+    final EngineerSummary engineer = new EngineerSummary(
+        record.getEngineerName(),
+        record.getEngineerGasSafeNumber(),
+        record.getEngineerLicenceCardNumber(),
+        record.getTimeOfArrival(),
+        record.getTimeOfDeparture(),
+        record.getReportIssuedDate(),
+        record.getEngineerNotes());
 
     final CompanySummary company = mapCompanySummary(record.getCompanyDetails());
     final ClientSummary client = mapClientSummary(record.getClientDetails());
     final TenantSummary tenant = mapTenantSummary(record.getTenantDetails());
-    final InstallationSummary installation =
-        mapInstallationSummary(record.getInstallationDetails());
+    final InstallationSummary installation = mapInstallationSummary(record.getInstallationDetails());
 
-    final List<ApplianceSummary> appliances =
-        record.getAppliances().stream().map(this::mapApplianceSummary).toList();
+    final List<ApplianceSummary> appliances = record.getAppliances().stream().map(this::mapApplianceSummary).toList();
 
-    final FinalChecksSummary finalChecks =
-        new FinalChecksSummary(
-            record.getGasTightnessPass(),
-            record.getGasPipeWorkVisualPass(),
-            record.getEmergencyControlAccessible(),
-            record.getEquipotentialBonding(),
-            record.getInstallationPass(),
-            record.getCoAlarmFittedWorkingSameRoom(),
-            record.getSmokeAlarmFittedWorking(),
-            record.getAdditionalObservations());
+    final FinalChecksSummary finalChecks = new FinalChecksSummary(
+        record.getGasTightnessPass(),
+        record.getGasPipeWorkVisualPass(),
+        record.getEmergencyControlAccessible(),
+        record.getEquipotentialBonding(),
+        record.getInstallationPass(),
+        record.getCoAlarmFittedWorkingSameRoom(),
+        record.getSmokeAlarmFittedWorking(),
+        record.getAdditionalObservations());
 
-    final FaultsAndRemedialsSummary faults =
-        new FaultsAndRemedialsSummary(
-            record.getFaultsNotes(),
-            record.getRemedialWorkTaken(),
-            record.getWarningNoticeFixed(),
-            record.getApplianceIsolated(),
-            record.getIsolationReason());
+    final FaultsAndRemedialsSummary faults = new FaultsAndRemedialsSummary(
+        record.getFaultsNotes(),
+        record.getRemedialWorkTaken(),
+        record.getWarningNoticeFixed(),
+        record.getApplianceIsolated(),
+        record.getIsolationReason());
 
-    final SignaturesSummary signatures =
-        new SignaturesSummary(
-            record.getEngineerSigned(),
-            record.getEngineerSignedDate(),
-            record.getCustomerName(),
-            record.getCustomerSigned(),
-            record.getCustomerSignedDate(),
-            record.getTenantSigned(),
-            record.getTenantSignedDate(),
-            record.getPrivacyPolicyAccepted());
+    final SignaturesSummary signatures = new SignaturesSummary(
+        record.getEngineerSigned(),
+        record.getEngineerSignedDate(),
+        record.getCustomerName(),
+        record.getCustomerSigned(),
+        record.getCustomerSignedDate(),
+        record.getTenantSigned(),
+        record.getTenantSignedDate(),
+        record.getPrivacyPolicyAccepted());
 
-    final MetadataSummary metadata =
-        new MetadataSummary(
-            record.getCreatedBySoftware(),
-            record.getVersion(),
-            record.getGeneratedAt(),
-            record.getPlatform());
+    final MetadataSummary metadata = new MetadataSummary(
+        record.getCreatedBySoftware(),
+        record.getVersion(),
+        record.getGeneratedAt(),
+        record.getPlatform());
 
     return new GasSafetyRecordResponse(
         record.getId(),
@@ -498,13 +498,12 @@ public class GasSafetyRecordService {
     CombustionReadingsSummary cr = null;
     if (a.getCombustionReadings() != null) {
       final CombustionReadings readings = a.getCombustionReadings();
-      cr =
-          new CombustionReadingsSummary(
-              readings.getCoPpm(),
-              readings.getCo2Percentage(),
-              readings.getCoToCo2Ratio(),
-              readings.getCombustionLow(),
-              readings.getCombustionHigh());
+      cr = new CombustionReadingsSummary(
+          readings.getCoPpm(),
+          readings.getCo2Percentage(),
+          readings.getCoToCo2Ratio(),
+          readings.getCombustionLow(),
+          readings.getCombustionHigh());
     }
     return new ApplianceSummary(
         a.getId(),

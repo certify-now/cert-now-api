@@ -488,6 +488,28 @@ public class JobService {
   }
 
   // ────────────────────────────────────────────────────────────────────────────
+  // CERTIFY JOB (called by CertificateIssuedEventListener after inspection data
+  // is submitted)
+  // ────────────────────────────────────────────────────────────────────────────
+
+  @CacheEvict(value = "jobs", key = "#jobId")
+  @Transactional
+  public void certifyJob(final UUID jobId) {
+    final Job job = loadJobOrThrow(jobId);
+    validateTransition(JobStatus.fromString(job.getStatus()), JobStatus.CERTIFIED);
+
+    job.setStatus("CERTIFIED");
+    job.setCertifiedAt(OffsetDateTime.now());
+    job.setUpdatedAt(OffsetDateTime.now());
+    jobRepository.save(job);
+
+    final UUID engineerId = job.getEngineer() != null ? job.getEngineer().getId() : null;
+    recordHistory(job, "COMPLETED", "CERTIFIED", engineerId, "SYSTEM", null, null);
+    publisher.publishEvent(
+        new JobStatusChangedEvent(job.getId(), "COMPLETED", "CERTIFIED", engineerId, "SYSTEM"));
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
   // CANCEL JOB
   // ────────────────────────────────────────────────────────────────────────────
 

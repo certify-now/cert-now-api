@@ -107,6 +107,14 @@ public class SecurityConfig {
                     .hasRole("ENGINEER")
                     .requestMatchers(HttpMethod.PUT, "/api/v1/jobs/*/complete")
                     .hasRole("ENGINEER")
+
+                    // ═══════════════════════════════════════════════════════
+                    // INSPECTION ENDPOINTS
+                    // ═══════════════════════════════════════════════════════
+                    .requestMatchers(HttpMethod.POST, "/api/v1/jobs/*/inspection/gas-safety")
+                    .hasRole("ENGINEER")
+                    // GET inspection: role checked in service layer
+
                     // cancel + GET /jobs endpoints: role checked in service layer
 
                     // ═══════════════════════════════════════════════════════

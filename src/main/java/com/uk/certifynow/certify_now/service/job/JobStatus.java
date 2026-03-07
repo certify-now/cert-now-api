@@ -7,6 +7,7 @@ package com.uk.certifynow.certify_now.service.job;
  */
 public enum JobStatus {
   CREATED,
+  AWAITING_ACCEPTANCE,
   MATCHED,
   ACCEPTED,
   EN_ROUTE,
@@ -25,7 +26,12 @@ public enum JobStatus {
    */
   public boolean canTransitionTo(final JobStatus target) {
     return switch (this) {
-      case CREATED -> target == MATCHED || target == CANCELLED || target == ESCALATED;
+      case CREATED ->
+          target == AWAITING_ACCEPTANCE
+              || target == MATCHED
+              || target == CANCELLED
+              || target == ESCALATED;
+      case AWAITING_ACCEPTANCE -> target == MATCHED || target == ESCALATED || target == CANCELLED;
       case MATCHED -> target == ACCEPTED || target == CREATED || target == CANCELLED;
       case ACCEPTED -> target == EN_ROUTE || target == CANCELLED;
       case EN_ROUTE -> target == IN_PROGRESS || target == CANCELLED;

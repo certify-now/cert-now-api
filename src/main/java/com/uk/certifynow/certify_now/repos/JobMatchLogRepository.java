@@ -5,6 +5,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface JobMatchLogRepository extends JpaRepository<JobMatchLog, UUID> {
 
@@ -19,4 +22,11 @@ public interface JobMatchLogRepository extends JpaRepository<JobMatchLog, UUID> 
 
   /** Used by CRUD stub (JobMatchLogService BeforeDelete listener). */
   JobMatchLog findFirstByJobId(UUID jobId);
+
+  /** Mark all PENDING match log entries for a job as EXPIRED (used on escalation or claim). */
+  @Modifying
+  @Query(
+      "UPDATE JobMatchLog m SET m.response = 'EXPIRED' "
+          + "WHERE m.job.id = :jobId AND (m.response IS NULL OR m.response = 'PENDING')")
+  int expireAllPendingForJob(@Param("jobId") UUID jobId);
 }

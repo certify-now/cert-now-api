@@ -40,7 +40,9 @@ public class JobMatchLog {
   private OffsetDateTime createdAt;
 
   @Column(nullable = false)
-  private OffsetDateTime offeredAt;
+  private OffsetDateTime notifiedAt;
+
+  @Column private OffsetDateTime offeredAt;
 
   @Column private OffsetDateTime respondedAt;
 

@@ -13,10 +13,12 @@ import com.uk.certifynow.certify_now.rest.dto.engineer.QualificationResponse;
 import com.uk.certifynow.certify_now.rest.dto.engineer.SetAvailabilityRequest;
 import com.uk.certifynow.certify_now.rest.dto.engineer.UpdateEngineerProfileRequest;
 import com.uk.certifynow.certify_now.rest.dto.engineer.UpdateLocationRequest;
+import com.uk.certifynow.certify_now.rest.dto.job.JobResponse;
 import com.uk.certifynow.certify_now.service.EngineerAvailabilityService;
 import com.uk.certifynow.certify_now.service.EngineerInsuranceService;
 import com.uk.certifynow.certify_now.service.EngineerProfileService;
 import com.uk.certifynow.certify_now.service.EngineerQualificationService;
+import com.uk.certifynow.certify_now.service.matching.MatchingService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -25,6 +27,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -39,16 +42,19 @@ public class EngineerController {
   private final EngineerQualificationService engineerQualificationService;
   private final EngineerInsuranceService engineerInsuranceService;
   private final EngineerAvailabilityService engineerAvailabilityService;
+  private final MatchingService matchingService;
 
   public EngineerController(
       final EngineerProfileService engineerProfileService,
       final EngineerQualificationService engineerQualificationService,
       final EngineerInsuranceService engineerInsuranceService,
-      final EngineerAvailabilityService engineerAvailabilityService) {
+      final EngineerAvailabilityService engineerAvailabilityService,
+      final MatchingService matchingService) {
     this.engineerProfileService = engineerProfileService;
     this.engineerQualificationService = engineerQualificationService;
     this.engineerInsuranceService = engineerInsuranceService;
     this.engineerAvailabilityService = engineerAvailabilityService;
+    this.matchingService = matchingService;
   }
 
   // -- Profile ----------------------------------------------------------------
@@ -158,6 +164,21 @@ public class EngineerController {
     final AvailabilityResponse response = engineerAvailabilityService.addOverride(userId, request);
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(ApiResponse.of(response, requestId(httpRequest)));
+  }
+
+  // -- Job Claim (Matching Engine) -------------------------------------------
+
+  /**
+   * POST /api/v1/engineer/jobs/{jobId}/claim — Atomic first-to-accept. The first engineer to call
+   * this endpoint wins the job. Returns 200 on success, 409 Conflict if already claimed.
+   */
+  @PostMapping("/jobs/{jobId}/claim")
+  public ApiResponse<JobResponse> claimJob(
+      @PathVariable final UUID jobId,
+      final Authentication authentication,
+      final HttpServletRequest httpRequest) {
+    final UUID engineerId = extractUserId(authentication);
+    return ApiResponse.of(matchingService.claimJob(jobId, engineerId), requestId(httpRequest));
   }
 
   // -- Helpers ----------------------------------------------------------------

@@ -2,6 +2,7 @@ package com.uk.certifynow.certify_now.service.auth;
 
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
+import java.util.Set;
 
 /**
  * Enum representing the application and verification status of an engineer. Encapsulates the
@@ -37,6 +38,32 @@ public enum EngineerApplicationStatus {
     }
     throw new IllegalArgumentException(
         "Unknown EngineerApplicationStatus database value: " + value);
+  }
+
+  /**
+   * Returns the set of statuses that this status can transition to.
+   *
+   * @return set of valid next statuses
+   */
+  public Set<EngineerApplicationStatus> allowedTransitions() {
+    return switch (this) {
+      case APPLICATION_SUBMITTED -> Set.of(ID_VERIFICATION_PENDING, REJECTED);
+      case ID_VERIFICATION_PENDING -> Set.of(DBS_CHECK_PENDING, REJECTED);
+      case DBS_CHECK_PENDING -> Set.of(INSURANCE_VERIFICATION_PENDING, REJECTED);
+      case INSURANCE_VERIFICATION_PENDING -> Set.of(TRAINING_REQUIRED, APPROVED, REJECTED);
+      case TRAINING_REQUIRED -> Set.of(APPROVED, REJECTED);
+      case APPROVED, REJECTED -> Set.of();
+    };
+  }
+
+  /**
+   * Checks if transitioning to the given target status is valid.
+   *
+   * @param target the target status
+   * @return true if the transition is allowed, false otherwise
+   */
+  public boolean canTransitionTo(final EngineerApplicationStatus target) {
+    return allowedTransitions().contains(target);
   }
 
   /**

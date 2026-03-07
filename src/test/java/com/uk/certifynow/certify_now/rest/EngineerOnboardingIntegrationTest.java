@@ -321,7 +321,7 @@ class EngineerOnboardingIntegrationTest {
     final EngineerProfile profile = new EngineerProfile();
     profile.setUser(user);
     profile.setStatus(status);
-    profile.setTier(EngineerTier.STANDARD);
+    profile.setTier(EngineerTier.BRONZE);
     profile.setIsOnline(false);
     profile.setAcceptanceRate(BigDecimal.ZERO);
     profile.setAvgRating(BigDecimal.ZERO);

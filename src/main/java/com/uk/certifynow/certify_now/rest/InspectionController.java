@@ -2,8 +2,11 @@ package com.uk.certifynow.certify_now.rest;
 
 import com.uk.certifynow.certify_now.config.RequestIdFilter;
 import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
+import com.uk.certifynow.certify_now.rest.dto.inspection.EpcRecordRequest;
+import com.uk.certifynow.certify_now.rest.dto.inspection.EpcRecordResponse;
 import com.uk.certifynow.certify_now.rest.dto.inspection.GasSafetyRecordRequest;
 import com.uk.certifynow.certify_now.rest.dto.inspection.GasSafetyRecordResponse;
+import com.uk.certifynow.certify_now.service.inspection.EpcInspectionService;
 import com.uk.certifynow.certify_now.service.inspection.GasSafetyRecordService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -23,10 +26,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class InspectionController {
 
   private final GasSafetyRecordService gasSafetyRecordService;
+  private final EpcInspectionService epcInspectionService;
 
-  public InspectionController(final GasSafetyRecordService gasSafetyRecordService) {
+  public InspectionController(
+      final GasSafetyRecordService gasSafetyRecordService,
+      final EpcInspectionService epcInspectionService) {
     this.gasSafetyRecordService = gasSafetyRecordService;
+    this.epcInspectionService = epcInspectionService;
   }
+
+  // ── Gas Safety ─────────────────────────────────────────────────────────────
 
   @PostMapping("/gas-safety")
   public ResponseEntity<ApiResponse<GasSafetyRecordResponse>> submitGasSafetyRecord(
@@ -35,8 +44,7 @@ public class InspectionController {
       final Authentication authentication,
       final HttpServletRequest httpRequest) {
     final UUID engineerId = extractUserId(authentication);
-    final GasSafetyRecordResponse response =
-        gasSafetyRecordService.submitGasSafetyRecord(jobId, engineerId, request);
+    final GasSafetyRecordResponse response = gasSafetyRecordService.submitGasSafetyRecord(jobId, engineerId, request);
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(ApiResponse.of(response, requestId(httpRequest)));
   }
@@ -47,6 +55,29 @@ public class InspectionController {
     final GasSafetyRecordResponse response = gasSafetyRecordService.getGasSafetyRecord(jobId);
     return ApiResponse.of(response, requestId(httpRequest));
   }
+
+  // ── EPC ────────────────────────────────────────────────────────────────────
+
+  @PostMapping("/epc")
+  public ResponseEntity<ApiResponse<EpcRecordResponse>> submitEpcRecord(
+      @PathVariable final UUID jobId,
+      @Valid @RequestBody final EpcRecordRequest request,
+      final Authentication authentication,
+      final HttpServletRequest httpRequest) {
+    final UUID engineerId = extractUserId(authentication);
+    final EpcRecordResponse response = epcInspectionService.submitEpcRecord(jobId, engineerId, request);
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(ApiResponse.of(response, requestId(httpRequest)));
+  }
+
+  @GetMapping("/epc")
+  public ApiResponse<EpcRecordResponse> getEpcRecord(
+      @PathVariable final UUID jobId, final HttpServletRequest httpRequest) {
+    final EpcRecordResponse response = epcInspectionService.getEpcRecord(jobId);
+    return ApiResponse.of(response, requestId(httpRequest));
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
 
   private UUID extractUserId(final Authentication authentication) {
     return UUID.fromString((String) authentication.getPrincipal());

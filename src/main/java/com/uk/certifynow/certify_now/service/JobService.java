@@ -446,8 +446,8 @@ public class JobService {
   @Transactional
   public JobResponse completeJob(final UUID jobId, final UUID engineerId) {
     final Job job = loadJobOrThrow(jobId);
-    authoriseEngineer(job, engineerId);
     validateTransition(JobStatus.fromString(job.getStatus()), JobStatus.COMPLETED);
+    authoriseEngineer(job, engineerId);
 
     job.setStatus("COMPLETED");
     job.setCompletedAt(OffsetDateTime.now());

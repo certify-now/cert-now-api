@@ -1,4 +1,4 @@
-package com.uk.certifynow.certify_now.service;
+package com.uk.certifynow.certify_now.service.job;
 
 import com.uk.certifynow.certify_now.domain.Job;
 import com.uk.certifynow.certify_now.domain.JobMatchLog;
@@ -18,7 +18,6 @@ import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.exception.EntityNotFoundException;
 import com.uk.certifynow.certify_now.exception.InvalidStateTransitionException;
 import com.uk.certifynow.certify_now.interfaces.PricingCalculator;
-import com.uk.certifynow.certify_now.rest.dto.pricing.PriceBreakdown;
 import com.uk.certifynow.certify_now.repos.JobMatchLogRepository;
 import com.uk.certifynow.certify_now.repos.JobRepository;
 import com.uk.certifynow.certify_now.repos.JobStatusHistoryRepository;
@@ -34,10 +33,8 @@ import com.uk.certifynow.certify_now.rest.dto.job.JobStatusHistoryResponse;
 import com.uk.certifynow.certify_now.rest.dto.job.JobSummaryResponse;
 import com.uk.certifynow.certify_now.rest.dto.job.MatchJobRequest;
 import com.uk.certifynow.certify_now.rest.dto.job.StartJobRequest;
+import com.uk.certifynow.certify_now.rest.dto.pricing.PriceBreakdown;
 import com.uk.certifynow.certify_now.service.auth.UserRole;
-import com.uk.certifynow.certify_now.service.job.CancellationActor;
-import com.uk.certifynow.certify_now.service.job.JobStatus;
-import com.uk.certifynow.certify_now.service.job.ReferenceNumberGenerator;
 import com.uk.certifynow.certify_now.util.ReferencedException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -62,7 +59,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class JobService {
 
   // Terminal statuses — no further transitions allowed
-  private static final List<String> TERMINAL_STATUSES = List.of("COMPLETED", "CERTIFIED", "CANCELLED", "FAILED");
+  private static final List<String> TERMINAL_STATUSES =
+      List.of("COMPLETED", "CERTIFIED", "CANCELLED", "FAILED");
 
   // Call-out fee in pence (£15.00) charged when customer cancels after engineer
   // is en-route
@@ -106,24 +104,33 @@ public class JobService {
   @Transactional
   public JobResponse createJob(final UUID customerId, final CreateJobRequest request) {
     // 1. Load customer
-    final User customer = userRepository.findById(customerId)
-        .orElseThrow(() -> new EntityNotFoundException("User not found: " + customerId));
+    final User customer =
+        userRepository
+            .findById(customerId)
+            .orElseThrow(() -> new EntityNotFoundException("User not found: " + customerId));
 
     // 2. Load property, validate ownership
-    final Property property = propertyRepository.findById(request.propertyId())
-        .orElseThrow(() -> new EntityNotFoundException("Property not found: " + request.propertyId()));
+    final Property property =
+        propertyRepository
+            .findById(request.propertyId())
+            .orElseThrow(
+                () -> new EntityNotFoundException("Property not found: " + request.propertyId()));
     if (!property.getOwner().getId().equals(customerId)) {
       throw new AccessDeniedException("Property does not belong to this customer");
     }
     if (!Boolean.TRUE.equals(property.getIsActive())) {
-      throw new BusinessException(HttpStatus.BAD_REQUEST, "PROPERTY_INACTIVE",
+      throw new BusinessException(
+          HttpStatus.BAD_REQUEST,
+          "PROPERTY_INACTIVE",
           "This property is inactive and cannot be booked");
     }
 
     // 3. Business validation: gas safety requires gas supply
     final String certType = request.certificateType();
     if ("GAS_SAFETY".equals(certType) && !Boolean.TRUE.equals(property.getHasGasSupply())) {
-      throw new BusinessException(HttpStatus.BAD_REQUEST, "NO_GAS_SUPPLY",
+      throw new BusinessException(
+          HttpStatus.BAD_REQUEST,
+          "NO_GAS_SUPPLY",
           "Property does not have a gas supply; cannot book a gas safety certificate");
     }
 
@@ -139,8 +146,7 @@ public class JobService {
         saved = jobRepository.save(job);
         break;
       } catch (final DataIntegrityViolationException e) {
-        if (attempt == 2)
-          throw e; // give up after 3 attempts
+        if (attempt == 2) throw e; // give up after 3 attempts
       }
     }
 
@@ -152,8 +158,9 @@ public class JobService {
     final Payment savedPayment = paymentRepository.save(payment);
 
     // 8. Publish event (fires after commit via @TransactionalEventListener)
-    publisher.publishEvent(new JobCreatedEvent(
-        saved.getId(), customerId, property.getId(), certType, price.totalPricePence()));
+    publisher.publishEvent(
+        new JobCreatedEvent(
+            saved.getId(), customerId, property.getId(), certType, price.totalPricePence()));
 
     return toJobResponse(saved, savedPayment);
   }
@@ -233,28 +240,34 @@ public class JobService {
       page = jobRepository.findAllWithFilters(statusFilter, certTypeFilter, pageable);
     } else if (actorRole == UserRole.ENGINEER) {
       if (statusFilter != null && certTypeFilter != null) {
-        page = jobRepository.findByEngineerIdAndStatusAndCertificateTypeOrderByCreatedAtDesc(
-            actorId, statusFilter, certTypeFilter, pageable);
+        page =
+            jobRepository.findByEngineerIdAndStatusAndCertificateTypeOrderByCreatedAtDesc(
+                actorId, statusFilter, certTypeFilter, pageable);
       } else if (statusFilter != null) {
-        page = jobRepository.findByEngineerIdAndStatusOrderByCreatedAtDesc(
-            actorId, statusFilter, pageable);
+        page =
+            jobRepository.findByEngineerIdAndStatusOrderByCreatedAtDesc(
+                actorId, statusFilter, pageable);
       } else if (certTypeFilter != null) {
-        page = jobRepository.findByEngineerIdAndCertificateTypeOrderByCreatedAtDesc(
-            actorId, certTypeFilter, pageable);
+        page =
+            jobRepository.findByEngineerIdAndCertificateTypeOrderByCreatedAtDesc(
+                actorId, certTypeFilter, pageable);
       } else {
         page = jobRepository.findByEngineerIdOrderByCreatedAtDesc(actorId, pageable);
       }
     } else {
       // CUSTOMER
       if (statusFilter != null && certTypeFilter != null) {
-        page = jobRepository.findByCustomerIdAndStatusAndCertificateTypeOrderByCreatedAtDesc(
-            actorId, statusFilter, certTypeFilter, pageable);
+        page =
+            jobRepository.findByCustomerIdAndStatusAndCertificateTypeOrderByCreatedAtDesc(
+                actorId, statusFilter, certTypeFilter, pageable);
       } else if (statusFilter != null) {
-        page = jobRepository.findByCustomerIdAndStatusOrderByCreatedAtDesc(
-            actorId, statusFilter, pageable);
+        page =
+            jobRepository.findByCustomerIdAndStatusOrderByCreatedAtDesc(
+                actorId, statusFilter, pageable);
       } else if (certTypeFilter != null) {
-        page = jobRepository.findByCustomerIdAndCertificateTypeOrderByCreatedAtDesc(
-            actorId, certTypeFilter, pageable);
+        page =
+            jobRepository.findByCustomerIdAndCertificateTypeOrderByCreatedAtDesc(
+                actorId, certTypeFilter, pageable);
       } else {
         page = jobRepository.findByCustomerIdOrderByCreatedAtDesc(actorId, pageable);
       }
@@ -277,11 +290,14 @@ public class JobService {
     validateTransition(current, target);
 
     // Validate engineer exists and has ENGINEER role
-    final User engineer = userRepository.findById(request.engineerId())
-        .orElseThrow(() -> new EntityNotFoundException("User not found: " + request.engineerId()));
+    final User engineer =
+        userRepository
+            .findById(request.engineerId())
+            .orElseThrow(
+                () -> new EntityNotFoundException("User not found: " + request.engineerId()));
     if (!engineer.isEngineer()) {
-      throw new BusinessException(HttpStatus.BAD_REQUEST, "NOT_AN_ENGINEER",
-          "User is not an engineer");
+      throw new BusinessException(
+          HttpStatus.BAD_REQUEST, "NOT_AN_ENGINEER", "User is not an engineer");
     }
 
     job.setEngineer(engineer);
@@ -317,7 +333,9 @@ public class JobService {
     final LocalDate today = LocalDate.now();
     final LocalDate maxDate = today.plusDays(14);
     if (request.scheduledDate().isBefore(today) || request.scheduledDate().isAfter(maxDate)) {
-      throw new BusinessException(HttpStatus.BAD_REQUEST, "INVALID_SCHEDULE_DATE",
+      throw new BusinessException(
+          HttpStatus.BAD_REQUEST,
+          "INVALID_SCHEDULE_DATE",
           "scheduledDate must be between today and 14 days from now");
     }
 
@@ -331,14 +349,18 @@ public class JobService {
     recordHistory(saved, "MATCHED", "ACCEPTED", engineerId, "ENGINEER", null, null);
 
     // Update match log
-    matchLogRepository.findByJobIdAndEngineerId(jobId, engineerId).ifPresent(log -> {
-      log.setRespondedAt(OffsetDateTime.now());
-      log.setResponse("ACCEPTED");
-      matchLogRepository.save(log);
-    });
+    matchLogRepository
+        .findByJobIdAndEngineerId(jobId, engineerId)
+        .ifPresent(
+            log -> {
+              log.setRespondedAt(OffsetDateTime.now());
+              log.setResponse("ACCEPTED");
+              matchLogRepository.save(log);
+            });
 
-    publisher.publishEvent(new JobAcceptedEvent(
-        saved.getId(), engineerId, request.scheduledDate(), request.scheduledTimeSlot()));
+    publisher.publishEvent(
+        new JobAcceptedEvent(
+            saved.getId(), engineerId, request.scheduledDate(), request.scheduledTimeSlot()));
     final Payment payment = paymentRepository.findByJobId(jobId).orElse(null);
     return toJobResponse(saved, payment);
   }
@@ -364,19 +386,21 @@ public class JobService {
     job.setUpdatedAt(OffsetDateTime.now());
     final Job saved = jobRepository.save(job);
 
-    recordHistory(saved, prevStatus, "CREATED", engineerId, "ENGINEER",
-        request.reason(), null);
+    recordHistory(saved, prevStatus, "CREATED", engineerId, "ENGINEER", request.reason(), null);
 
     // Update match log
-    matchLogRepository.findByJobIdAndEngineerId(jobId, engineerId).ifPresent(log -> {
-      log.setRespondedAt(OffsetDateTime.now());
-      log.setResponse("DECLINED");
-      log.setDeclineReason(request.reason());
-      matchLogRepository.save(log);
-    });
+    matchLogRepository
+        .findByJobIdAndEngineerId(jobId, engineerId)
+        .ifPresent(
+            log -> {
+              log.setRespondedAt(OffsetDateTime.now());
+              log.setResponse("DECLINED");
+              log.setDeclineReason(request.reason());
+              matchLogRepository.save(log);
+            });
 
-    publisher.publishEvent(new JobStatusChangedEvent(
-        saved.getId(), prevStatus, "CREATED", engineerId, "ENGINEER"));
+    publisher.publishEvent(
+        new JobStatusChangedEvent(saved.getId(), prevStatus, "CREATED", engineerId, "ENGINEER"));
     final Payment payment = paymentRepository.findByJobId(jobId).orElse(null);
     return toJobResponse(saved, payment);
   }
@@ -398,8 +422,8 @@ public class JobService {
     final Job saved = jobRepository.save(job);
 
     recordHistory(saved, "ACCEPTED", "EN_ROUTE", engineerId, "ENGINEER", null, null);
-    publisher.publishEvent(new JobStatusChangedEvent(
-        saved.getId(), "ACCEPTED", "EN_ROUTE", engineerId, "ENGINEER"));
+    publisher.publishEvent(
+        new JobStatusChangedEvent(saved.getId(), "ACCEPTED", "EN_ROUTE", engineerId, "ENGINEER"));
     final Payment payment = paymentRepository.findByJobId(jobId).orElse(null);
     return toJobResponse(saved, payment);
   }
@@ -432,8 +456,9 @@ public class JobService {
     final Job saved = jobRepository.save(job);
 
     recordHistory(saved, "EN_ROUTE", "IN_PROGRESS", engineerId, "ENGINEER", null, null);
-    publisher.publishEvent(new JobStatusChangedEvent(
-        saved.getId(), "EN_ROUTE", "IN_PROGRESS", engineerId, "ENGINEER"));
+    publisher.publishEvent(
+        new JobStatusChangedEvent(
+            saved.getId(), "EN_ROUTE", "IN_PROGRESS", engineerId, "ENGINEER"));
     final Payment payment = paymentRepository.findByJobId(jobId).orElse(null);
     return toJobResponse(saved, payment);
   }
@@ -455,8 +480,9 @@ public class JobService {
     final Job saved = jobRepository.save(job);
 
     recordHistory(saved, "IN_PROGRESS", "COMPLETED", engineerId, "ENGINEER", null, null);
-    publisher.publishEvent(new JobStatusChangedEvent(
-        saved.getId(), "IN_PROGRESS", "COMPLETED", engineerId, "ENGINEER"));
+    publisher.publishEvent(
+        new JobStatusChangedEvent(
+            saved.getId(), "IN_PROGRESS", "COMPLETED", engineerId, "ENGINEER"));
     final Payment payment = paymentRepository.findByJobId(jobId).orElse(null);
     return toJobResponse(saved, payment);
   }
@@ -497,18 +523,21 @@ public class JobService {
     final Job saved = jobRepository.save(job);
 
     // Update payment refund fields (actual Stripe refund happens in Phase 8)
-    paymentRepository.findByJobId(jobId).ifPresent(payment -> {
-      payment.setRefundAmountPence(refundPence);
-      payment.setRefundReason(request.reason());
-      paymentRepository.save(payment);
-    });
+    paymentRepository
+        .findByJobId(jobId)
+        .ifPresent(
+            payment -> {
+              payment.setRefundAmountPence(refundPence);
+              payment.setRefundReason(request.reason());
+              paymentRepository.save(payment);
+            });
 
     final String metadataJson = "{\"refund_amount_pence\":" + refundPence + "}";
-    recordHistory(saved, prevStatus, "CANCELLED", actorId, actor.name(),
-        request.reason(), metadataJson);
+    recordHistory(
+        saved, prevStatus, "CANCELLED", actorId, actor.name(), request.reason(), metadataJson);
 
-    publisher.publishEvent(new JobCancelledEvent(
-        saved.getId(), actor.name(), request.reason(), refundPence));
+    publisher.publishEvent(
+        new JobCancelledEvent(saved.getId(), actor.name(), request.reason(), refundPence));
     final Payment payment = paymentRepository.findByJobId(jobId).orElse(null);
     return toJobResponse(saved, payment);
   }
@@ -522,15 +551,17 @@ public class JobService {
     final Job job = loadJobOrThrow(jobId);
     authoriseRead(job, actorId, actorRole);
     return historyRepository.findByJobIdOrderByCreatedAtAsc(jobId).stream()
-        .map(h -> new JobStatusHistoryResponse(
-            h.getId(),
-            h.getFromStatus(),
-            h.getToStatus(),
-            h.getActorId(),
-            h.getActorType(),
-            h.getReason(),
-            h.getMetadata(),
-            h.getCreatedAt()))
+        .map(
+            h ->
+                new JobStatusHistoryResponse(
+                    h.getId(),
+                    h.getFromStatus(),
+                    h.getToStatus(),
+                    h.getActorId(),
+                    h.getActorType(),
+                    h.getReason(),
+                    h.getMetadata(),
+                    h.getCreatedAt()))
         .toList();
   }
 
@@ -577,7 +608,8 @@ public class JobService {
   // ────────────────────────────────────────────────────────────────────────────
 
   private Job loadJobOrThrow(final UUID jobId) {
-    return jobRepository.findById(jobId)
+    return jobRepository
+        .findById(jobId)
         .orElseThrow(() -> new EntityNotFoundException("Job not found: " + jobId));
   }
 
@@ -588,11 +620,10 @@ public class JobService {
   }
 
   private void authoriseRead(final Job job, final UUID actorId, final UserRole actorRole) {
-    if (actorRole == UserRole.ADMIN)
-      return;
+    if (actorRole == UserRole.ADMIN) return;
     final boolean isCustomer = job.getCustomer().getId().equals(actorId);
-    final boolean isEngineer = job.getEngineer() != null
-        && job.getEngineer().getId().equals(actorId);
+    final boolean isEngineer =
+        job.getEngineer() != null && job.getEngineer().getId().equals(actorId);
     if (!isCustomer && !isEngineer) {
       throw new AccessDeniedException("Access denied to this job");
     }
@@ -606,10 +637,8 @@ public class JobService {
 
   private CancellationActor determineCancellationActor(
       final Job job, final UUID actorId, final UserRole role) {
-    if (role == UserRole.ADMIN)
-      return CancellationActor.ADMIN;
-    if (job.getCustomer().getId().equals(actorId))
-      return CancellationActor.CUSTOMER;
+    if (role == UserRole.ADMIN) return CancellationActor.ADMIN;
+    if (job.getCustomer().getId().equals(actorId)) return CancellationActor.CUSTOMER;
     if (job.getEngineer() != null && job.getEngineer().getId().equals(actorId)) {
       return CancellationActor.ENGINEER;
     }
@@ -618,15 +647,17 @@ public class JobService {
 
   private void validateCancellationPermission(
       final CancellationActor actor, final JobStatus status) {
-    final boolean allowed = switch (status) {
-      case CREATED -> actor == CancellationActor.CUSTOMER || actor == CancellationActor.ADMIN;
-      case MATCHED -> true; // customer, engineer (handled as decline above), admin
-      case ACCEPTED -> actor == CancellationActor.CUSTOMER
-          || actor == CancellationActor.ENGINEER
-          || actor == CancellationActor.ADMIN;
-      case EN_ROUTE -> actor == CancellationActor.CUSTOMER || actor == CancellationActor.ADMIN;
-      default -> actor == CancellationActor.ADMIN; // IN_PROGRESS, etc. — only admin
-    };
+    final boolean allowed =
+        switch (status) {
+          case CREATED -> actor == CancellationActor.CUSTOMER || actor == CancellationActor.ADMIN;
+          case MATCHED -> true; // customer, engineer (handled as decline above), admin
+          case ACCEPTED ->
+              actor == CancellationActor.CUSTOMER
+                  || actor == CancellationActor.ENGINEER
+                  || actor == CancellationActor.ADMIN;
+          case EN_ROUTE -> actor == CancellationActor.CUSTOMER || actor == CancellationActor.ADMIN;
+          default -> actor == CancellationActor.ADMIN; // IN_PROGRESS, etc. — only admin
+        };
     if (!allowed) {
       throw new InvalidStateTransitionException(
           "Cancellation not allowed for " + actor + " when job is in state " + status);
@@ -641,8 +672,7 @@ public class JobService {
       case ACCEPTED -> {
         // >24h before scheduled start: 100%, <24h: 80%
         final OffsetDateTime scheduledStart = scheduledStart(job);
-        if (scheduledStart != null
-            && OffsetDateTime.now().plusHours(24).isAfter(scheduledStart)) {
+        if (scheduledStart != null && OffsetDateTime.now().plusHours(24).isAfter(scheduledStart)) {
           yield (int) (total * 0.80); // 80% refund
         }
         yield total; // 100% refund
@@ -653,14 +683,14 @@ public class JobService {
   }
 
   private OffsetDateTime scheduledStart(final Job job) {
-    if (job.getScheduledDate() == null || job.getScheduledTimeSlot() == null)
-      return null;
-    final LocalTime slotTime = switch (job.getScheduledTimeSlot()) {
-      case "MORNING" -> LocalTime.of(8, 0);
-      case "AFTERNOON" -> LocalTime.of(12, 0);
-      case "EVENING" -> LocalTime.of(17, 0);
-      default -> LocalTime.NOON;
-    };
+    if (job.getScheduledDate() == null || job.getScheduledTimeSlot() == null) return null;
+    final LocalTime slotTime =
+        switch (job.getScheduledTimeSlot()) {
+          case "MORNING" -> LocalTime.of(8, 0);
+          case "AFTERNOON" -> LocalTime.of(12, 0);
+          case "EVENING" -> LocalTime.of(17, 0);
+          default -> LocalTime.NOON;
+        };
     return job.getScheduledDate().atTime(slotTime).atOffset(ZoneOffset.UTC);
   }
 
@@ -702,38 +732,42 @@ public class JobService {
 
   private JobResponse toJobResponse(final Job job, final Payment payment) {
     final Property prop = job.getProperty();
-    final String propSummary = prop.getAddressLine1() + ", " + prop.getCity()
-        + " " + prop.getPostcode();
+    final String propSummary =
+        prop.getAddressLine1() + ", " + prop.getCity() + " " + prop.getPostcode();
     final User eng = job.getEngineer();
     final String engName = eng == null ? null : eng.getFullName();
     final UUID engId = eng == null ? null : eng.getId();
 
-    final JobResponse.Pricing pricing = new JobResponse.Pricing(
-        job.getBasePricePence(),
-        job.getPropertyModifierPence(),
-        job.getUrgencyModifierPence(),
-        job.getDiscountPence(),
-        job.getTotalPricePence(),
-        job.getCommissionRate() == null ? 0.15 : job.getCommissionRate().doubleValue(),
-        job.getCommissionPence(),
-        job.getEngineerPayoutPence());
+    final JobResponse.Pricing pricing =
+        new JobResponse.Pricing(
+            job.getBasePricePence(),
+            job.getPropertyModifierPence(),
+            job.getUrgencyModifierPence(),
+            job.getDiscountPence(),
+            job.getTotalPricePence(),
+            job.getCommissionRate() == null ? 0.15 : job.getCommissionRate().doubleValue(),
+            job.getCommissionPence(),
+            job.getEngineerPayoutPence());
 
-    final JobResponse.Payment paymentSummary = payment == null ? null
-        : new JobResponse.Payment(
-            payment.getId(),
-            payment.getStatus(),
-            payment.getStripeClientSecret(),
-            payment.getAmountPence());
+    final JobResponse.Payment paymentSummary =
+        payment == null
+            ? null
+            : new JobResponse.Payment(
+                payment.getId(),
+                payment.getStatus(),
+                payment.getStripeClientSecret(),
+                payment.getAmountPence());
 
-    final JobResponse.Timestamps timestamps = new JobResponse.Timestamps(
-        job.getCreatedAt(),
-        job.getMatchedAt(),
-        job.getAcceptedAt(),
-        job.getEnRouteAt(),
-        job.getStartedAt(),
-        job.getCompletedAt(),
-        job.getCertifiedAt(),
-        job.getCancelledAt());
+    final JobResponse.Timestamps timestamps =
+        new JobResponse.Timestamps(
+            job.getCreatedAt(),
+            job.getMatchedAt(),
+            job.getAcceptedAt(),
+            job.getEnRouteAt(),
+            job.getStartedAt(),
+            job.getCompletedAt(),
+            job.getCertifiedAt(),
+            job.getCancelledAt());
 
     return new JobResponse(
         job.getId(),
@@ -760,8 +794,10 @@ public class JobService {
 
   private JobSummaryResponse toJobSummary(final Job job) {
     final Property prop = job.getProperty();
-    final String propSummary = prop == null ? null
-        : prop.getAddressLine1() + ", " + prop.getCity() + " " + prop.getPostcode();
+    final String propSummary =
+        prop == null
+            ? null
+            : prop.getAddressLine1() + ", " + prop.getCity() + " " + prop.getPostcode();
     final User eng = job.getEngineer();
     return new JobSummaryResponse(
         job.getId(),

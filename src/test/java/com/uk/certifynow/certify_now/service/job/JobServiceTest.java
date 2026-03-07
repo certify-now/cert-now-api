@@ -1,4 +1,4 @@
-package com.uk.certifynow.certify_now.service;
+package com.uk.certifynow.certify_now.service.job;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -29,7 +29,6 @@ import com.uk.certifynow.certify_now.rest.dto.job.MatchJobRequest;
 import com.uk.certifynow.certify_now.rest.dto.job.StartJobRequest;
 import com.uk.certifynow.certify_now.rest.dto.pricing.PriceBreakdown;
 import com.uk.certifynow.certify_now.service.auth.UserRole;
-import com.uk.certifynow.certify_now.service.job.ReferenceNumberGenerator;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;

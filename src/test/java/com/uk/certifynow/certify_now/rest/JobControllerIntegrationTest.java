@@ -41,10 +41,8 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
- * Integration tests for the full job lifecycle via HTTP endpoints. Uses
- * Testcontainers for a real
- * PostgreSQL database, RestAssured for HTTP calls, and JWT tokens for
- * authentication.
+ * Integration tests for the full job lifecycle via HTTP endpoints. Uses Testcontainers for a real
+ * PostgreSQL database, RestAssured for HTTP calls, and JWT tokens for authentication.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Testcontainers
@@ -52,10 +50,11 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 class JobControllerIntegrationTest {
 
   @Container
-  static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
-      .withDatabaseName("certify_now_test")
-      .withUsername("test")
-      .withPassword("test");
+  static final PostgreSQLContainer<?> POSTGRES =
+      new PostgreSQLContainer<>("postgres:16-alpine")
+          .withDatabaseName("certify_now_test")
+          .withUsername("test")
+          .withPassword("test");
 
   @DynamicPropertySource
   static void configureProperties(final DynamicPropertyRegistry registry) {
@@ -64,27 +63,17 @@ class JobControllerIntegrationTest {
     registry.add("spring.datasource.password", POSTGRES::getPassword);
   }
 
-  @LocalServerPort
-  private int port;
+  @LocalServerPort private int port;
 
-  @Autowired
-  private UserRepository userRepository;
-  @Autowired
-  private PropertyRepository propertyRepository;
-  @Autowired
-  private JobRepository jobRepository;
-  @Autowired
-  private PaymentRepository paymentRepository;
-  @Autowired
-  private JobStatusHistoryRepository jobStatusHistoryRepository;
-  @Autowired
-  private JobMatchLogRepository jobMatchLogRepository;
-  @Autowired
-  private PricingRuleRepository pricingRuleRepository;
-  @Autowired
-  private UrgencyMultiplierRepository urgencyMultiplierRepository;
-  @Autowired
-  private JwtTokenProvider jwtTokenProvider;
+  @Autowired private UserRepository userRepository;
+  @Autowired private PropertyRepository propertyRepository;
+  @Autowired private JobRepository jobRepository;
+  @Autowired private PaymentRepository paymentRepository;
+  @Autowired private JobStatusHistoryRepository jobStatusHistoryRepository;
+  @Autowired private JobMatchLogRepository jobMatchLogRepository;
+  @Autowired private PricingRuleRepository pricingRuleRepository;
+  @Autowired private UrgencyMultiplierRepository urgencyMultiplierRepository;
+  @Autowired private JwtTokenProvider jwtTokenProvider;
 
   private User customer;
   private User engineer;
@@ -119,28 +108,31 @@ class JobControllerIntegrationTest {
   }
 
   @Test
-  @DisplayName("Full lifecycle: CREATED -> MATCHED -> ACCEPTED -> EN_ROUTE -> IN_PROGRESS -> COMPLETED")
+  @DisplayName(
+      "Full lifecycle: CREATED -> MATCHED -> ACCEPTED -> EN_ROUTE -> IN_PROGRESS -> COMPLETED")
   void fullJobLifecycle() {
     propertyId = createPropertyForCustomer(customer);
 
-    final String createBody = "{\"property_id\": \""
-        + propertyId
-        + "\", \"certificate_type\": \"EPC\", \"urgency\": \"STANDARD\","
-        + " \"access_instructions\": \"Ring bell twice\", \"customer_notes\": \"Dog is"
-        + " friendly\"}";
+    final String createBody =
+        "{\"property_id\": \""
+            + propertyId
+            + "\", \"certificate_type\": \"EPC\", \"urgency\": \"STANDARD\","
+            + " \"access_instructions\": \"Ring bell twice\", \"customer_notes\": \"Dog is"
+            + " friendly\"}";
 
-    final String jobId = given()
-        .contentType(ContentType.JSON)
-        .header("Authorization", "Bearer " + customerToken)
-        .body(createBody)
-        .when()
-        .post("/api/v1/jobs")
-        .then()
-        .statusCode(201)
-        .body("data.status", equalTo("CREATED"))
-        .body("data.reference_number", notNullValue())
-        .extract()
-        .path("data.id");
+    final String jobId =
+        given()
+            .contentType(ContentType.JSON)
+            .header("Authorization", "Bearer " + customerToken)
+            .body(createBody)
+            .when()
+            .post("/api/v1/jobs")
+            .then()
+            .statusCode(201)
+            .body("data.status", equalTo("CREATED"))
+            .body("data.reference_number", notNullValue())
+            .extract()
+            .path("data.id");
 
     final String matchBody = "{\"engineer_id\": \"" + engineer.getId() + "\"}";
     given()
@@ -154,7 +146,8 @@ class JobControllerIntegrationTest {
         .body("data.status", equalTo("MATCHED"));
 
     final String scheduledDate = LocalDate.now().plusDays(3).toString();
-    final String acceptBody = "{\"scheduled_date\": \"" + scheduledDate + "\", \"scheduled_time_slot\": \"MORNING\"}";
+    final String acceptBody =
+        "{\"scheduled_date\": \"" + scheduledDate + "\", \"scheduled_time_slot\": \"MORNING\"}";
     given()
         .contentType(ContentType.JSON)
         .header("Authorization", "Bearer " + engineerToken)
@@ -330,9 +323,10 @@ class JobControllerIntegrationTest {
 
   /** Creates a job via the REST API and returns its ID. */
   private String createJobViaApi(final UUID propId) {
-    final String body = "{\"property_id\": \""
-        + propId
-        + "\", \"certificate_type\": \"EPC\", \"urgency\": \"STANDARD\"}";
+    final String body =
+        "{\"property_id\": \""
+            + propId
+            + "\", \"certificate_type\": \"EPC\", \"urgency\": \"STANDARD\"}";
 
     return given()
         .contentType(ContentType.JSON)

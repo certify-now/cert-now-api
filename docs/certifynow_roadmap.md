@@ -432,60 +432,84 @@ Build Checklist:
 
 ---
 
-## Phase 6 — Matching Engine (Week 6–7)
+## Phase 6 — Matching Engine: Broadcast Model (Week 6–7)
 
-**Goal:** When a job is created, the system automatically finds the best engineer and offers the job.
+**Goal:** When a job is created, the system automatically finds all eligible engineers and broadcasts the job to them simultaneously. The first engineer to accept (claim) wins the job atomically.
 
 **Depends on:** Phase 4 (jobs), Phase 5 (engineers with qualifications and availability)
+
+**Model:** Broadcast (all eligible engineers notified at once) rather than sequential offers.
 
 ```
 Build Checklist:
 ────────────────────────────────────────────────────────────
-□ 1. MatchingService:
-     - findCandidates() — PostGIS spatial query + qualification filter
-       + availability check + daily job cap check
-     - scoreCandidate() — weighted: distance(40%) + rating(25%)
-       + acceptance_rate(20%) + tier(15%)
-     - offerToTopCandidate() — pick best, create match log, update job
-     - handleOfferExpiry() — timeout, try next candidate
+☑ 1. MatchingService:
+     - findCandidates() — PostGIS spatial query + qualification filter (stub)
+       + daily job cap check. Returns all eligible EngineerProfile entities.
+     - broadcastToEligible() — Calls findCandidates(), notifies all eligible
+       engineers (log placeholder for push notifications), updates job status
+       to AWAITING_ACCEPTANCE, creates job_match_log entries for all candidates.
+     - claimJob() — Atomic first-to-accept logic. Uses conditional UPDATE
+       (WHERE status = 'AWAITING_ACCEPTANCE') to ensure only one engineer can
+       claim. On success: job.status = MATCHED, engineer_id populated.
+       On failure (already claimed): returns 409 Conflict.
+     - escalateJob() — Called when nobody accepts within timeout.
+       Updates job.status = ESCALATED. Logs warning for admin attention.
+     - scoreCandidate() — NOT implemented for MVP broadcast model.
+       Can be added later to prioritize notification ordering or limit
+       broadcast to top-N candidates.
 
-□ 2. Native PostGIS query in EngineerProfileRepository:
+☑ 2. Native PostGIS query in EngineerProfileRepository:
      @Query(value = """
-       SELECT ep.* FROM engineer_profiles ep
-       WHERE ep.status = 'APPROVED' AND ep.is_online = true
-       AND ST_DWithin(ep.location, ST_MakePoint(:lng, :lat)::geography,
+       SELECT ep.* FROM engineer_profile ep
+       WHERE ep.status = 'APPROVED'
+       AND ep.location IS NOT NULL
+       AND ST_DWithin(ep.location::geography,
+                      ST_MakePoint(:lng, :lat)::geography,
                       ep.service_radius_miles * 1609.34)
        """, nativeQuery = true)
-     List<EngineerProfile> findNearbyOnline(double lat, double lng);
+     List<EngineerProfile> findNearbyApproved(double lat, double lng);
+     // Note: No is_online filter — broadcast model notifies all approved engineers
 
-□ 3. MatchingJobListener:
-     - Wire the real listener (replace the stub from Phase 4)
-     - onJobCreated → matchingService.offerToTopCandidate()
+☑ 3. MatchingJobListener:
+     - Wired as real listener (alongside the Phase 4 stub logger)
+     - onJobCreated → matchingService.broadcastToEligible()
 
-□ 4. Offer expiry mechanism:
-     - Option A: Redis key with 10-min TTL + key expiry listener
-     - Option B: Scheduled task every 30s checks for expired offers
-     - Start with Option B (simpler)
+☑ 4. Job claim endpoint:
+     - POST /api/v1/engineer/jobs/{jobId}/claim
+     - Authenticated as ENGINEER
+     - Returns 200 on success with job details
+     - Returns 409 Conflict if already claimed by another engineer
 
-□ 5. Scheduled task:
-     - processUnmatchedJobs() — CRON every 30s
-     - processOfferExpiries() — CRON every 30s
+☑ 5. Scheduled tasks (MatchingScheduler):
+     - processUnmatchedJobs() — @Scheduled(fixedRate = 30000)
+       Safety net: finds CREATED jobs with null broadcastAt and broadcasts them
+     - processExpiredBroadcasts() — @Scheduled(fixedRate = 30000)
+       Finds AWAITING_ACCEPTANCE jobs past the configurable timeout
+       and escalates them
 
-□ 6. Escalation:
-     - If no candidates found after N attempts → escalateJob()
+☑ 6. Job entity/status updates:
+     - Added AWAITING_ACCEPTANCE to JobStatus enum
+     - Added broadcastAt timestamp to Job entity
+     - Added @Version for optimistic locking
+     - Updated state transitions: CREATED → AWAITING_ACCEPTANCE → MATCHED
+
+☑ 7. Configuration (application-dev.yml):
+     certifynow.matching.broadcast-expiry-minutes: 15
+     certifynow.matching.unmatched-job-check-interval-ms: 30000
+     certifynow.matching.expired-broadcast-check-interval-ms: 30000
 ```
 
 **Test Checkpoint:**
 ```bash
-# Setup: 1 approved, online engineer with Gas Safe qualification
-# Setup: 1 property within the engineer's service radius
+# Setup: 1+ approved engineers with location set within service radius
+# Setup: 1 property with geocoded location
 # Book a gas safety job
-# → Within seconds: job.status = MATCHED, engineer_id populated
-# → job_match_log has 1 row with score and distance
-# → Engineer receives push notification (or log message for now)
-
-# Test decline: engineer declines → job reverts to CREATED
-# → matching re-triggers → offers to next candidate (or escalates)
+# → Within seconds: all eligible engineers notified, job.status = AWAITING_ACCEPTANCE
+# → job_match_log has N rows (one per notified engineer)
+# → First engineer to accept → job.status = MATCHED, engineer_id populated
+# → Second engineer tries to accept → 409 Conflict
+# → If nobody accepts within 15 minutes → job.status = ESCALATED
 ```
 
 ---

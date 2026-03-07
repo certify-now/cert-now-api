@@ -9,6 +9,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.Version;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -84,6 +85,8 @@ public class Job {
   private OffsetDateTime createdAt;
 
   @Column private OffsetDateTime enRouteAt;
+
+  @Column private OffsetDateTime broadcastAt;
 
   @Column private OffsetDateTime escalatedAt;
 
@@ -166,6 +169,8 @@ public class Job {
 
   @OneToMany(mappedBy = "job")
   private Set<Review> jobReviews = new HashSet<>();
+
+  @Version private Long version;
 
   @CreatedDate
   @Column(nullable = false, updatable = false)

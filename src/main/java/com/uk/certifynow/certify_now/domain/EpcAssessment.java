@@ -42,20 +42,17 @@ public class EpcAssessment {
   private Job job;
 
   // ── Property Details ──────────────────────────────────────────────────────
-  @Embedded
-  private EpcPropertyDetails propertyDetails;
+  @Embedded private EpcPropertyDetails propertyDetails;
 
   // ── Client Details ────────────────────────────────────────────────────────
   // Reuses existing embeddable; adds company field inline
-  @Embedded
-  private ClientDetails clientDetails;
+  @Embedded private ClientDetails clientDetails;
 
   @Column(name = "client_company", length = 200)
   private String clientCompany;
 
   // ── Occupier Details ──────────────────────────────────────────────────────
-  @Embedded
-  private OccupierDetails occupierDetails;
+  @Embedded private OccupierDetails occupierDetails;
 
   // ── Booking Details ───────────────────────────────────────────────────────
   @Column(name = "appointment_date")

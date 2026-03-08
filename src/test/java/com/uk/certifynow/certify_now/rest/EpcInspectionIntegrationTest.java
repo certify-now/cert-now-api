@@ -42,390 +42,381 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
- * Integration tests for the EPC inspection data submission flow.
- * Mirrors {@link GasSafetyInspectionIntegrationTest} — covers the full
- * lifecycle
- * from COMPLETED job to CERTIFIED via EPC form submission.
+ * Integration tests for the EPC inspection data submission flow. Mirrors {@link
+ * GasSafetyInspectionIntegrationTest} — covers the full lifecycle from COMPLETED job to CERTIFIED
+ * via EPC form submission.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Testcontainers
 @ActiveProfiles("test")
 class EpcInspectionIntegrationTest {
 
-    @Container
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
-            .withDatabaseName("certify_now_test")
-            .withUsername("test")
-            .withPassword("test");
+  @Container
+  static final PostgreSQLContainer<?> POSTGRES =
+      new PostgreSQLContainer<>("postgres:16-alpine")
+          .withDatabaseName("certify_now_test")
+          .withUsername("test")
+          .withPassword("test");
 
-    @DynamicPropertySource
-    static void configureProperties(final DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        registry.add("spring.datasource.username", POSTGRES::getUsername);
-        registry.add("spring.datasource.password", POSTGRES::getPassword);
+  @DynamicPropertySource
+  static void configureProperties(final DynamicPropertyRegistry registry) {
+    registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+    registry.add("spring.datasource.username", POSTGRES::getUsername);
+    registry.add("spring.datasource.password", POSTGRES::getPassword);
+  }
+
+  @LocalServerPort private int port;
+
+  @Autowired private UserRepository userRepository;
+  @Autowired private PropertyRepository propertyRepository;
+  @Autowired private JobRepository jobRepository;
+  @Autowired private PaymentRepository paymentRepository;
+  @Autowired private JobStatusHistoryRepository jobStatusHistoryRepository;
+  @Autowired private JobMatchLogRepository jobMatchLogRepository;
+  @Autowired private PricingRuleRepository pricingRuleRepository;
+  @Autowired private UrgencyMultiplierRepository urgencyMultiplierRepository;
+  @Autowired private CertificateRepository certificateRepository;
+  @Autowired private EpcAssessmentRepository epcAssessmentRepository;
+  @Autowired private JwtTokenProvider jwtTokenProvider;
+
+  private User customer;
+  private User engineer;
+  private User admin;
+  private UUID propertyId;
+
+  private String customerToken;
+  private String engineerToken;
+  private String adminToken;
+
+  @BeforeEach
+  void setUp() {
+    RestAssured.port = port;
+    RestAssured.baseURI = "http://localhost";
+    RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
+
+    epcAssessmentRepository.deleteAll();
+    certificateRepository.deleteAll();
+    jobMatchLogRepository.deleteAll();
+    jobStatusHistoryRepository.deleteAll();
+    paymentRepository.deleteAll();
+    jobRepository.deleteAll();
+    propertyRepository.deleteAll();
+    userRepository.deleteAll();
+    seedPricingData();
+
+    customer = createUser("customer@test.com", "Test Customer", UserRole.CUSTOMER);
+    engineer = createUser("engineer@test.com", "Test Engineer", UserRole.ENGINEER);
+    admin = createUser("admin@test.com", "Test Admin", UserRole.ADMIN);
+
+    customerToken = jwtTokenProvider.generateAccessToken(customer);
+    engineerToken = jwtTokenProvider.generateAccessToken(engineer);
+    adminToken = jwtTokenProvider.generateAccessToken(admin);
+  }
+
+  // ── Tests ──────────────────────────────────────────────────────────────────
+
+  @Test
+  @DisplayName("Full flow: COMPLETED EPC job -> POST inspection -> 201, job becomes CERTIFIED")
+  void submitEpcRecord_fullLifecycle() {
+    propertyId = createPropertyForCustomer(customer);
+    final String jobId = createEpcJobAndWalkToCompleted(propertyId);
+
+    // Submit EPC data
+    given()
+        .contentType(ContentType.JSON)
+        .header("Authorization", "Bearer " + engineerToken)
+        .body(buildEpcRecordJson())
+        .when()
+        .post("/api/v1/jobs/" + jobId + "/inspection/epc")
+        .then()
+        .statusCode(201)
+        .body("data.id", notNullValue())
+        .body("data.job_id", equalTo(jobId))
+        .body("data.property_address_line1", equalTo("10 Downing Street"))
+        .body("data.property_postcode", equalTo("SW1A 2AA"))
+        .body("data.property_type", equalTo("HOUSE"))
+        .body("data.number_of_bedrooms", equalTo(3))
+        .body("data.client_name", equalTo("Jane Doe"))
+        .body("data.client_email", equalTo("jane@example.com"))
+        .body("data.appointment_date", notNullValue())
+        .body("data.pre_assessment.wall_type", equalTo("Cavity"))
+        .body("data.pre_assessment.window_type", equalTo("Double glazed"))
+        .body("data.pre_assessment.renewables_solar_pv", equalTo(false));
+
+    // Verify job transitioned to CERTIFIED
+    given()
+        .header("Authorization", "Bearer " + engineerToken)
+        .when()
+        .get("/api/v1/jobs/" + jobId)
+        .then()
+        .statusCode(200)
+        .body("data.status", equalTo("CERTIFIED"));
+
+    // Verify GET endpoint returns the record
+    given()
+        .header("Authorization", "Bearer " + engineerToken)
+        .when()
+        .get("/api/v1/jobs/" + jobId + "/inspection/epc")
+        .then()
+        .statusCode(200)
+        .body("data.property_address_line1", equalTo("10 Downing Street"))
+        .body("data.client_name", equalTo("Jane Doe"));
+  }
+
+  @Test
+  @DisplayName("Submit EPC on non-COMPLETED job -> 409 Conflict")
+  void submitOnNonCompletedJob_returns409() {
+    propertyId = createPropertyForCustomer(customer);
+    final String jobId = createEpcJobViaApi(propertyId);
+
+    given()
+        .contentType(ContentType.JSON)
+        .header("Authorization", "Bearer " + engineerToken)
+        .body(buildEpcRecordJson())
+        .when()
+        .post("/api/v1/jobs/" + jobId + "/inspection/epc")
+        .then()
+        .statusCode(409);
+  }
+
+  @Test
+  @DisplayName("Submit EPC on non-EPC job -> 400 Bad Request")
+  void submitOnNonEpcJob_returns400() {
+    propertyId = createPropertyForCustomer(customer);
+    final String jobId = createGasSafetyJobAndWalkToCompleted(propertyId);
+
+    given()
+        .contentType(ContentType.JSON)
+        .header("Authorization", "Bearer " + engineerToken)
+        .body(buildEpcRecordJson())
+        .when()
+        .post("/api/v1/jobs/" + jobId + "/inspection/epc")
+        .then()
+        .statusCode(400);
+  }
+
+  @Test
+  @DisplayName("Non-assigned engineer cannot submit -> 403 Forbidden")
+  void submitByNonAssignedEngineer_returns403() {
+    propertyId = createPropertyForCustomer(customer);
+    final String jobId = createEpcJobAndWalkToCompleted(propertyId);
+
+    final User otherEngineer =
+        createUser("other-engineer@test.com", "Other Engineer", UserRole.ENGINEER);
+    final String otherToken = jwtTokenProvider.generateAccessToken(otherEngineer);
+
+    given()
+        .contentType(ContentType.JSON)
+        .header("Authorization", "Bearer " + otherToken)
+        .body(buildEpcRecordJson())
+        .when()
+        .post("/api/v1/jobs/" + jobId + "/inspection/epc")
+        .then()
+        .statusCode(403);
+  }
+
+  @Test
+  @DisplayName("Duplicate EPC submission -> 409 Conflict")
+  void duplicateSubmission_returns409() {
+    propertyId = createPropertyForCustomer(customer);
+    final String jobId = createEpcJobAndWalkToCompleted(propertyId);
+
+    // First submission succeeds
+    given()
+        .contentType(ContentType.JSON)
+        .header("Authorization", "Bearer " + engineerToken)
+        .body(buildEpcRecordJson())
+        .when()
+        .post("/api/v1/jobs/" + jobId + "/inspection/epc")
+        .then()
+        .statusCode(201);
+
+    // Second submission fails (job is now CERTIFIED)
+    given()
+        .contentType(ContentType.JSON)
+        .header("Authorization", "Bearer " + engineerToken)
+        .body(buildEpcRecordJson())
+        .when()
+        .post("/api/v1/jobs/" + jobId + "/inspection/epc")
+        .then()
+        .statusCode(409);
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  private void seedPricingData() {
+    if (pricingRuleRepository.findNationalDefault("GAS_SAFETY").isEmpty()) {
+      final PricingRule gasRule = new PricingRule();
+      gasRule.setCertificateType("GAS_SAFETY");
+      gasRule.setBasePricePence(7500);
+      gasRule.setEffectiveFrom(LocalDate.now().minusYears(1));
+      gasRule.setIsActive(true);
+      gasRule.setCreatedAt(OffsetDateTime.now());
+      pricingRuleRepository.save(gasRule);
     }
-
-    @LocalServerPort
-    private int port;
-
-    @Autowired
-    private UserRepository userRepository;
-    @Autowired
-    private PropertyRepository propertyRepository;
-    @Autowired
-    private JobRepository jobRepository;
-    @Autowired
-    private PaymentRepository paymentRepository;
-    @Autowired
-    private JobStatusHistoryRepository jobStatusHistoryRepository;
-    @Autowired
-    private JobMatchLogRepository jobMatchLogRepository;
-    @Autowired
-    private PricingRuleRepository pricingRuleRepository;
-    @Autowired
-    private UrgencyMultiplierRepository urgencyMultiplierRepository;
-    @Autowired
-    private CertificateRepository certificateRepository;
-    @Autowired
-    private EpcAssessmentRepository epcAssessmentRepository;
-    @Autowired
-    private JwtTokenProvider jwtTokenProvider;
-
-    private User customer;
-    private User engineer;
-    private User admin;
-    private UUID propertyId;
-
-    private String customerToken;
-    private String engineerToken;
-    private String adminToken;
-
-    @BeforeEach
-    void setUp() {
-        RestAssured.port = port;
-        RestAssured.baseURI = "http://localhost";
-        RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
-
-        epcAssessmentRepository.deleteAll();
-        certificateRepository.deleteAll();
-        jobMatchLogRepository.deleteAll();
-        jobStatusHistoryRepository.deleteAll();
-        paymentRepository.deleteAll();
-        jobRepository.deleteAll();
-        propertyRepository.deleteAll();
-        userRepository.deleteAll();
-        seedPricingData();
-
-        customer = createUser("customer@test.com", "Test Customer", UserRole.CUSTOMER);
-        engineer = createUser("engineer@test.com", "Test Engineer", UserRole.ENGINEER);
-        admin = createUser("admin@test.com", "Test Admin", UserRole.ADMIN);
-
-        customerToken = jwtTokenProvider.generateAccessToken(customer);
-        engineerToken = jwtTokenProvider.generateAccessToken(engineer);
-        adminToken = jwtTokenProvider.generateAccessToken(admin);
+    if (pricingRuleRepository.findNationalDefault("EPC").isEmpty()) {
+      final PricingRule epcRule = new PricingRule();
+      epcRule.setCertificateType("EPC");
+      epcRule.setBasePricePence(8500);
+      epcRule.setEffectiveFrom(LocalDate.now().minusYears(1));
+      epcRule.setIsActive(true);
+      epcRule.setCreatedAt(OffsetDateTime.now());
+      pricingRuleRepository.save(epcRule);
     }
-
-    // ── Tests ──────────────────────────────────────────────────────────────────
-
-    @Test
-    @DisplayName("Full flow: COMPLETED EPC job -> POST inspection -> 201, job becomes CERTIFIED")
-    void submitEpcRecord_fullLifecycle() {
-        propertyId = createPropertyForCustomer(customer);
-        final String jobId = createEpcJobAndWalkToCompleted(propertyId);
-
-        // Submit EPC data
-        given()
-                .contentType(ContentType.JSON)
-                .header("Authorization", "Bearer " + engineerToken)
-                .body(buildEpcRecordJson())
-                .when()
-                .post("/api/v1/jobs/" + jobId + "/inspection/epc")
-                .then()
-                .statusCode(201)
-                .body("data.id", notNullValue())
-                .body("data.job_id", equalTo(jobId))
-                .body("data.property_address_line1", equalTo("10 Downing Street"))
-                .body("data.property_postcode", equalTo("SW1A 2AA"))
-                .body("data.property_type", equalTo("HOUSE"))
-                .body("data.number_of_bedrooms", equalTo(3))
-                .body("data.client_name", equalTo("Jane Doe"))
-                .body("data.client_email", equalTo("jane@example.com"))
-                .body("data.appointment_date", notNullValue())
-                .body("data.pre_assessment.wall_type", equalTo("Cavity"))
-                .body("data.pre_assessment.window_type", equalTo("Double glazed"))
-                .body("data.pre_assessment.renewables_solar_pv", equalTo(false));
-
-        // Verify job transitioned to CERTIFIED
-        given()
-                .header("Authorization", "Bearer " + engineerToken)
-                .when()
-                .get("/api/v1/jobs/" + jobId)
-                .then()
-                .statusCode(200)
-                .body("data.status", equalTo("CERTIFIED"));
-
-        // Verify GET endpoint returns the record
-        given()
-                .header("Authorization", "Bearer " + engineerToken)
-                .when()
-                .get("/api/v1/jobs/" + jobId + "/inspection/epc")
-                .then()
-                .statusCode(200)
-                .body("data.property_address_line1", equalTo("10 Downing Street"))
-                .body("data.client_name", equalTo("Jane Doe"));
+    if (urgencyMultiplierRepository.findActiveByUrgency("STANDARD").isEmpty()) {
+      final UrgencyMultiplier std = new UrgencyMultiplier();
+      std.setUrgency("STANDARD");
+      std.setMultiplier(BigDecimal.ONE);
+      std.setEffectiveFrom(LocalDate.now().minusYears(1));
+      std.setIsActive(true);
+      std.setCreatedAt(OffsetDateTime.now());
+      urgencyMultiplierRepository.save(std);
     }
+  }
 
-    @Test
-    @DisplayName("Submit EPC on non-COMPLETED job -> 409 Conflict")
-    void submitOnNonCompletedJob_returns409() {
-        propertyId = createPropertyForCustomer(customer);
-        final String jobId = createEpcJobViaApi(propertyId);
+  private User createUser(final String email, final String name, final UserRole role) {
+    final User user = new User();
+    user.setEmail(email);
+    user.setFullName(name);
+    user.setRole(role);
+    user.setStatus(UserStatus.ACTIVE);
+    user.setAuthProvider(AuthProvider.EMAIL);
+    user.setPasswordHash("$2a$12$dummyHashForIntegrationTestOnly000000000000000000000");
+    user.setEmailVerified(true);
+    user.setPhoneVerified(false);
+    user.setCreatedAt(OffsetDateTime.now());
+    user.setUpdatedAt(OffsetDateTime.now());
+    return userRepository.save(user);
+  }
 
-        given()
-                .contentType(ContentType.JSON)
-                .header("Authorization", "Bearer " + engineerToken)
-                .body(buildEpcRecordJson())
-                .when()
-                .post("/api/v1/jobs/" + jobId + "/inspection/epc")
-                .then()
-                .statusCode(409);
-    }
+  private UUID createPropertyForCustomer(final User owner) {
+    final Property prop = new Property();
+    prop.setOwner(owner);
+    prop.setAddressLine1("10 Downing Street");
+    prop.setCity("London");
+    prop.setPostcode("SW1A 2AA");
+    prop.setCountry("GB");
+    prop.setPropertyType("HOUSE");
+    prop.setComplianceStatus("COMPLIANT");
+    prop.setIsActive(true);
+    prop.setHasGasSupply(true);
+    prop.setHasElectric(true);
+    prop.setBedrooms(3);
+    prop.setGasApplianceCount(2);
+    prop.setCreatedAt(OffsetDateTime.now());
+    prop.setUpdatedAt(OffsetDateTime.now());
+    return propertyRepository.save(prop).getId();
+  }
 
-    @Test
-    @DisplayName("Submit EPC on non-EPC job -> 400 Bad Request")
-    void submitOnNonEpcJob_returns400() {
-        propertyId = createPropertyForCustomer(customer);
-        final String jobId = createGasSafetyJobAndWalkToCompleted(propertyId);
+  private String createEpcJobViaApi(final UUID propId) {
+    final String body =
+        "{\"property_id\": \""
+            + propId
+            + "\", \"certificate_type\": \"EPC\", \"urgency\": \"STANDARD\"}";
 
-        given()
-                .contentType(ContentType.JSON)
-                .header("Authorization", "Bearer " + engineerToken)
-                .body(buildEpcRecordJson())
-                .when()
-                .post("/api/v1/jobs/" + jobId + "/inspection/epc")
-                .then()
-                .statusCode(400);
-    }
+    return given()
+        .contentType(ContentType.JSON)
+        .header("Authorization", "Bearer " + customerToken)
+        .body(body)
+        .when()
+        .post("/api/v1/jobs")
+        .then()
+        .statusCode(201)
+        .extract()
+        .path("data.id");
+  }
 
-    @Test
-    @DisplayName("Non-assigned engineer cannot submit -> 403 Forbidden")
-    void submitByNonAssignedEngineer_returns403() {
-        propertyId = createPropertyForCustomer(customer);
-        final String jobId = createEpcJobAndWalkToCompleted(propertyId);
+  private String createGasSafetyJobViaApi(final UUID propId) {
+    final String body =
+        "{\"property_id\": \""
+            + propId
+            + "\", \"certificate_type\": \"GAS_SAFETY\", \"urgency\": \"STANDARD\"}";
 
-        final User otherEngineer = createUser("other-engineer@test.com", "Other Engineer", UserRole.ENGINEER);
-        final String otherToken = jwtTokenProvider.generateAccessToken(otherEngineer);
+    return given()
+        .contentType(ContentType.JSON)
+        .header("Authorization", "Bearer " + customerToken)
+        .body(body)
+        .when()
+        .post("/api/v1/jobs")
+        .then()
+        .statusCode(201)
+        .extract()
+        .path("data.id");
+  }
 
-        given()
-                .contentType(ContentType.JSON)
-                .header("Authorization", "Bearer " + otherToken)
-                .body(buildEpcRecordJson())
-                .when()
-                .post("/api/v1/jobs/" + jobId + "/inspection/epc")
-                .then()
-                .statusCode(403);
-    }
+  private String createEpcJobAndWalkToCompleted(final UUID propId) {
+    final String jobId = createEpcJobViaApi(propId);
+    walkJobToCompleted(jobId);
+    return jobId;
+  }
 
-    @Test
-    @DisplayName("Duplicate EPC submission -> 409 Conflict")
-    void duplicateSubmission_returns409() {
-        propertyId = createPropertyForCustomer(customer);
-        final String jobId = createEpcJobAndWalkToCompleted(propertyId);
+  private String createGasSafetyJobAndWalkToCompleted(final UUID propId) {
+    final String jobId = createGasSafetyJobViaApi(propId);
+    walkJobToCompleted(jobId);
+    return jobId;
+  }
 
-        // First submission succeeds
-        given()
-                .contentType(ContentType.JSON)
-                .header("Authorization", "Bearer " + engineerToken)
-                .body(buildEpcRecordJson())
-                .when()
-                .post("/api/v1/jobs/" + jobId + "/inspection/epc")
-                .then()
-                .statusCode(201);
+  private void walkJobToCompleted(final String jobId) {
+    // CREATED -> MATCHED
+    final String matchBody = "{\"engineer_id\": \"" + engineer.getId() + "\"}";
+    given()
+        .contentType(ContentType.JSON)
+        .header("Authorization", "Bearer " + adminToken)
+        .body(matchBody)
+        .when()
+        .put("/api/v1/jobs/" + jobId + "/match")
+        .then()
+        .statusCode(200)
+        .body("data.status", equalTo("MATCHED"));
 
-        // Second submission fails (job is now CERTIFIED)
-        given()
-                .contentType(ContentType.JSON)
-                .header("Authorization", "Bearer " + engineerToken)
-                .body(buildEpcRecordJson())
-                .when()
-                .post("/api/v1/jobs/" + jobId + "/inspection/epc")
-                .then()
-                .statusCode(409);
-    }
+    // MATCHED -> ACCEPTED
+    final String scheduledDate = LocalDate.now().plusDays(3).toString();
+    final String acceptBody =
+        "{\"scheduled_date\": \"" + scheduledDate + "\", \"scheduled_time_slot\": \"MORNING\"}";
+    given()
+        .contentType(ContentType.JSON)
+        .header("Authorization", "Bearer " + engineerToken)
+        .body(acceptBody)
+        .when()
+        .put("/api/v1/jobs/" + jobId + "/accept")
+        .then()
+        .statusCode(200)
+        .body("data.status", equalTo("ACCEPTED"));
 
-    // ── Helpers ────────────────────────────────────────────────────────────────
+    // ACCEPTED -> EN_ROUTE
+    given()
+        .header("Authorization", "Bearer " + engineerToken)
+        .when()
+        .put("/api/v1/jobs/" + jobId + "/en-route")
+        .then()
+        .statusCode(200)
+        .body("data.status", equalTo("EN_ROUTE"));
 
-    private void seedPricingData() {
-        if (pricingRuleRepository.findNationalDefault("GAS_SAFETY").isEmpty()) {
-            final PricingRule gasRule = new PricingRule();
-            gasRule.setCertificateType("GAS_SAFETY");
-            gasRule.setBasePricePence(7500);
-            gasRule.setEffectiveFrom(LocalDate.now().minusYears(1));
-            gasRule.setIsActive(true);
-            gasRule.setCreatedAt(OffsetDateTime.now());
-            pricingRuleRepository.save(gasRule);
-        }
-        if (pricingRuleRepository.findNationalDefault("EPC").isEmpty()) {
-            final PricingRule epcRule = new PricingRule();
-            epcRule.setCertificateType("EPC");
-            epcRule.setBasePricePence(8500);
-            epcRule.setEffectiveFrom(LocalDate.now().minusYears(1));
-            epcRule.setIsActive(true);
-            epcRule.setCreatedAt(OffsetDateTime.now());
-            pricingRuleRepository.save(epcRule);
-        }
-        if (urgencyMultiplierRepository.findActiveByUrgency("STANDARD").isEmpty()) {
-            final UrgencyMultiplier std = new UrgencyMultiplier();
-            std.setUrgency("STANDARD");
-            std.setMultiplier(BigDecimal.ONE);
-            std.setEffectiveFrom(LocalDate.now().minusYears(1));
-            std.setIsActive(true);
-            std.setCreatedAt(OffsetDateTime.now());
-            urgencyMultiplierRepository.save(std);
-        }
-    }
+    // EN_ROUTE -> IN_PROGRESS
+    final String startBody = "{\"latitude\": 51.5074, \"longitude\": -0.1278}";
+    given()
+        .contentType(ContentType.JSON)
+        .header("Authorization", "Bearer " + engineerToken)
+        .body(startBody)
+        .when()
+        .put("/api/v1/jobs/" + jobId + "/start")
+        .then()
+        .statusCode(200)
+        .body("data.status", equalTo("IN_PROGRESS"));
 
-    private User createUser(final String email, final String name, final UserRole role) {
-        final User user = new User();
-        user.setEmail(email);
-        user.setFullName(name);
-        user.setRole(role);
-        user.setStatus(UserStatus.ACTIVE);
-        user.setAuthProvider(AuthProvider.EMAIL);
-        user.setPasswordHash("$2a$12$dummyHashForIntegrationTestOnly000000000000000000000");
-        user.setEmailVerified(true);
-        user.setPhoneVerified(false);
-        user.setCreatedAt(OffsetDateTime.now());
-        user.setUpdatedAt(OffsetDateTime.now());
-        return userRepository.save(user);
-    }
+    // IN_PROGRESS -> COMPLETED
+    given()
+        .header("Authorization", "Bearer " + engineerToken)
+        .when()
+        .put("/api/v1/jobs/" + jobId + "/complete")
+        .then()
+        .statusCode(200)
+        .body("data.status", equalTo("COMPLETED"));
+  }
 
-    private UUID createPropertyForCustomer(final User owner) {
-        final Property prop = new Property();
-        prop.setOwner(owner);
-        prop.setAddressLine1("10 Downing Street");
-        prop.setCity("London");
-        prop.setPostcode("SW1A 2AA");
-        prop.setCountry("GB");
-        prop.setPropertyType("HOUSE");
-        prop.setComplianceStatus("COMPLIANT");
-        prop.setIsActive(true);
-        prop.setHasGasSupply(true);
-        prop.setHasElectric(true);
-        prop.setBedrooms(3);
-        prop.setGasApplianceCount(2);
-        prop.setCreatedAt(OffsetDateTime.now());
-        prop.setUpdatedAt(OffsetDateTime.now());
-        return propertyRepository.save(prop).getId();
-    }
-
-    private String createEpcJobViaApi(final UUID propId) {
-        final String body = "{\"property_id\": \""
-                + propId
-                + "\", \"certificate_type\": \"EPC\", \"urgency\": \"STANDARD\"}";
-
-        return given()
-                .contentType(ContentType.JSON)
-                .header("Authorization", "Bearer " + customerToken)
-                .body(body)
-                .when()
-                .post("/api/v1/jobs")
-                .then()
-                .statusCode(201)
-                .extract()
-                .path("data.id");
-    }
-
-    private String createGasSafetyJobViaApi(final UUID propId) {
-        final String body = "{\"property_id\": \""
-                + propId
-                + "\", \"certificate_type\": \"GAS_SAFETY\", \"urgency\": \"STANDARD\"}";
-
-        return given()
-                .contentType(ContentType.JSON)
-                .header("Authorization", "Bearer " + customerToken)
-                .body(body)
-                .when()
-                .post("/api/v1/jobs")
-                .then()
-                .statusCode(201)
-                .extract()
-                .path("data.id");
-    }
-
-    private String createEpcJobAndWalkToCompleted(final UUID propId) {
-        final String jobId = createEpcJobViaApi(propId);
-        walkJobToCompleted(jobId);
-        return jobId;
-    }
-
-    private String createGasSafetyJobAndWalkToCompleted(final UUID propId) {
-        final String jobId = createGasSafetyJobViaApi(propId);
-        walkJobToCompleted(jobId);
-        return jobId;
-    }
-
-    private void walkJobToCompleted(final String jobId) {
-        // CREATED -> MATCHED
-        final String matchBody = "{\"engineer_id\": \"" + engineer.getId() + "\"}";
-        given()
-                .contentType(ContentType.JSON)
-                .header("Authorization", "Bearer " + adminToken)
-                .body(matchBody)
-                .when()
-                .put("/api/v1/jobs/" + jobId + "/match")
-                .then()
-                .statusCode(200)
-                .body("data.status", equalTo("MATCHED"));
-
-        // MATCHED -> ACCEPTED
-        final String scheduledDate = LocalDate.now().plusDays(3).toString();
-        final String acceptBody = "{\"scheduled_date\": \"" + scheduledDate
-                + "\", \"scheduled_time_slot\": \"MORNING\"}";
-        given()
-                .contentType(ContentType.JSON)
-                .header("Authorization", "Bearer " + engineerToken)
-                .body(acceptBody)
-                .when()
-                .put("/api/v1/jobs/" + jobId + "/accept")
-                .then()
-                .statusCode(200)
-                .body("data.status", equalTo("ACCEPTED"));
-
-        // ACCEPTED -> EN_ROUTE
-        given()
-                .header("Authorization", "Bearer " + engineerToken)
-                .when()
-                .put("/api/v1/jobs/" + jobId + "/en-route")
-                .then()
-                .statusCode(200)
-                .body("data.status", equalTo("EN_ROUTE"));
-
-        // EN_ROUTE -> IN_PROGRESS
-        final String startBody = "{\"latitude\": 51.5074, \"longitude\": -0.1278}";
-        given()
-                .contentType(ContentType.JSON)
-                .header("Authorization", "Bearer " + engineerToken)
-                .body(startBody)
-                .when()
-                .put("/api/v1/jobs/" + jobId + "/start")
-                .then()
-                .statusCode(200)
-                .body("data.status", equalTo("IN_PROGRESS"));
-
-        // IN_PROGRESS -> COMPLETED
-        given()
-                .header("Authorization", "Bearer " + engineerToken)
-                .when()
-                .put("/api/v1/jobs/" + jobId + "/complete")
-                .then()
-                .statusCode(200)
-                .body("data.status", equalTo("COMPLETED"));
-    }
-
-    private String buildEpcRecordJson() {
-        final String tomorrow = LocalDate.now().plusDays(1).toString();
-        return """
+  private String buildEpcRecordJson() {
+    final String tomorrow = LocalDate.now().plusDays(1).toString();
+    return """
                 {
                   "property_details": {
                     "address_line1": "10 Downing Street",
@@ -487,6 +478,7 @@ class EpcInspectionIntegrationTest {
                     "boiler_installation_certificate": null
                   }
                 }
-                """.formatted(tomorrow);
-    }
+                """
+        .formatted(tomorrow);
+  }
 }

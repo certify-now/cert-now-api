@@ -59,6 +59,8 @@ certifynow:
     expired-broadcast-check-interval-ms: 30000
 
 app:
+  cors:
+    allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*}
   pricing:
     commission-rate: 0.15
   email:

@@ -44,7 +44,8 @@ public class InspectionController {
       final Authentication authentication,
       final HttpServletRequest httpRequest) {
     final UUID engineerId = extractUserId(authentication);
-    final GasSafetyRecordResponse response = gasSafetyRecordService.submitGasSafetyRecord(jobId, engineerId, request);
+    final GasSafetyRecordResponse response =
+        gasSafetyRecordService.submitGasSafetyRecord(jobId, engineerId, request);
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(ApiResponse.of(response, requestId(httpRequest)));
   }
@@ -55,7 +56,8 @@ public class InspectionController {
       final Authentication authentication,
       final HttpServletRequest httpRequest) {
     final UUID callerId = extractUserId(authentication);
-    final GasSafetyRecordResponse response = gasSafetyRecordService.getGasSafetyRecord(jobId, callerId);
+    final GasSafetyRecordResponse response =
+        gasSafetyRecordService.getGasSafetyRecord(jobId, callerId);
     return ApiResponse.of(response, requestId(httpRequest));
   }
 
@@ -68,7 +70,8 @@ public class InspectionController {
       final Authentication authentication,
       final HttpServletRequest httpRequest) {
     final UUID engineerId = extractUserId(authentication);
-    final EpcRecordResponse response = epcInspectionService.submitEpcRecord(jobId, engineerId, request);
+    final EpcRecordResponse response =
+        epcInspectionService.submitEpcRecord(jobId, engineerId, request);
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(ApiResponse.of(response, requestId(httpRequest)));
   }

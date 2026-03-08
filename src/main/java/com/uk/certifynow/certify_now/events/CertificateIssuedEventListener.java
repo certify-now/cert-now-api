@@ -7,15 +7,11 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
- * Downstream hook for certificate-issued notifications (e.g. property
- * compliance updates).
+ * Downstream hook for certificate-issued notifications (e.g. property compliance updates).
  *
- * <p>
- * The COMPLETED → CERTIFIED job status transition and its audit-history row are
- * both
- * committed atomically inside the inspection submission transaction; this
- * listener is
- * intentionally <em>not</em> responsible for that transition.
+ * <p>The COMPLETED → CERTIFIED job status transition and its audit-history row are both committed
+ * atomically inside the inspection submission transaction; this listener is intentionally
+ * <em>not</em> responsible for that transition.
  */
 @Component
 public class CertificateIssuedEventListener {

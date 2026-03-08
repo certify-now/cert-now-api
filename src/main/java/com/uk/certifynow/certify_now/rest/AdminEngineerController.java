@@ -12,6 +12,10 @@ import com.uk.certifynow.certify_now.service.EngineerInsuranceService;
 import com.uk.certifynow.certify_now.service.EngineerProfileService;
 import com.uk.certifynow.certify_now.service.EngineerQualificationService;
 import com.uk.certifynow.certify_now.service.auth.EngineerApplicationStatus;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -33,6 +37,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/admin/engineers")
+@Tag(name = "Admin - Engineers", description = "Admin management of engineers")
 public class AdminEngineerController {
 
   private final EngineerProfileService engineerProfileService;
@@ -51,9 +56,26 @@ public class AdminEngineerController {
   // -- List all engineers (paginated) -----------------------------------------
 
   @GetMapping
+  @Operation(
+      summary = "List all engineers",
+      description =
+          "Returns a paginated list of all engineer profiles." + " Admin access required.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Engineers retrieved successfully"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Not authenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Forbidden — admin access required")
+  })
   public ApiResponse<Page<EngineerProfileResponse>> listEngineers(
-      @RequestParam(defaultValue = "0") final int page,
-      @RequestParam(defaultValue = "20") final int size,
+      @Parameter(description = "Page number (zero-based)") @RequestParam(defaultValue = "0")
+          final int page,
+      @Parameter(description = "Page size (max 50)") @RequestParam(defaultValue = "20")
+          final int size,
       final HttpServletRequest httpRequest) {
     final int cappedSize = Math.min(size, 50);
     final Pageable pageable =
@@ -106,8 +128,26 @@ public class AdminEngineerController {
   // -- Engineer detail --------------------------------------------------------
 
   @GetMapping("/{id}")
+  @Operation(
+      summary = "Get engineer detail",
+      description = "Returns the full profile of a specific engineer by ID. Admin access required.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Engineer detail retrieved successfully"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Not authenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Forbidden — admin access required"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "Engineer not found")
+  })
   public ApiResponse<EngineerProfileResponse> getEngineerDetail(
-      @PathVariable final UUID id, final HttpServletRequest httpRequest) {
+      @Parameter(description = "Engineer profile ID") @PathVariable final UUID id,
+      final HttpServletRequest httpRequest) {
     final var dto = engineerProfileService.get(id);
     final EngineerProfileResponse response =
         new EngineerProfileResponse(
@@ -141,8 +181,30 @@ public class AdminEngineerController {
   // -- Approve ----------------------------------------------------------------
 
   @PutMapping("/{id}/approve")
+  @Operation(
+      summary = "Approve an engineer",
+      description =
+          "Approves an engineer's application, allowing them to go online and accept jobs."
+              + " Publishes an EngineerApprovedEvent.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Engineer approved successfully"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Not authenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Forbidden — admin access required"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "Engineer not found"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "409",
+        description = "Invalid status transition")
+  })
   public ApiResponse<EngineerProfileResponse> approveEngineer(
-      @PathVariable final UUID id,
+      @Parameter(description = "Engineer profile ID") @PathVariable final UUID id,
       final Authentication authentication,
       final HttpServletRequest httpRequest) {
     final UUID adminId = extractUserId(authentication);
@@ -154,8 +216,29 @@ public class AdminEngineerController {
   // -- Reject -----------------------------------------------------------------
 
   @PutMapping("/{id}/reject")
+  @Operation(
+      summary = "Reject an engineer",
+      description =
+          "Rejects an engineer's application. The engineer will not be able to go online or accept jobs.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Engineer rejected successfully"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Not authenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Forbidden — admin access required"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "Engineer not found"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "409",
+        description = "Invalid status transition")
+  })
   public ApiResponse<EngineerProfileResponse> rejectEngineer(
-      @PathVariable final UUID id,
+      @Parameter(description = "Engineer profile ID") @PathVariable final UUID id,
       final Authentication authentication,
       final HttpServletRequest httpRequest) {
     final UUID adminId = extractUserId(authentication);
@@ -167,8 +250,33 @@ public class AdminEngineerController {
   // -- Generic transition -----------------------------------------------------
 
   @PutMapping("/{id}/transition-status")
+  @Operation(
+      summary = "Transition engineer application status",
+      description =
+          "Transitions an engineer's application to the specified target status."
+              + " Supports all valid EngineerApplicationStatus transitions.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Status transitioned successfully"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "Validation error or invalid target status"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Not authenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Forbidden — admin access required"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "Engineer not found"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "409",
+        description = "Invalid status transition")
+  })
   public ApiResponse<EngineerProfileResponse> transitionStatus(
-      @PathVariable final UUID id,
+      @Parameter(description = "Engineer profile ID") @PathVariable final UUID id,
       @Valid @RequestBody final TransitionStatusRequest request,
       final Authentication authentication,
       final HttpServletRequest httpRequest) {
@@ -182,9 +290,29 @@ public class AdminEngineerController {
   // -- Verify qualification ---------------------------------------------------
 
   @PutMapping("/{id}/verify-qualification/{qId}")
+  @Operation(
+      summary = "Verify an engineer's qualification",
+      description = "Admin verifies or rejects an engineer's submitted qualification document.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Qualification verification status updated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "Validation error in request body"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Not authenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Forbidden — admin access required"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "Engineer or qualification not found")
+  })
   public ApiResponse<QualificationResponse> verifyQualification(
-      @PathVariable final UUID id,
-      @PathVariable final UUID qId,
+      @Parameter(description = "Engineer profile ID") @PathVariable final UUID id,
+      @Parameter(description = "Qualification ID") @PathVariable final UUID qId,
       @Valid @RequestBody final VerifyQualificationRequest request,
       final Authentication authentication,
       final HttpServletRequest httpRequest) {
@@ -198,9 +326,29 @@ public class AdminEngineerController {
   // -- Verify insurance -------------------------------------------------------
 
   @PutMapping("/{id}/verify-insurance/{iId}")
+  @Operation(
+      summary = "Verify an engineer's insurance",
+      description = "Admin verifies or rejects an engineer's submitted insurance document.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Insurance verification status updated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "Validation error in request body"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Not authenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Forbidden — admin access required"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "Engineer or insurance record not found")
+  })
   public ApiResponse<InsuranceResponse> verifyInsurance(
-      @PathVariable final UUID id,
-      @PathVariable final UUID iId,
+      @Parameter(description = "Engineer profile ID") @PathVariable final UUID id,
+      @Parameter(description = "Insurance record ID") @PathVariable final UUID iId,
       @Valid @RequestBody final VerifyInsuranceRequest request,
       final Authentication authentication,
       final HttpServletRequest httpRequest) {

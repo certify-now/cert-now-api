@@ -4,6 +4,10 @@ import com.uk.certifynow.certify_now.config.RequestIdFilter;
 import com.uk.certifynow.certify_now.model.PropertyDTO;
 import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
 import com.uk.certifynow.certify_now.service.PropertyService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.UUID;
@@ -17,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/properties")
+@Tag(name = "Properties", description = "Property management for customers")
 public class PropertyController {
 
   private final PropertyService propertyService;
@@ -26,6 +31,25 @@ public class PropertyController {
   }
 
   @PostMapping
+  @Operation(
+      summary = "Create a new property",
+      description =
+          "Registers a new property for the authenticated customer."
+              + " The property is automatically linked to the current user.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "201",
+        description = "Property created successfully"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "Validation error in request body"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Not authenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Only customers can manage properties")
+  })
   public ResponseEntity<ApiResponse<PropertyDTO>> createProperty(
       @Valid @RequestBody final PropertyDTO propertyDTO,
       final Authentication authentication,
@@ -40,6 +64,20 @@ public class PropertyController {
   }
 
   @GetMapping
+  @Operation(
+      summary = "List my properties",
+      description = "Returns a paginated list of properties owned by the authenticated customer.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Properties retrieved successfully"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Not authenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Only customers can manage properties")
+  })
   public ApiResponse<Page<PropertyDTO>> getMyProperties(
       final Authentication authentication,
       final Pageable pageable,
@@ -50,8 +88,26 @@ public class PropertyController {
   }
 
   @GetMapping("/{id}")
+  @Operation(
+      summary = "Get a property by ID",
+      description =
+          "Returns details of a specific property. Only the owner can access their property.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Property retrieved successfully"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Not authenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Not the owner of this property"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "Property not found")
+  })
   public ApiResponse<PropertyDTO> getProperty(
-      @PathVariable final UUID id,
+      @Parameter(description = "Property ID") @PathVariable final UUID id,
       final Authentication authentication,
       final HttpServletRequest request) {
     ensureCustomer(authentication);
@@ -64,8 +120,28 @@ public class PropertyController {
   }
 
   @PutMapping("/{id}")
+  @Operation(
+      summary = "Update a property",
+      description = "Updates an existing property. Only the owner can update their property.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Property updated successfully"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "Validation error in request body"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Not authenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Not the owner of this property"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "Property not found")
+  })
   public ApiResponse<Void> updateProperty(
-      @PathVariable final UUID id,
+      @Parameter(description = "Property ID") @PathVariable final UUID id,
       @Valid @RequestBody final PropertyDTO propertyDTO,
       final Authentication authentication,
       final HttpServletRequest request) {
@@ -83,7 +159,28 @@ public class PropertyController {
 
   @DeleteMapping("/{id}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  public void deactivateProperty(@PathVariable final UUID id, final Authentication authentication) {
+  @Operation(
+      summary = "Deactivate a property",
+      description =
+          "Soft-deletes a property by setting it as inactive."
+              + " Only the owner can deactivate their property.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "204",
+        description = "Property deactivated successfully"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Not authenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Not the owner of this property"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "Property not found")
+  })
+  public void deactivateProperty(
+      @Parameter(description = "Property ID") @PathVariable final UUID id,
+      final Authentication authentication) {
     ensureCustomer(authentication);
     final UUID userId = UUID.fromString((String) authentication.getPrincipal());
     final PropertyDTO existingProperty = propertyService.get(id);

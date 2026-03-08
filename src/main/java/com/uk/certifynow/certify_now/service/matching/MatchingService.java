@@ -28,10 +28,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Matching engine implementing the broadcast model. When a job is created, all
- * eligible engineers
- * are notified simultaneously. The first engineer to accept (claim) wins the
- * job atomically.
+ * Matching engine implementing the broadcast model. When a job is created, all eligible engineers
+ * are notified simultaneously. The first engineer to accept (claim) wins the job atomically.
  */
 @Service
 public class MatchingService {
@@ -65,10 +63,8 @@ public class MatchingService {
   // ────────────────────────────────────────────────────────────────────────────
 
   /**
-   * Finds all eligible engineers for a job: approved, within service radius,
-   * available, and under
-   * daily job cap. Qualification filtering is a TODO (stub) until
-   * qualification-to-cert-type
+   * Finds all eligible engineers for a job: approved, within service radius, available, and under
+   * daily job cap. Qualification filtering is a TODO (stub) until qualification-to-cert-type
    * mapping is defined.
    */
   @Transactional(readOnly = true)
@@ -95,13 +91,15 @@ public class MatchingService {
 
     // Filter: daily job cap check
     final OffsetDateTime startOfDay = LocalDate.now().atStartOfDay().atOffset(ZoneOffset.UTC);
-    final List<EngineerProfile> eligible = nearby.stream()
-        .filter(
-            ep -> {
-              final long todayCount = jobRepository.countEngineerJobsToday(ep.getUser().getId(), startOfDay);
-              return todayCount < ep.getMaxDailyJobs();
-            })
-        .toList();
+    final List<EngineerProfile> eligible =
+        nearby.stream()
+            .filter(
+                ep -> {
+                  final long todayCount =
+                      jobRepository.countEngineerJobsToday(ep.getUser().getId(), startOfDay);
+                  return todayCount < ep.getMaxDailyJobs();
+                })
+            .toList();
 
     // TODO: Qualification filtering — once cert-type-to-qualification mapping is
     // defined,
@@ -122,8 +120,7 @@ public class MatchingService {
   // ────────────────────────────────────────────────────────────────────────────
 
   /**
-   * Broadcasts a job to all eligible engineers. Updates job status to
-   * AWAITING_ACCEPTANCE and
+   * Broadcasts a job to all eligible engineers. Updates job status to AWAITING_ACCEPTANCE and
    * creates match log entries for each notified engineer.
    */
   @Transactional
@@ -180,17 +177,16 @@ public class MatchingService {
   // ────────────────────────────────────────────────────────────────────────────
 
   /**
-   * Atomic first-to-accept logic. Uses a conditional UPDATE to ensure only one
-   * engineer can claim a
-   * job. Returns the updated job response on success. Throws 409 Conflict if
-   * already claimed.
+   * Atomic first-to-accept logic. Uses a conditional UPDATE to ensure only one engineer can claim a
+   * job. Returns the updated job response on success. Throws 409 Conflict if already claimed.
    */
   @Transactional
   public JobResponse claimJob(final UUID jobId, final UUID engineerId) {
     // Validate engineer exists
-    final User engineer = userRepository
-        .findById(engineerId)
-        .orElseThrow(() -> new EntityNotFoundException("User not found: " + engineerId));
+    final User engineer =
+        userRepository
+            .findById(engineerId)
+            .orElseThrow(() -> new EntityNotFoundException("User not found: " + engineerId));
     if (!engineer.isEngineer()) {
       throw new BusinessException(
           HttpStatus.BAD_REQUEST, "NOT_AN_ENGINEER", "User is not an engineer");
@@ -200,10 +196,11 @@ public class MatchingService {
     matchLogRepository
         .findByJobIdAndEngineerId(jobId, engineerId)
         .orElseThrow(
-            () -> new BusinessException(
-                HttpStatus.FORBIDDEN,
-                "NOT_NOTIFIED",
-                "Engineer was not notified about this job"));
+            () ->
+                new BusinessException(
+                    HttpStatus.FORBIDDEN,
+                    "NOT_NOTIFIED",
+                    "Engineer was not notified about this job"));
 
     // Atomic conditional update — only succeeds if job is still AWAITING_ACCEPTANCE
     final OffsetDateTime now = OffsetDateTime.now();
@@ -230,9 +227,10 @@ public class MatchingService {
     matchLogRepository.expireAllPendingForJob(jobId);
 
     // Reload the job for the response
-    final Job job = jobRepository
-        .findById(jobId)
-        .orElseThrow(() -> new EntityNotFoundException("Job not found: " + jobId));
+    final Job job =
+        jobRepository
+            .findById(jobId)
+            .orElseThrow(() -> new EntityNotFoundException("Job not found: " + jobId));
 
     // Publish matched event
     publisher.publishEvent(new JobMatchedEvent(jobId, engineerId, null, null));
@@ -247,8 +245,7 @@ public class MatchingService {
   // ────────────────────────────────────────────────────────────────────────────
 
   /**
-   * Called when nobody accepts within the timeout. Updates job status to
-   * ESCALATED and expires all
+   * Called when nobody accepts within the timeout. Updates job status to ESCALATED and expires all
    * pending match log entries.
    */
   @Transactional
@@ -289,51 +286,53 @@ public class MatchingService {
         final String[] parts = coords.split("\\s+");
         final double lng = Double.parseDouble(parts[0]);
         final double lat = Double.parseDouble(parts[1]);
-        return new double[] { lat, lng };
+        return new double[] {lat, lng};
       } else if (cleaned.contains(",")) {
         final String[] parts = cleaned.split(",");
         final double lng = Double.parseDouble(parts[0].trim());
         final double lat = Double.parseDouble(parts[1].trim());
-        return new double[] { lat, lng };
+        return new double[] {lat, lng};
       }
     } catch (final Exception e) {
       log.error("Failed to parse location string: {}", location, e);
     }
     // Default to London coordinates as fallback
-    return new double[] { 51.5074, -0.1278 };
+    return new double[] {51.5074, -0.1278};
   }
 
   /**
-   * Minimal job response for the claim endpoint. Returns key fields needed by the
-   * engineer after
+   * Minimal job response for the claim endpoint. Returns key fields needed by the engineer after
    * claiming.
    */
   private JobResponse toClaimResponse(final Job job) {
     final Property prop = job.getProperty();
-    final String propSummary = prop.getAddressLine1() + ", " + prop.getCity() + " " + prop.getPostcode();
+    final String propSummary =
+        prop.getAddressLine1() + ", " + prop.getCity() + " " + prop.getPostcode();
     final User eng = job.getEngineer();
     final String engName = eng == null ? null : eng.getFullName();
     final UUID engId = eng == null ? null : eng.getId();
 
-    final JobResponse.Pricing pricing = new JobResponse.Pricing(
-        job.getBasePricePence(),
-        job.getPropertyModifierPence(),
-        job.getUrgencyModifierPence(),
-        job.getDiscountPence(),
-        job.getTotalPricePence(),
-        job.getCommissionRate() == null ? 0.15 : job.getCommissionRate().doubleValue(),
-        job.getCommissionPence(),
-        job.getEngineerPayoutPence());
+    final JobResponse.Pricing pricing =
+        new JobResponse.Pricing(
+            job.getBasePricePence(),
+            job.getPropertyModifierPence(),
+            job.getUrgencyModifierPence(),
+            job.getDiscountPence(),
+            job.getTotalPricePence(),
+            job.getCommissionRate() == null ? 0.15 : job.getCommissionRate().doubleValue(),
+            job.getCommissionPence(),
+            job.getEngineerPayoutPence());
 
-    final JobResponse.Timestamps timestamps = new JobResponse.Timestamps(
-        job.getCreatedAt(),
-        job.getMatchedAt(),
-        job.getAcceptedAt(),
-        job.getEnRouteAt(),
-        job.getStartedAt(),
-        job.getCompletedAt(),
-        job.getCertifiedAt(),
-        job.getCancelledAt());
+    final JobResponse.Timestamps timestamps =
+        new JobResponse.Timestamps(
+            job.getCreatedAt(),
+            job.getMatchedAt(),
+            job.getAcceptedAt(),
+            job.getEnRouteAt(),
+            job.getStartedAt(),
+            job.getCompletedAt(),
+            job.getCertifiedAt(),
+            job.getCancelledAt());
 
     return new JobResponse(
         job.getId(),

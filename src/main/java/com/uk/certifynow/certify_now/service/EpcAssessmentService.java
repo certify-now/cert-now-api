@@ -10,8 +10,8 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
 /**
- * Lightweight CRUD guard service retained for the BeforeDeleteJob guard only.
- * All inspection business logic lives in {@code EpcInspectionService}.
+ * Lightweight CRUD guard service retained for the BeforeDeleteJob guard only. All inspection
+ * business logic lives in {@code EpcInspectionService}.
  */
 @Service
 public class EpcAssessmentService {

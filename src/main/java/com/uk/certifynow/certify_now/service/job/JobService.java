@@ -59,8 +59,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class JobService {
 
   // Terminal statuses — no further transitions allowed
-  private static final List<String> TERMINAL_STATUSES =
-      List.of("COMPLETED", "CERTIFIED", "CANCELLED", "FAILED");
+  private static final List<String> TERMINAL_STATUSES = List.of("COMPLETED", "CERTIFIED", "CANCELLED", "FAILED");
 
   // Call-out fee in pence (£15.00) charged when customer cancels after engineer
   // is en-route
@@ -104,17 +103,15 @@ public class JobService {
   @Transactional
   public JobResponse createJob(final UUID customerId, final CreateJobRequest request) {
     // 1. Load customer
-    final User customer =
-        userRepository
-            .findById(customerId)
-            .orElseThrow(() -> new EntityNotFoundException("User not found: " + customerId));
+    final User customer = userRepository
+        .findById(customerId)
+        .orElseThrow(() -> new EntityNotFoundException("User not found: " + customerId));
 
     // 2. Load property, validate ownership
-    final Property property =
-        propertyRepository
-            .findById(request.propertyId())
-            .orElseThrow(
-                () -> new EntityNotFoundException("Property not found: " + request.propertyId()));
+    final Property property = propertyRepository
+        .findById(request.propertyId())
+        .orElseThrow(
+            () -> new EntityNotFoundException("Property not found: " + request.propertyId()));
     if (!property.getOwner().getId().equals(customerId)) {
       throw new AccessDeniedException("Property does not belong to this customer");
     }
@@ -146,7 +143,8 @@ public class JobService {
         saved = jobRepository.save(job);
         break;
       } catch (final DataIntegrityViolationException e) {
-        if (attempt == 2) throw e; // give up after 3 attempts
+        if (attempt == 2)
+          throw e; // give up after 3 attempts
       }
     }
 
@@ -240,34 +238,28 @@ public class JobService {
       page = jobRepository.findAllWithFilters(statusFilter, certTypeFilter, pageable);
     } else if (actorRole == UserRole.ENGINEER) {
       if (statusFilter != null && certTypeFilter != null) {
-        page =
-            jobRepository.findByEngineerIdAndStatusAndCertificateTypeOrderByCreatedAtDesc(
-                actorId, statusFilter, certTypeFilter, pageable);
+        page = jobRepository.findByEngineerIdAndStatusAndCertificateTypeOrderByCreatedAtDesc(
+            actorId, statusFilter, certTypeFilter, pageable);
       } else if (statusFilter != null) {
-        page =
-            jobRepository.findByEngineerIdAndStatusOrderByCreatedAtDesc(
-                actorId, statusFilter, pageable);
+        page = jobRepository.findByEngineerIdAndStatusOrderByCreatedAtDesc(
+            actorId, statusFilter, pageable);
       } else if (certTypeFilter != null) {
-        page =
-            jobRepository.findByEngineerIdAndCertificateTypeOrderByCreatedAtDesc(
-                actorId, certTypeFilter, pageable);
+        page = jobRepository.findByEngineerIdAndCertificateTypeOrderByCreatedAtDesc(
+            actorId, certTypeFilter, pageable);
       } else {
         page = jobRepository.findByEngineerIdOrderByCreatedAtDesc(actorId, pageable);
       }
     } else {
       // CUSTOMER
       if (statusFilter != null && certTypeFilter != null) {
-        page =
-            jobRepository.findByCustomerIdAndStatusAndCertificateTypeOrderByCreatedAtDesc(
-                actorId, statusFilter, certTypeFilter, pageable);
+        page = jobRepository.findByCustomerIdAndStatusAndCertificateTypeOrderByCreatedAtDesc(
+            actorId, statusFilter, certTypeFilter, pageable);
       } else if (statusFilter != null) {
-        page =
-            jobRepository.findByCustomerIdAndStatusOrderByCreatedAtDesc(
-                actorId, statusFilter, pageable);
+        page = jobRepository.findByCustomerIdAndStatusOrderByCreatedAtDesc(
+            actorId, statusFilter, pageable);
       } else if (certTypeFilter != null) {
-        page =
-            jobRepository.findByCustomerIdAndCertificateTypeOrderByCreatedAtDesc(
-                actorId, certTypeFilter, pageable);
+        page = jobRepository.findByCustomerIdAndCertificateTypeOrderByCreatedAtDesc(
+            actorId, certTypeFilter, pageable);
       } else {
         page = jobRepository.findByCustomerIdOrderByCreatedAtDesc(actorId, pageable);
       }
@@ -290,11 +282,10 @@ public class JobService {
     validateTransition(current, target);
 
     // Validate engineer exists and has ENGINEER role
-    final User engineer =
-        userRepository
-            .findById(request.engineerId())
-            .orElseThrow(
-                () -> new EntityNotFoundException("User not found: " + request.engineerId()));
+    final User engineer = userRepository
+        .findById(request.engineerId())
+        .orElseThrow(
+            () -> new EntityNotFoundException("User not found: " + request.engineerId()));
     if (!engineer.isEngineer()) {
       throw new BusinessException(
           HttpStatus.BAD_REQUEST, "NOT_AN_ENGINEER", "User is not an engineer");
@@ -488,8 +479,6 @@ public class JobService {
   }
 
   // ────────────────────────────────────────────────────────────────────────────
-  // CERTIFY JOB (called by CertificateIssuedEventListener after inspection data
-  // is submitted)
   // ────────────────────────────────────────────────────────────────────────────
 
   @CacheEvict(value = "jobs", key = "#jobId")
@@ -574,16 +563,15 @@ public class JobService {
     authoriseRead(job, actorId, actorRole);
     return historyRepository.findByJobIdOrderByCreatedAtAsc(jobId).stream()
         .map(
-            h ->
-                new JobStatusHistoryResponse(
-                    h.getId(),
-                    h.getFromStatus(),
-                    h.getToStatus(),
-                    h.getActorId(),
-                    h.getActorType(),
-                    h.getReason(),
-                    h.getMetadata(),
-                    h.getCreatedAt()))
+            h -> new JobStatusHistoryResponse(
+                h.getId(),
+                h.getFromStatus(),
+                h.getToStatus(),
+                h.getActorId(),
+                h.getActorType(),
+                h.getReason(),
+                h.getMetadata(),
+                h.getCreatedAt()))
         .toList();
   }
 
@@ -642,10 +630,10 @@ public class JobService {
   }
 
   private void authoriseRead(final Job job, final UUID actorId, final UserRole actorRole) {
-    if (actorRole == UserRole.ADMIN) return;
+    if (actorRole == UserRole.ADMIN)
+      return;
     final boolean isCustomer = job.getCustomer().getId().equals(actorId);
-    final boolean isEngineer =
-        job.getEngineer() != null && job.getEngineer().getId().equals(actorId);
+    final boolean isEngineer = job.getEngineer() != null && job.getEngineer().getId().equals(actorId);
     if (!isCustomer && !isEngineer) {
       throw new AccessDeniedException("Access denied to this job");
     }
@@ -659,8 +647,10 @@ public class JobService {
 
   private CancellationActor determineCancellationActor(
       final Job job, final UUID actorId, final UserRole role) {
-    if (role == UserRole.ADMIN) return CancellationActor.ADMIN;
-    if (job.getCustomer().getId().equals(actorId)) return CancellationActor.CUSTOMER;
+    if (role == UserRole.ADMIN)
+      return CancellationActor.ADMIN;
+    if (job.getCustomer().getId().equals(actorId))
+      return CancellationActor.CUSTOMER;
     if (job.getEngineer() != null && job.getEngineer().getId().equals(actorId)) {
       return CancellationActor.ENGINEER;
     }
@@ -669,17 +659,16 @@ public class JobService {
 
   private void validateCancellationPermission(
       final CancellationActor actor, final JobStatus status) {
-    final boolean allowed =
-        switch (status) {
-          case CREATED -> actor == CancellationActor.CUSTOMER || actor == CancellationActor.ADMIN;
-          case MATCHED -> true; // customer, engineer (handled as decline above), admin
-          case ACCEPTED ->
-              actor == CancellationActor.CUSTOMER
-                  || actor == CancellationActor.ENGINEER
-                  || actor == CancellationActor.ADMIN;
-          case EN_ROUTE -> actor == CancellationActor.CUSTOMER || actor == CancellationActor.ADMIN;
-          default -> actor == CancellationActor.ADMIN; // IN_PROGRESS, etc. — only admin
-        };
+    final boolean allowed = switch (status) {
+      case CREATED -> actor == CancellationActor.CUSTOMER || actor == CancellationActor.ADMIN;
+      case MATCHED -> true; // customer, engineer (handled as decline above), admin
+      case ACCEPTED ->
+        actor == CancellationActor.CUSTOMER
+            || actor == CancellationActor.ENGINEER
+            || actor == CancellationActor.ADMIN;
+      case EN_ROUTE -> actor == CancellationActor.CUSTOMER || actor == CancellationActor.ADMIN;
+      default -> actor == CancellationActor.ADMIN; // IN_PROGRESS, etc. — only admin
+    };
     if (!allowed) {
       throw new InvalidStateTransitionException(
           "Cancellation not allowed for " + actor + " when job is in state " + status);
@@ -705,14 +694,14 @@ public class JobService {
   }
 
   private OffsetDateTime scheduledStart(final Job job) {
-    if (job.getScheduledDate() == null || job.getScheduledTimeSlot() == null) return null;
-    final LocalTime slotTime =
-        switch (job.getScheduledTimeSlot()) {
-          case "MORNING" -> LocalTime.of(8, 0);
-          case "AFTERNOON" -> LocalTime.of(12, 0);
-          case "EVENING" -> LocalTime.of(17, 0);
-          default -> LocalTime.NOON;
-        };
+    if (job.getScheduledDate() == null || job.getScheduledTimeSlot() == null)
+      return null;
+    final LocalTime slotTime = switch (job.getScheduledTimeSlot()) {
+      case "MORNING" -> LocalTime.of(8, 0);
+      case "AFTERNOON" -> LocalTime.of(12, 0);
+      case "EVENING" -> LocalTime.of(17, 0);
+      default -> LocalTime.NOON;
+    };
     return job.getScheduledDate().atTime(slotTime).atOffset(ZoneOffset.UTC);
   }
 
@@ -755,42 +744,38 @@ public class JobService {
 
   private JobResponse toJobResponse(final Job job, final Payment payment) {
     final Property prop = job.getProperty();
-    final String propSummary =
-        prop.getAddressLine1() + ", " + prop.getCity() + " " + prop.getPostcode();
+    final String propSummary = prop.getAddressLine1() + ", " + prop.getCity() + " " + prop.getPostcode();
     final User eng = job.getEngineer();
     final String engName = eng == null ? null : eng.getFullName();
     final UUID engId = eng == null ? null : eng.getId();
 
-    final JobResponse.Pricing pricing =
-        new JobResponse.Pricing(
-            job.getBasePricePence(),
-            job.getPropertyModifierPence(),
-            job.getUrgencyModifierPence(),
-            job.getDiscountPence(),
-            job.getTotalPricePence(),
-            job.getCommissionRate() == null ? 0.15 : job.getCommissionRate().doubleValue(),
-            job.getCommissionPence(),
-            job.getEngineerPayoutPence());
+    final JobResponse.Pricing pricing = new JobResponse.Pricing(
+        job.getBasePricePence(),
+        job.getPropertyModifierPence(),
+        job.getUrgencyModifierPence(),
+        job.getDiscountPence(),
+        job.getTotalPricePence(),
+        job.getCommissionRate() == null ? 0.15 : job.getCommissionRate().doubleValue(),
+        job.getCommissionPence(),
+        job.getEngineerPayoutPence());
 
-    final JobResponse.Payment paymentSummary =
-        payment == null
-            ? null
-            : new JobResponse.Payment(
-                payment.getId(),
-                payment.getStatus(),
-                payment.getStripeClientSecret(),
-                payment.getAmountPence());
+    final JobResponse.Payment paymentSummary = payment == null
+        ? null
+        : new JobResponse.Payment(
+            payment.getId(),
+            payment.getStatus(),
+            payment.getStripeClientSecret(),
+            payment.getAmountPence());
 
-    final JobResponse.Timestamps timestamps =
-        new JobResponse.Timestamps(
-            job.getCreatedAt(),
-            job.getMatchedAt(),
-            job.getAcceptedAt(),
-            job.getEnRouteAt(),
-            job.getStartedAt(),
-            job.getCompletedAt(),
-            job.getCertifiedAt(),
-            job.getCancelledAt());
+    final JobResponse.Timestamps timestamps = new JobResponse.Timestamps(
+        job.getCreatedAt(),
+        job.getMatchedAt(),
+        job.getAcceptedAt(),
+        job.getEnRouteAt(),
+        job.getStartedAt(),
+        job.getCompletedAt(),
+        job.getCertifiedAt(),
+        job.getCancelledAt());
 
     return new JobResponse(
         job.getId(),
@@ -817,10 +802,9 @@ public class JobService {
 
   private JobSummaryResponse toJobSummary(final Job job) {
     final Property prop = job.getProperty();
-    final String propSummary =
-        prop == null
-            ? null
-            : prop.getAddressLine1() + ", " + prop.getCity() + " " + prop.getPostcode();
+    final String propSummary = prop == null
+        ? null
+        : prop.getAddressLine1() + ", " + prop.getCity() + " " + prop.getPostcode();
     final User eng = job.getEngineer();
     return new JobSummaryResponse(
         job.getId(),

@@ -45,7 +45,8 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
- * Integration tests for the gas safety inspection (CP12) submission flow. Covers the full lifecycle
+ * Integration tests for the gas safety inspection (CP12) submission flow.
+ * Covers the full lifecycle
  * from COMPLETED job to CERTIFIED via inspection data submission.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -54,11 +55,10 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 class GasSafetyInspectionIntegrationTest {
 
   @Container
-  static final PostgreSQLContainer<?> POSTGRES =
-      new PostgreSQLContainer<>("postgres:16-alpine")
-          .withDatabaseName("certify_now_test")
-          .withUsername("test")
-          .withPassword("test");
+  static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
+      .withDatabaseName("certify_now_test")
+      .withUsername("test")
+      .withPassword("test");
 
   @DynamicPropertySource
   static void configureProperties(final DynamicPropertyRegistry registry) {
@@ -67,19 +67,31 @@ class GasSafetyInspectionIntegrationTest {
     registry.add("spring.datasource.password", POSTGRES::getPassword);
   }
 
-  @LocalServerPort private int port;
+  @LocalServerPort
+  private int port;
 
-  @Autowired private UserRepository userRepository;
-  @Autowired private PropertyRepository propertyRepository;
-  @Autowired private JobRepository jobRepository;
-  @Autowired private PaymentRepository paymentRepository;
-  @Autowired private JobStatusHistoryRepository jobStatusHistoryRepository;
-  @Autowired private JobMatchLogRepository jobMatchLogRepository;
-  @Autowired private PricingRuleRepository pricingRuleRepository;
-  @Autowired private UrgencyMultiplierRepository urgencyMultiplierRepository;
-  @Autowired private CertificateRepository certificateRepository;
-  @Autowired private GasSafetyRecordRepository gasSafetyRecordRepository;
-  @Autowired private JwtTokenProvider jwtTokenProvider;
+  @Autowired
+  private UserRepository userRepository;
+  @Autowired
+  private PropertyRepository propertyRepository;
+  @Autowired
+  private JobRepository jobRepository;
+  @Autowired
+  private PaymentRepository paymentRepository;
+  @Autowired
+  private JobStatusHistoryRepository jobStatusHistoryRepository;
+  @Autowired
+  private JobMatchLogRepository jobMatchLogRepository;
+  @Autowired
+  private PricingRuleRepository pricingRuleRepository;
+  @Autowired
+  private UrgencyMultiplierRepository urgencyMultiplierRepository;
+  @Autowired
+  private CertificateRepository certificateRepository;
+  @Autowired
+  private GasSafetyRecordRepository gasSafetyRecordRepository;
+  @Autowired
+  private JwtTokenProvider jwtTokenProvider;
 
   private User customer;
   private User engineer;
@@ -116,8 +128,7 @@ class GasSafetyInspectionIntegrationTest {
   }
 
   @Test
-  @DisplayName(
-      "Full flow: COMPLETED GAS_SAFETY job -> POST inspection -> 201, job becomes CERTIFIED")
+  @DisplayName("Full flow: COMPLETED GAS_SAFETY job -> POST inspection -> 201, job becomes CERTIFIED")
   void submitGasSafetyRecord_fullLifecycle() {
     propertyId = createPropertyForCustomer(customer);
     final String jobId = createGasSafetyJobAndWalkToCompleted(propertyId);
@@ -146,19 +157,15 @@ class GasSafetyInspectionIntegrationTest {
         .body("data.final_checks.gas_tightness_pass", equalTo("YES"))
         .body("data.signatures.engineer_signed", equalTo(true));
 
-    // Verify job transitioned to CERTIFIED (event listener runs after commit)
-    await()
-        .atMost(5, TimeUnit.SECONDS)
-        .pollInterval(200, TimeUnit.MILLISECONDS)
-        .untilAsserted(
-            () ->
-                given()
-                    .header("Authorization", "Bearer " + engineerToken)
-                    .when()
-                    .get("/api/v1/jobs/" + jobId)
-                    .then()
-                    .statusCode(200)
-                    .body("data.status", equalTo("CERTIFIED")));
+    // Verify job transitioned to CERTIFIED (synchronous — status is set in the
+    // same transaction as the inspection record submission)
+    given()
+        .header("Authorization", "Bearer " + engineerToken)
+        .when()
+        .get("/api/v1/jobs/" + jobId)
+        .then()
+        .statusCode(200)
+        .body("data.status", equalTo("CERTIFIED"));
 
     // Verify GET endpoint returns the record
     given()
@@ -210,8 +217,7 @@ class GasSafetyInspectionIntegrationTest {
     propertyId = createPropertyForCustomer(customer);
     final String jobId = createGasSafetyJobAndWalkToCompleted(propertyId);
 
-    final User otherEngineer =
-        createUser("other-engineer@test.com", "Other Engineer", UserRole.ENGINEER);
+    final User otherEngineer = createUser("other-engineer@test.com", "Other Engineer", UserRole.ENGINEER);
     final String otherToken = jwtTokenProvider.generateAccessToken(otherEngineer);
 
     given()
@@ -258,9 +264,8 @@ class GasSafetyInspectionIntegrationTest {
     final String jobId = createGasSafetyJobAndWalkToCompleted(propertyId);
 
     // Build a body where numberOfAppliancesTested=2 but only 1 appliance in list
-    final String mismatchBody =
-        buildGasSafetyRecordJson()
-            .replace("\"number_of_appliances_tested\": 1", "\"number_of_appliances_tested\": 2");
+    final String mismatchBody = buildGasSafetyRecordJson()
+        .replace("\"number_of_appliances_tested\": 1", "\"number_of_appliances_tested\": 2");
 
     given()
         .contentType(ContentType.JSON)
@@ -341,10 +346,9 @@ class GasSafetyInspectionIntegrationTest {
   }
 
   private String createGasSafetyJobViaApi(final UUID propId) {
-    final String body =
-        "{\"property_id\": \""
-            + propId
-            + "\", \"certificate_type\": \"GAS_SAFETY\", \"urgency\": \"STANDARD\"}";
+    final String body = "{\"property_id\": \""
+        + propId
+        + "\", \"certificate_type\": \"GAS_SAFETY\", \"urgency\": \"STANDARD\"}";
 
     return given()
         .contentType(ContentType.JSON)
@@ -359,10 +363,9 @@ class GasSafetyInspectionIntegrationTest {
   }
 
   private String createEpcJobViaApi(final UUID propId) {
-    final String body =
-        "{\"property_id\": \""
-            + propId
-            + "\", \"certificate_type\": \"EPC\", \"urgency\": \"STANDARD\"}";
+    final String body = "{\"property_id\": \""
+        + propId
+        + "\", \"certificate_type\": \"EPC\", \"urgency\": \"STANDARD\"}";
 
     return given()
         .contentType(ContentType.JSON)
@@ -377,7 +380,8 @@ class GasSafetyInspectionIntegrationTest {
   }
 
   /**
-   * Walks a GAS_SAFETY job through CREATED -> MATCHED -> ACCEPTED -> EN_ROUTE -> IN_PROGRESS ->
+   * Walks a GAS_SAFETY job through CREATED -> MATCHED -> ACCEPTED -> EN_ROUTE ->
+   * IN_PROGRESS ->
    * COMPLETED
    */
   private String createGasSafetyJobAndWalkToCompleted(final UUID propId) {
@@ -387,7 +391,8 @@ class GasSafetyInspectionIntegrationTest {
   }
 
   /**
-   * Walks an EPC job through CREATED -> MATCHED -> ACCEPTED -> EN_ROUTE -> IN_PROGRESS -> COMPLETED
+   * Walks an EPC job through CREATED -> MATCHED -> ACCEPTED -> EN_ROUTE ->
+   * IN_PROGRESS -> COMPLETED
    */
   private String createEpcJobAndWalkToCompleted(final UUID propId) {
     final String jobId = createEpcJobViaApi(propId);
@@ -410,8 +415,7 @@ class GasSafetyInspectionIntegrationTest {
 
     // MATCHED -> ACCEPTED
     final String scheduledDate = LocalDate.now().plusDays(3).toString();
-    final String acceptBody =
-        "{\"scheduled_date\": \"" + scheduledDate + "\", \"scheduled_time_slot\": \"MORNING\"}";
+    final String acceptBody = "{\"scheduled_date\": \"" + scheduledDate + "\", \"scheduled_time_slot\": \"MORNING\"}";
     given()
         .contentType(ContentType.JSON)
         .header("Authorization", "Bearer " + engineerToken)
@@ -453,7 +457,10 @@ class GasSafetyInspectionIntegrationTest {
         .body("data.status", equalTo("COMPLETED"));
   }
 
-  /** Builds a complete gas safety record JSON payload with all required fields (snake_case). */
+  /**
+   * Builds a complete gas safety record JSON payload with all required fields
+   * (snake_case).
+   */
   private String buildGasSafetyRecordJson() {
     return """
         {

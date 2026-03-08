@@ -4,17 +4,20 @@ import com.uk.certifynow.certify_now.domain.Certificate;
 import com.uk.certifynow.certify_now.domain.GasSafetyAppliance;
 import com.uk.certifynow.certify_now.domain.GasSafetyRecord;
 import com.uk.certifynow.certify_now.domain.Job;
+import com.uk.certifynow.certify_now.domain.JobStatusHistory;
 import com.uk.certifynow.certify_now.domain.embeddable.ClientDetails;
 import com.uk.certifynow.certify_now.domain.embeddable.CombustionReadings;
 import com.uk.certifynow.certify_now.domain.embeddable.CompanyDetails;
 import com.uk.certifynow.certify_now.domain.embeddable.InstallationDetails;
 import com.uk.certifynow.certify_now.domain.embeddable.TenantDetails;
 import com.uk.certifynow.certify_now.events.CertificateIssuedEvent;
+import com.uk.certifynow.certify_now.events.job.JobStatusChangedEvent;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.exception.EntityNotFoundException;
 import com.uk.certifynow.certify_now.repos.CertificateRepository;
 import com.uk.certifynow.certify_now.repos.GasSafetyRecordRepository;
 import com.uk.certifynow.certify_now.repos.JobRepository;
+import com.uk.certifynow.certify_now.repos.JobStatusHistoryRepository;
 import com.uk.certifynow.certify_now.rest.dto.inspection.CertificateDetailsRequest;
 import com.uk.certifynow.certify_now.rest.dto.inspection.CombustionReadingsRequest;
 import com.uk.certifynow.certify_now.rest.dto.inspection.EngineerDetailsRequest;
@@ -54,16 +57,19 @@ public class GasSafetyRecordService {
   private final GasSafetyRecordRepository gasSafetyRecordRepository;
   private final JobRepository jobRepository;
   private final CertificateRepository certificateRepository;
+  private final JobStatusHistoryRepository historyRepository;
   private final ApplicationEventPublisher publisher;
 
   public GasSafetyRecordService(
       final GasSafetyRecordRepository gasSafetyRecordRepository,
       final JobRepository jobRepository,
       final CertificateRepository certificateRepository,
+      final JobStatusHistoryRepository historyRepository,
       final ApplicationEventPublisher publisher) {
     this.gasSafetyRecordRepository = gasSafetyRecordRepository;
     this.jobRepository = jobRepository;
     this.certificateRepository = certificateRepository;
+    this.historyRepository = historyRepository;
     this.publisher = publisher;
   }
 
@@ -132,14 +138,21 @@ public class GasSafetyRecordService {
     supersedePreviousCertificates(job, certificate);
 
     // 10. Transition job to CERTIFIED status (within this transaction for
-    // atomicity)
+    // atomicity).
+    // The status change, history record, and events are all committed as one unit —
+    // no post-commit listener is needed for the job status.
     job.setStatus("CERTIFIED");
     job.setCertifiedAt(OffsetDateTime.now());
     job.setUpdatedAt(OffsetDateTime.now());
     jobRepository.save(job);
 
-    // 11. Publish CertificateIssuedEvent (for downstream notifications, e.g.
-    // property compliance)
+    // 11. Record COMPLETED → CERTIFIED status history entry.
+    recordHistory(job, "COMPLETED", "CERTIFIED", engineerId, "SYSTEM");
+
+    // 12. Publish status-changed event (for audit/notification listeners)
+    // and CertificateIssuedEvent (downstream: property compliance etc.).
+    publisher.publishEvent(
+        new JobStatusChangedEvent(jobId, "COMPLETED", "CERTIFIED", engineerId, "SYSTEM"));
     publisher.publishEvent(
         new CertificateIssuedEvent(
             jobId, certificate.getId(), job.getProperty().getId(), "GAS_SAFETY"));
@@ -148,11 +161,22 @@ public class GasSafetyRecordService {
   }
 
   @Transactional(readOnly = true)
-  public GasSafetyRecordResponse getGasSafetyRecord(final UUID jobId) {
+  public GasSafetyRecordResponse getGasSafetyRecord(final UUID jobId, final UUID callerId) {
     final GasSafetyRecord record = gasSafetyRecordRepository
         .findByJobId(jobId)
         .orElseThrow(
             () -> new EntityNotFoundException("No gas safety record found for job: " + jobId));
+
+    // Enforce ownership: only the assigned engineer, the customer who booked the
+    // job, or an ADMIN may read inspection data.
+    final Job job = record.getJob();
+    final boolean isEngineer = job.getEngineer() != null && job.getEngineer().getId().equals(callerId);
+    final boolean isCustomer = job.getCustomer() != null && job.getCustomer().getId().equals(callerId);
+    if (!isEngineer && !isCustomer) {
+      throw new AccessDeniedException(
+          "You do not have permission to view this gas safety record");
+    }
+
     return toResponse(record);
   }
 
@@ -537,5 +561,21 @@ public class GasSafetyRecordService {
         a.getWarningNoticeFixed(),
         a.getAdditionalNotes(),
         cr);
+  }
+
+  private void recordHistory(
+      final Job job,
+      final String fromStatus,
+      final String toStatus,
+      final UUID actorId,
+      final String actorType) {
+    final com.uk.certifynow.certify_now.domain.JobStatusHistory h = new com.uk.certifynow.certify_now.domain.JobStatusHistory();
+    h.setJob(job);
+    h.setFromStatus(fromStatus);
+    h.setToStatus(toStatus);
+    h.setActorId(actorId);
+    h.setActorType(actorType);
+    h.setCreatedAt(java.time.OffsetDateTime.now());
+    historyRepository.save(h);
   }
 }

@@ -51,8 +51,11 @@ public class InspectionController {
 
   @GetMapping("/gas-safety")
   public ApiResponse<GasSafetyRecordResponse> getGasSafetyRecord(
-      @PathVariable final UUID jobId, final HttpServletRequest httpRequest) {
-    final GasSafetyRecordResponse response = gasSafetyRecordService.getGasSafetyRecord(jobId);
+      @PathVariable final UUID jobId,
+      final Authentication authentication,
+      final HttpServletRequest httpRequest) {
+    final UUID callerId = extractUserId(authentication);
+    final GasSafetyRecordResponse response = gasSafetyRecordService.getGasSafetyRecord(jobId, callerId);
     return ApiResponse.of(response, requestId(httpRequest));
   }
 
@@ -72,8 +75,11 @@ public class InspectionController {
 
   @GetMapping("/epc")
   public ApiResponse<EpcRecordResponse> getEpcRecord(
-      @PathVariable final UUID jobId, final HttpServletRequest httpRequest) {
-    final EpcRecordResponse response = epcInspectionService.getEpcRecord(jobId);
+      @PathVariable final UUID jobId,
+      final Authentication authentication,
+      final HttpServletRequest httpRequest) {
+    final UUID callerId = extractUserId(authentication);
+    final EpcRecordResponse response = epcInspectionService.getEpcRecord(jobId, callerId);
     return ApiResponse.of(response, requestId(httpRequest));
   }
 

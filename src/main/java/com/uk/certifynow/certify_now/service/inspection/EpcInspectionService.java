@@ -6,15 +6,18 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.uk.certifynow.certify_now.domain.Certificate;
 import com.uk.certifynow.certify_now.domain.EpcAssessment;
 import com.uk.certifynow.certify_now.domain.Job;
+import com.uk.certifynow.certify_now.domain.JobStatusHistory;
 import com.uk.certifynow.certify_now.domain.embeddable.ClientDetails;
 import com.uk.certifynow.certify_now.domain.embeddable.EpcPropertyDetails;
 import com.uk.certifynow.certify_now.domain.embeddable.OccupierDetails;
 import com.uk.certifynow.certify_now.events.CertificateIssuedEvent;
+import com.uk.certifynow.certify_now.events.job.JobStatusChangedEvent;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.exception.EntityNotFoundException;
 import com.uk.certifynow.certify_now.repos.CertificateRepository;
 import com.uk.certifynow.certify_now.repos.EpcAssessmentRepository;
 import com.uk.certifynow.certify_now.repos.JobRepository;
+import com.uk.certifynow.certify_now.repos.JobStatusHistoryRepository;
 import com.uk.certifynow.certify_now.rest.dto.inspection.EpcBookingDetailsRequest;
 import com.uk.certifynow.certify_now.rest.dto.inspection.EpcClientDetailsRequest;
 import com.uk.certifynow.certify_now.rest.dto.inspection.EpcDocumentsRequest;
@@ -53,16 +56,19 @@ public class EpcInspectionService {
     private final EpcAssessmentRepository epcAssessmentRepository;
     private final JobRepository jobRepository;
     private final CertificateRepository certificateRepository;
+    private final JobStatusHistoryRepository historyRepository;
     private final ApplicationEventPublisher publisher;
 
     public EpcInspectionService(
             final EpcAssessmentRepository epcAssessmentRepository,
             final JobRepository jobRepository,
             final CertificateRepository certificateRepository,
+            final JobStatusHistoryRepository historyRepository,
             final ApplicationEventPublisher publisher) {
         this.epcAssessmentRepository = epcAssessmentRepository;
         this.jobRepository = jobRepository;
         this.certificateRepository = certificateRepository;
+        this.historyRepository = historyRepository;
         this.publisher = publisher;
     }
 
@@ -121,13 +127,20 @@ public class EpcInspectionService {
         // 8. Supersede any existing active EPC certificates for this property
         supersedePreviousCertificates(job, certificate);
 
-        // 9. Transition job to CERTIFIED within this transaction (atomic)
+        // 9. Transition job to CERTIFIED within this transaction (atomic).
+        // The status change, history record, and events are all committed as one unit —
+        // no post-commit listener is needed for the job status.
         job.setStatus("CERTIFIED");
         job.setCertifiedAt(OffsetDateTime.now());
         job.setUpdatedAt(OffsetDateTime.now());
         jobRepository.save(job);
 
-        // 10. Publish CertificateIssuedEvent (downstream notifications)
+        // 10. Record COMPLETED → CERTIFIED status history entry.
+        recordHistory(job, "COMPLETED", "CERTIFIED", engineerId, "SYSTEM");
+
+        // 11. Publish status-changed event and CertificateIssuedEvent.
+        publisher.publishEvent(
+                new JobStatusChangedEvent(jobId, "COMPLETED", "CERTIFIED", engineerId, "SYSTEM"));
         publisher.publishEvent(
                 new CertificateIssuedEvent(jobId, certificate.getId(), job.getProperty().getId(), "EPC"));
 
@@ -141,11 +154,22 @@ public class EpcInspectionService {
     // ────────────────────────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
-    public EpcRecordResponse getEpcRecord(final UUID jobId) {
+    public EpcRecordResponse getEpcRecord(final UUID jobId, final UUID callerId) {
         final EpcAssessment record = epcAssessmentRepository
                 .findByJobId(jobId)
                 .orElseThrow(
                         () -> new EntityNotFoundException("No EPC assessment found for job: " + jobId));
+
+        // Enforce ownership: only the assigned engineer, the customer who booked the
+        // job may read inspection data.
+        final Job job = record.getJob();
+        final boolean isEngineer = job.getEngineer() != null && job.getEngineer().getId().equals(callerId);
+        final boolean isCustomer = job.getCustomer() != null && job.getCustomer().getId().equals(callerId);
+        if (!isEngineer && !isCustomer) {
+            throw new AccessDeniedException(
+                    "You do not have permission to view this EPC record");
+        }
+
         return toResponse(record);
     }
 
@@ -367,5 +391,21 @@ public class EpcInspectionService {
             log.warn("Failed to deserialise JSON list: {}", json, e);
             return Collections.emptyList();
         }
+    }
+
+    private void recordHistory(
+            final Job job,
+            final String fromStatus,
+            final String toStatus,
+            final UUID actorId,
+            final String actorType) {
+        final JobStatusHistory h = new JobStatusHistory();
+        h.setJob(job);
+        h.setFromStatus(fromStatus);
+        h.setToStatus(toStatus);
+        h.setActorId(actorId);
+        h.setActorType(actorType);
+        h.setCreatedAt(OffsetDateTime.now());
+        historyRepository.save(h);
     }
 }

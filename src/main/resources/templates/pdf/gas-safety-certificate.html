@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Landlord Gas Safety Record</title>
+  <style>
+    /* ─── Page ────────────────────────────────────────── */
+    @page {
+      size: A4 portrait;
+      margin: 12mm 14mm 12mm 14mm;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Roboto, Arial, Helvetica, sans-serif;
+      font-size: 8pt;
+      color: #1a1a1a;
+      line-height: 1.4;
+    }
+
+    /* ─── Colour palette ──────────────────────────────── */
+    .navy { background-color: #1a365d; color: #ffffff; }
+    .light-bg { background-color: #f4f6f9; }
+    .alt-row { background-color: #f7f8fb; }
+
+    /* ─── Header ──────────────────────────────────────── */
+    .header {
+      width: 100%;
+      border-bottom: 2pt solid #1a365d;
+      padding-bottom: 4pt;
+      margin-bottom: 6pt;
+    }
+
+    .header-title {
+      font-size: 13pt;
+      font-weight: bold;
+      color: #1a365d;
+      letter-spacing: 0.5pt;
+    }
+
+    .header-subtitle {
+      font-size: 9pt;
+      color: #4a5568;
+      margin-top: 1pt;
+    }
+
+    .header-meta {
+      font-size: 8pt;
+      color: #2d3748;
+      margin-top: 3pt;
+    }
+
+    .header-meta strong {
+      color: #1a365d;
+    }
+
+    /* ─── Two-column info grid ────────────────────────── */
+    .info-grid {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 6pt;
+    }
+
+    .info-grid td {
+      vertical-align: top;
+      padding: 0;
+    }
+
+    .info-col {
+      width: 50%;
+      padding-right: 5pt;
+    }
+
+    .info-col:last-child {
+      padding-right: 0;
+      padding-left: 5pt;
+      border-left: 0.5pt solid #cbd5e0;
+    }
+
+    /* ─── Section boxes ───────────────────────────────── */
+    .section {
+      border: 0.5pt solid #cbd5e0;
+      border-radius: 2pt;
+      margin-bottom: 5pt;
+      overflow: hidden;
+    }
+
+    .section-header {
+      padding: 3pt 5pt;
+      font-size: 7.5pt;
+      font-weight: bold;
+      letter-spacing: 0.3pt;
+      text-transform: uppercase;
+    }
+
+    .section-body {
+      padding: 4pt 5pt;
+    }
+
+    .field-row {
+      width: 100%;
+      margin-bottom: 2pt;
+    }
+
+    .field-label {
+      color: #718096;
+      font-size: 7pt;
+      display: inline;
+    }
+
+    .field-value {
+      color: #1a1a1a;
+      font-size: 8pt;
+      display: inline;
+    }
+
+    /* ─── Tables ──────────────────────────────────────── */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 6.5pt;
+    }
+
+    .data-table th {
+      padding: 2.5pt 3pt;
+      text-align: left;
+      font-weight: bold;
+      font-size: 6pt;
+      border-bottom: 1pt solid #a0aec0;
+      white-space: nowrap;
+    }
+
+    .data-table td {
+      padding: 2.5pt 3pt;
+      border-bottom: 0.3pt solid #e2e8f0;
+      vertical-align: top;
+    }
+
+    .data-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .data-table .alt-row td {
+      background-color: #f7f8fb;
+    }
+
+    .center { text-align: center; }
+    .pass { color: #276749; font-weight: bold; }
+    .fail { color: #c53030; font-weight: bold; }
+
+    /* ─── Final checks grid (2 × 4 layout) ───────────── */
+    .checks-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .checks-table td {
+      padding: 3pt 5pt;
+      border: 0.3pt solid #e2e8f0;
+      vertical-align: middle;
+    }
+
+    .check-label {
+      font-size: 7.5pt;
+      color: #2d3748;
+      width: 35%;
+    }
+
+    .check-value {
+      font-size: 8pt;
+      font-weight: bold;
+      width: 15%;
+      text-align: center;
+    }
+
+    .yes { color: #276749; }
+    .no  { color: #c53030; }
+    .na  { color: #718096; }
+
+    /* ─── Signatures ──────────────────────────────────── */
+    .sig-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .sig-table td {
+      padding: 4pt 5pt;
+      border: 0.3pt solid #e2e8f0;
+      vertical-align: top;
+    }
+
+    .sig-line {
+      border-bottom: 0.5pt solid #718096;
+      min-height: 14pt;
+      display: block;
+      margin-top: 4pt;
+    }
+
+    /* ─── Footer ──────────────────────────────────────── */
+    .footer {
+      border-top: 1pt solid #1a365d;
+      padding-top: 5pt;
+      margin-top: 6pt;
+    }
+
+    .footer-qr-cell {
+      width: 90pt;
+      vertical-align: middle;
+      text-align: center;
+    }
+
+    .footer-text-cell {
+      vertical-align: middle;
+      padding-left: 8pt;
+    }
+
+    .next-due-box {
+      background-color: #1a365d;
+      color: #ffffff;
+      padding: 4pt 8pt;
+      border-radius: 2pt;
+      display: inline-block;
+      font-size: 8pt;
+      margin-top: 4pt;
+    }
+
+    .compliance-blurb {
+      font-size: 6.5pt;
+      color: #718096;
+      margin-top: 4pt;
+    }
+
+    .divider {
+      border: none;
+      border-top: 0.3pt solid #e2e8f0;
+      margin: 4pt 0;
+    }
+
+    /* ─── QR fallback URL box ─────────────────────────── */
+    .qr-fallback-url {
+      font-size: 6pt;
+      word-break: break-all;
+      color: #2d3748;
+      border: 0.5pt solid #cbd5e0;
+      padding: 4pt;
+      border-radius: 2pt;
+      max-width: 90pt;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════
+     HEADER
+══════════════════════════════════════════════════ -->
+<div class="header">
+  <table style="width:100%; border-collapse:collapse;">
+    <tr>
+      <td style="width:70%; vertical-align:bottom;">
+        <div class="header-title">LANDLORD GAS SAFETY RECORD</div>
+        <div class="header-subtitle">CP12 &#8212; Domestic / Landlord Gas Safety Certificate</div>
+      </td>
+      <td style="width:30%; text-align:right; vertical-align:bottom;">
+        <div class="header-meta">
+          <strong>Certificate No:</strong>
+          <span th:text="${m.meta.certificateNumber}">GS-XXXX</span>
+        </div>
+        <div class="header-meta" style="margin-top:2pt;">
+          <strong>Issue Date:</strong>
+          <span th:text="${m.meta.issueDateFormatted}">DD/MM/YYYY</span>
+        </div>
+        <div class="header-meta" style="margin-top:2pt;">
+          <strong>Appliances Tested:</strong>
+          <span th:text="${m.meta.applianceCount}">0</span>
+        </div>
+      </td>
+    </tr>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     INFO GRID — COMPANY / CLIENT / ENGINEER / INSTALLATION
+══════════════════════════════════════════════════ -->
+<table class="info-grid">
+  <tr>
+    <!-- LEFT COLUMN: Company + Engineer -->
+    <td class="info-col">
+
+      <!-- Company -->
+      <div class="section">
+        <div class="section-header navy">Gas Safe Registered Business</div>
+        <div class="section-body">
+          <div class="field-row">
+            <span class="field-value" style="font-weight:bold;" th:text="${m.company.tradingTitle}">Company Name</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Address: </span>
+            <span class="field-value" th:text="${m.company.address}">Address</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Gas Safe Reg No: </span>
+            <span class="field-value" th:text="${m.company.gasSafeRegNumber}">000000</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Tel: </span>
+            <span class="field-value" th:text="${m.company.phone}">01234 567890</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Email: </span>
+            <span class="field-value" th:text="${m.company.email}">info@company.com</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Engineer -->
+      <div class="section">
+        <div class="section-header navy">Engineer Details</div>
+        <div class="section-body">
+          <div class="field-row">
+            <span class="field-label">Name: </span>
+            <span class="field-value" th:text="${m.engineer.name}">Engineer Name</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Gas Safe No: </span>
+            <span class="field-value" th:text="${m.engineer.gasSafeNumber}">000000</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Licence Card No: </span>
+            <span class="field-value" th:text="${m.engineer.licenceCardNumber}">LC-XXX</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Time of Arrival: </span>
+            <span class="field-value" th:text="${m.engineer.arrivalTime}">09:00</span>
+            <span class="field-label">&#160; Departure: </span>
+            <span class="field-value" th:text="${m.engineer.departureTime}">10:30</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Report Issued: </span>
+            <span class="field-value" th:text="${m.engineer.reportIssuedDateFormatted}">DD/MM/YYYY</span>
+          </div>
+        </div>
+      </div>
+
+    </td>
+
+    <!-- RIGHT COLUMN: Client + Installation + Tenant -->
+    <td class="info-col">
+
+      <!-- Client / Landlord -->
+      <div class="section">
+        <div class="section-header navy">Landlord / Client Details</div>
+        <div class="section-body">
+          <div class="field-row">
+            <span class="field-value" style="font-weight:bold;" th:text="${m.client.name}">Client Name</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Address: </span>
+            <span class="field-value" th:text="${m.client.address}">Address</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Tel: </span>
+            <span class="field-value" th:text="${m.client.telephone}">07700 000000</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Email: </span>
+            <span class="field-value" th:text="${m.client.email}">client@example.com</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Installation / Property -->
+      <div class="section">
+        <div class="section-header navy">Property / Installation Address</div>
+        <div class="section-body">
+          <div class="field-row">
+            <span class="field-label">Flat / Name: </span>
+            <span class="field-value" th:text="${m.installation.nameOrFlat}">Flat 1</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Address: </span>
+            <span class="field-value" th:text="${m.installation.address}">Address</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tenant -->
+      <div class="section" th:if="${!#strings.isEmpty(m.tenant.name)}">
+        <div class="section-header navy">Tenant Details</div>
+        <div class="section-body">
+          <div class="field-row">
+            <span class="field-value" style="font-weight:bold;" th:text="${m.tenant.name}">Tenant Name</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Tel: </span>
+            <span class="field-value" th:text="${m.tenant.telephone}">07700 000001</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Email: </span>
+            <span class="field-value" th:text="${m.tenant.email}">tenant@example.com</span>
+          </div>
+        </div>
+      </div>
+
+    </td>
+  </tr>
+</table>
+
+<!-- ══════════════════════════════════════════════════
+     APPLIANCES TABLE — full CP12 column set
+     Columns: # | Location | Type | Make/Model/Serial | Cls | Lndl
+              Flue/Perf | Op.Press | Brn.Press | Heat kW
+              CO ppm | CO₂% | CO/CO₂ | Safe Devs | Safe
+══════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header navy">Gas Appliances Inspected</div>
+  <div style="padding: 0;">
+    <table class="data-table">
+      <thead>
+        <tr class="navy">
+          <th>#</th>
+          <th>Location</th>
+          <th>Type</th>
+          <th>Make / Model / Serial</th>
+          <th>Cls</th>
+          <th>Lndl</th>
+          <th>Flue / Perf</th>
+          <th>Op.Press<br/>(mbar)</th>
+          <th>Brn.Press<br/>(mbar)</th>
+          <th>Heat<br/>(kW)</th>
+          <th>CO<br/>(ppm)</th>
+          <th>CO&#x2082;<br/>%</th>
+          <th>CO/<br/>CO&#x2082;</th>
+          <th>Safe<br/>Devs</th>
+          <th>Srvcd</th>
+          <th>Safe</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr th:each="a, stat : ${m.appliances}" th:class="${stat.odd} ? '' : 'alt-row'">
+          <td class="center" th:text="${a.index}">1</td>
+          <td th:text="${a.location}">Kitchen</td>
+          <td th:text="${a.type}">Boiler</td>
+          <td>
+            <span style="font-weight:bold;" th:text="${a.make}">Make</span>
+            <th:block th:if="${!#strings.isEmpty(a.model)}">
+              &#160;<span th:text="${a.model}">Model</span>
+            </th:block>
+            <th:block th:if="${!#strings.isEmpty(a.serialNumber)}">
+              <br/><span style="color:#718096; font-size:5.5pt;">S/N: </span><span style="font-size:5.5pt;" th:text="${a.serialNumber}">SN123</span>
+            </th:block>
+          </td>
+          <td class="center" th:text="${a.classCode}">IR</td>
+          <td class="center"
+              th:text="${a.landlordsAppliance} ? 'Y' : 'N'"
+              th:class="${a.landlordsAppliance} ? 'center pass' : 'center'">Y</td>
+          <td>
+            <span th:text="${a.flueType}">RS</span>
+            <th:block th:if="${!#strings.isEmpty(a.fluePerformance)}">
+              <br/><span style="color:#718096; font-size:5.5pt;" th:text="${a.fluePerformance}">PASS</span>
+            </th:block>
+          </td>
+          <td class="center" th:text="${a.operatingPressure}">20</td>
+          <td class="center" th:text="${a.burnerPressure}">10.5</td>
+          <td class="center" th:text="${a.heatInputKw}">24</td>
+          <td class="center" th:text="${a.coPpm}">15</td>
+          <td class="center" th:text="${a.co2Percentage}">9.2</td>
+          <td class="center" th:text="${a.coToCo2Ratio}">0.002</td>
+          <td class="center"
+              th:text="${a.safetyDevices}"
+              th:class="${a.safetyDevices == 'YES'} ? 'center pass' : (${a.safetyDevices == 'NO'} ? 'center fail' : 'center na')">YES</td>
+          <td class="center"
+              th:text="${a.serviced} ? 'Y' : 'N'"
+              th:class="${a.serviced} ? 'center pass' : 'center'">Y</td>
+          <td class="center"
+              th:text="${a.safeToUse} ? 'PASS' : 'FAIL'"
+              th:class="${a.safeToUse} ? 'center pass' : 'center fail'">PASS</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     FINAL SAFETY CHECKS  (2 × 4 grid)
+══════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header navy">Final Safety Checks</div>
+  <div class="section-body" style="padding: 3pt 4pt;">
+    <table class="checks-table">
+      <!-- Row 1 -->
+      <tr>
+        <td class="check-label">Gas Tightness Test</td>
+        <td class="check-value"
+            th:text="${m.finalChecks.gasTightness}"
+            th:class="${m.finalChecks.gasTightness == 'YES' || m.finalChecks.gasTightness == 'PASS'} ? 'check-value yes' : (${m.finalChecks.gasTightness == 'NO' || m.finalChecks.gasTightness == 'FAIL'} ? 'check-value no' : 'check-value na')">YES</td>
+        <td class="check-label">Pipework Visual Inspection</td>
+        <td class="check-value"
+            th:text="${m.finalChecks.pipeworkVisual}"
+            th:class="${m.finalChecks.pipeworkVisual == 'YES' || m.finalChecks.pipeworkVisual == 'PASS'} ? 'check-value yes' : (${m.finalChecks.pipeworkVisual == 'NO' || m.finalChecks.pipeworkVisual == 'FAIL'} ? 'check-value no' : 'check-value na')">YES</td>
+      </tr>
+      <!-- Row 2 -->
+      <tr>
+        <td class="check-label">Emergency Control Accessible</td>
+        <td class="check-value"
+            th:text="${m.finalChecks.emergencyControl}"
+            th:class="${m.finalChecks.emergencyControl == 'YES' || m.finalChecks.emergencyControl == 'PASS'} ? 'check-value yes' : (${m.finalChecks.emergencyControl == 'NO' || m.finalChecks.emergencyControl == 'FAIL'} ? 'check-value no' : 'check-value na')">YES</td>
+        <td class="check-label">Equipotential Bonding</td>
+        <td class="check-value"
+            th:text="${m.finalChecks.bonding}"
+            th:class="${m.finalChecks.bonding == 'YES' || m.finalChecks.bonding == 'PASS'} ? 'check-value yes' : (${m.finalChecks.bonding == 'NO' || m.finalChecks.bonding == 'FAIL'} ? 'check-value no' : 'check-value na')">YES</td>
+      </tr>
+      <!-- Row 3 -->
+      <tr>
+        <td class="check-label">Overall Installation Pass</td>
+        <td class="check-value"
+            th:text="${m.finalChecks.installationPass}"
+            th:class="${m.finalChecks.installationPass == 'YES' || m.finalChecks.installationPass == 'PASS'} ? 'check-value yes' : (${m.finalChecks.installationPass == 'NO' || m.finalChecks.installationPass == 'FAIL'} ? 'check-value no' : 'check-value na')">YES</td>
+        <td class="check-label">CO Alarm Fitted &amp; Working (Same Room)</td>
+        <td class="check-value"
+            th:text="${m.finalChecks.coAlarm}"
+            th:class="${m.finalChecks.coAlarm == 'YES' || m.finalChecks.coAlarm == 'PASS'} ? 'check-value yes' : (${m.finalChecks.coAlarm == 'NO' || m.finalChecks.coAlarm == 'FAIL'} ? 'check-value no' : 'check-value na')">YES</td>
+      </tr>
+      <!-- Row 4 -->
+      <tr>
+        <td class="check-label">Smoke Alarm Fitted &amp; Working</td>
+        <td class="check-value"
+            th:text="${m.finalChecks.smokeAlarm}"
+            th:class="${m.finalChecks.smokeAlarm == 'YES' || m.finalChecks.smokeAlarm == 'PASS'} ? 'check-value yes' : (${m.finalChecks.smokeAlarm == 'NO' || m.finalChecks.smokeAlarm == 'FAIL'} ? 'check-value no' : 'check-value na')">YES</td>
+        <td class="check-label" colspan="2" th:if="${!#strings.isEmpty(m.finalChecks.additionalObservations)}">
+          <span style="color:#718096;">Observations: </span>
+          <span th:text="${m.finalChecks.additionalObservations}"></span>
+        </td>
+        <td colspan="2" th:unless="${!#strings.isEmpty(m.finalChecks.additionalObservations)}"></td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     DEFECTS / REMEDIAL WORK
+══════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header navy">Defects / Remedial Work</div>
+  <div class="section-body">
+    <table style="width:100%; border-collapse:collapse;">
+      <tr>
+        <td style="width:50%; vertical-align:top; padding-right:5pt;">
+          <div class="field-row">
+            <span class="field-label">Faults Identified: </span>
+          </div>
+          <div style="min-height:18pt; border: 0.3pt solid #e2e8f0; padding:3pt; margin-top:2pt; font-size:7.5pt;"
+               th:text="${!#strings.isEmpty(m.faults.faultsNotes) ? m.faults.faultsNotes : 'None'}">None</div>
+        </td>
+        <td style="width:50%; vertical-align:top; padding-left:5pt; border-left: 0.3pt solid #e2e8f0;">
+          <div class="field-row">
+            <span class="field-label">Remedial Work Taken: </span>
+          </div>
+          <div style="min-height:18pt; border: 0.3pt solid #e2e8f0; padding:3pt; margin-top:2pt; font-size:7.5pt;"
+               th:text="${!#strings.isEmpty(m.faults.remedialWork) ? m.faults.remedialWork : 'None'}">None</div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding-top:4pt; padding-right:5pt;">
+          <span class="field-label">Warning Notice Issued &amp; Fixed: </span>
+          <span class="field-value" th:text="${m.faults.warningNoticeFixed}"
+                th:class="${m.faults.warningNoticeFixed == 'YES'} ? 'field-value pass' : 'field-value'">N/A</span>
+        </td>
+        <td style="padding-top:4pt; padding-left:5pt; border-left: 0.3pt solid #e2e8f0;">
+          <span class="field-label">Appliance Isolated: </span>
+          <span class="field-value" th:text="${m.faults.applianceIsolated}"
+                th:class="${m.faults.applianceIsolated == 'YES'} ? 'field-value fail' : 'field-value'">NO</span>
+          <span th:if="${!#strings.isEmpty(m.faults.isolationReason)}">
+            &#160;&#8212;&#160;<span class="field-value" th:text="${m.faults.isolationReason}"></span>
+          </span>
+        </td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     ENGINEER NOTES
+══════════════════════════════════════════════════ -->
+<div class="section" th:if="${!#strings.isEmpty(m.signatures.engineerNotes)}">
+  <div class="section-header navy">Engineer Notes</div>
+  <div class="section-body">
+    <div style="font-size:7.5pt;" th:text="${m.signatures.engineerNotes}"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SIGNATURES
+══════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header navy">Signatures</div>
+  <div class="section-body" style="padding:4pt;">
+    <table class="sig-table">
+      <tr>
+        <td style="width:40%; text-align:center; padding:5pt 8pt;">
+          <div style="font-size:7pt; color:#718096; margin-bottom:2pt;">Engineer Signature</div>
+          <span class="sig-line">&#160;</span>
+          <div style="margin-top:3pt; font-size:7.5pt;" th:text="${m.signatures.engineerName}">Engineer Name</div>
+          <div style="font-size:7pt; color:#718096;">
+            Gas Safe No: <span th:text="${m.signatures.gasSafeNumber}">000000</span>
+          </div>
+          <div style="font-size:7pt; color:#718096;"
+               th:if="${!#strings.isEmpty(m.signatures.engineerSignedDateFormatted)}">
+            Date: <span th:text="${m.signatures.engineerSignedDateFormatted}">DD/MM/YYYY</span>
+          </div>
+        </td>
+        <td style="width:30%; text-align:center; padding:5pt 8pt; border-left: 0.3pt solid #e2e8f0;">
+          <div style="font-size:7pt; color:#718096; margin-bottom:2pt;">Customer / Landlord Signature</div>
+          <span class="sig-line">&#160;</span>
+          <div style="margin-top:3pt; font-size:7.5pt;" th:text="${m.signatures.customerName}">Customer Name</div>
+          <div style="font-size:7pt; color:#718096;"
+               th:if="${!#strings.isEmpty(m.signatures.customerSignedDateFormatted)}">
+            Date: <span th:text="${m.signatures.customerSignedDateFormatted}">DD/MM/YYYY</span>
+          </div>
+        </td>
+        <td th:if="${!#strings.isEmpty(m.tenant.name)}"
+            style="width:30%; text-align:center; padding:5pt 8pt; border-left: 0.3pt solid #e2e8f0;">
+          <div style="font-size:7pt; color:#718096; margin-bottom:2pt;">Tenant Signature (if applicable)</div>
+          <span class="sig-line">&#160;</span>
+          <div style="margin-top:3pt; font-size:7.5pt;" th:text="${m.tenant.name}">Tenant Name</div>
+          <div style="font-size:7pt; color:#718096;"
+               th:if="${!#strings.isEmpty(m.signatures.tenantSignedDateFormatted)}">
+            Date: <span th:text="${m.signatures.tenantSignedDateFormatted}">DD/MM/YYYY</span>
+          </div>
+        </td>
+        <td th:unless="${!#strings.isEmpty(m.tenant.name)}"
+            style="width:30%; padding:5pt 8pt; border-left: 0.3pt solid #e2e8f0;"></td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     FOOTER — QR CODE (with plain-text fallback) + NEXT INSPECTION DUE
+══════════════════════════════════════════════════ -->
+<div class="footer">
+  <table style="width:100%; border-collapse:collapse;">
+    <tr>
+      <td class="footer-qr-cell">
+        <!-- QR image when generation succeeded -->
+        <th:block th:if="${m.qrCodeDataUri != null and !#strings.isEmpty(m.qrCodeDataUri)}">
+          <img th:src="${m.qrCodeDataUri}" width="80" height="80" alt="Verification QR Code"/>
+          <div style="font-size:6.5pt; color:#4a5568; margin-top:2pt;">Scan to verify</div>
+        </th:block>
+        <!-- Plain-text URL fallback when QR is unavailable -->
+        <th:block th:unless="${m.qrCodeDataUri != null and !#strings.isEmpty(m.qrCodeDataUri)}">
+          <div class="qr-fallback-url" th:text="${m.verificationUrl}">https://app.certifynow.io/verify/...</div>
+          <div style="font-size:6pt; color:#718096; margin-top:2pt;">Verify online</div>
+        </th:block>
+      </td>
+      <td class="footer-text-cell">
+        <div style="font-size:8pt; font-weight:bold; color:#1a365d;">
+          Next Inspection Due On or Before:
+        </div>
+        <div class="next-due-box" th:text="${m.meta.nextDueFormatted}">DD/MM/YYYY</div>
+        <div class="compliance-blurb" style="margin-top:4pt;">
+          This record has been prepared in accordance with the Gas Safety (Installation and Use)
+          Regulations 1998. The engineer named above is registered with Gas Safe Register.
+          Certificate No: <span th:text="${m.meta.certificateNumber}">GS-XXXX</span>.
+          Verify at: <span th:text="${m.verificationUrl}">https://app.certifynow.io/certificates/...</span>
+        </div>
+      </td>
+    </tr>
+  </table>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,88 @@
+LANDLORD GAS SAFETY RECORD
+CP12 — Domestic / Landlord Gas Safety Certificate
+ Certificate No: CP12-TEST-001
+ Issue Date: 07/03/2026
+ Appliances Tested: 1
+GAS SAFE REGISTERED BUSINESS
+Test Gas Engineers Ltd
+Address: 1 Engineer Lane, Birmingham, B1 2AB
+Gas Safe Reg No: GS-REG-001
+Tel: 01213 000000
+Email: info@testgas.com
+ENGINEER DETAILS
+Name: John Smith
+Gas Safe No: ENG-654321
+Licence Card No: LC-00123
+ Time of Arrival: 09:00   Departure: 10:30
+Report Issued: 07/03/2026
+LANDLORD / CLIENT DETAILS
+Jane Landlord
+Address: 10 Downing Street, London, SW1A 2AA
+Tel: 07700 900000
+Email: jane@landlord.com
+PROPERTY / INSTALLATION ADDRESS
+Flat / Name: Flat 1
+Address: 10 Downing Street, London, SW1A 2AA
+TENANT DETAILS
+Tom Tenant
+Tel: 07700 900001
+Email: tom@tenant.com
+GAS APPLIANCES INSPECTED
+# Location Type Make / Model / Serial Cls Lndl Flue / Perf
+Op.Press
+(mbar)
+Brn.Press
+(mbar)
+Heat
+(kW)
+CO
+(ppm)
+CO#
+%
+CO/
+CO#
+Safe
+Devs
+Srvcd Safe
+1 Utility 
+Room
+Combi 
+Boiler
+  Worcester Bosch Greenstar 
+ 30i
+S/N: SN-12345
+CF Y Room Sealed Fan 
+ Assisted
+PASS
+20 10.5 24 15 9.2 0.0016 YES Y PASS
+FINAL SAFETY CHECKS
+Gas Tightness Test YES Pipework Visual Inspection YES
+Emergency Control Accessible YES Equipotential Bonding YES
+Overall Installation Pass YES CO Alarm Fitted & Working (Same Room) YES
+Smoke Alarm Fitted & Working YES Observations: No issues found
+DEFECTS / REMEDIAL WORK
+Faults Identified:
+None
+Remedial Work Taken:
+None
+Warning Notice Issued & Fixed: N/A Appliance Isolated: NO
+ENGINEER NOTES
+All appliances in good condition.
+SIGNATURES
+Engineer Signature
+ 
+John Smith
+Gas Safe No: ENG-654321
+Date: 07/03/2026
+Customer / Landlord Signature
+ 
+Jane Landlord
+Date: 07/03/2026
+Tenant Signature (if applicable)
+ 
+Tom Tenant
+Scan to verify
+Next Inspection Due On or Before:
+07/03/2027
+This record has been prepared in accordance with the Gas Safety (Installation and Use) Regulations 1998. The engineer named above is 
+registered with Gas Safe Register. Certificate No: . Verify at: CP12-TEST-001 http://localhost:8080/certificates/test-cert-id

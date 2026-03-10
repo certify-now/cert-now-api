@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -199,6 +200,103 @@ class EmailVerificationServiceTest {
               });
 
       verify(emailService, never()).sendVerificationEmail(anyString(), anyString(), anyString());
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // updateEmailForUnverifiedUser(UUID, String) — email update tests
+  // ════════════════════════════════════════════════════════════════════════════
+
+  @Nested
+  @DisplayName("updateEmailForUnverifiedUser(UUID, String)")
+  class UpdateEmailTests {
+
+    @Test
+    @DisplayName("Successfully updates email for an unverified user")
+    void successfullyUpdatesEmailForUnverifiedUser() {
+      final String newEmail = "corrected@example.com";
+
+      when(userRepository.findById(unverifiedUser.getId())).thenReturn(Optional.of(unverifiedUser));
+      when(userRepository.findByEmailIgnoreCase(newEmail)).thenReturn(Optional.empty());
+      when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+      when(tokenRepository.save(any(EmailVerificationToken.class)))
+          .thenAnswer(inv -> inv.getArgument(0));
+
+      assertThatCode(() -> service.updateEmailForUnverifiedUser(unverifiedUser.getId(), newEmail))
+          .doesNotThrowAnyException();
+
+      verify(userRepository).save(unverifiedUser);
+      assert newEmail.equals(unverifiedUser.getEmail());
+      // Called once explicitly in updateEmailForUnverifiedUser and once inside
+      // sendVerificationEmail
+      verify(tokenRepository, times(2)).deleteUnusedTokensByUserId(unverifiedUser.getId());
+      verify(emailService).sendVerificationEmail(eq(newEmail), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("Throws when user is already email-verified")
+    void throwsWhenAlreadyVerified() {
+      when(userRepository.findById(verifiedUser.getId())).thenReturn(Optional.of(verifiedUser));
+
+      assertThatThrownBy(
+              () -> service.updateEmailForUnverifiedUser(verifiedUser.getId(), "new@example.com"))
+          .isInstanceOf(BusinessException.class)
+          .satisfies(
+              ex -> {
+                final BusinessException bex = (BusinessException) ex;
+                assert bex.getStatus() == HttpStatus.BAD_REQUEST;
+                assert "ALREADY_VERIFIED".equals(bex.getErrorCode());
+              })
+          .hasMessageContaining("Cannot change email after verification");
+
+      verify(userRepository, never()).save(any());
+      verify(tokenRepository, never()).deleteUnusedTokensByUserId(any());
+      verify(emailService, never()).sendVerificationEmail(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("Throws when new email is already taken by another user")
+    void throwsWhenEmailTakenByAnotherUser() {
+      final User otherUser = buildUser(false);
+      final String takenEmail = otherUser.getEmail();
+
+      when(userRepository.findById(unverifiedUser.getId())).thenReturn(Optional.of(unverifiedUser));
+      when(userRepository.findByEmailIgnoreCase(takenEmail)).thenReturn(Optional.of(otherUser));
+
+      assertThatThrownBy(
+              () -> service.updateEmailForUnverifiedUser(unverifiedUser.getId(), takenEmail))
+          .isInstanceOf(BusinessException.class)
+          .satisfies(
+              ex -> {
+                final BusinessException bex = (BusinessException) ex;
+                assert bex.getStatus() == HttpStatus.CONFLICT;
+                assert "EMAIL_TAKEN".equals(bex.getErrorCode());
+              })
+          .hasMessageContaining("Email is already in use");
+
+      verify(userRepository, never()).save(any());
+      verify(tokenRepository, never()).deleteUnusedTokensByUserId(any());
+      verify(emailService, never()).sendVerificationEmail(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("Allows updating to the same email the user already has")
+    void allowsSameEmail() {
+      final String sameEmail = unverifiedUser.getEmail();
+
+      when(userRepository.findById(unverifiedUser.getId())).thenReturn(Optional.of(unverifiedUser));
+      when(userRepository.findByEmailIgnoreCase(sameEmail)).thenReturn(Optional.of(unverifiedUser));
+      when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+      when(tokenRepository.save(any(EmailVerificationToken.class)))
+          .thenAnswer(inv -> inv.getArgument(0));
+
+      assertThatCode(() -> service.updateEmailForUnverifiedUser(unverifiedUser.getId(), sameEmail))
+          .doesNotThrowAnyException();
+
+      // Called once explicitly in updateEmailForUnverifiedUser and once inside
+      // sendVerificationEmail
+      verify(tokenRepository, times(2)).deleteUnusedTokensByUserId(unverifiedUser.getId());
+      verify(emailService).sendVerificationEmail(eq(sameEmail), anyString(), anyString());
     }
   }
 

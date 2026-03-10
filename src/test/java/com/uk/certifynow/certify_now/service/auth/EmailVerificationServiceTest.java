@@ -214,11 +214,15 @@ class EmailVerificationServiceTest {
     @Test
     @DisplayName("Successfully updates email for an unverified user")
     void successfullyUpdatesEmailForUnverifiedUser() {
-      final String newEmail = "corrected@example.com";
+      final String newEmail = "Corrected@Example.COM";
+      final String normalised = newEmail.toLowerCase(java.util.Locale.ROOT);
 
       when(userRepository.findById(unverifiedUser.getId())).thenReturn(Optional.of(unverifiedUser));
       when(userRepository.findByEmailIgnoreCase(newEmail)).thenReturn(Optional.empty());
       when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+      // Stub cooldown — no previous token
+      when(tokenRepository.findTopByUserOrderByCreatedAtDesc(unverifiedUser))
+          .thenReturn(Optional.empty());
       when(tokenRepository.save(any(EmailVerificationToken.class)))
           .thenAnswer(inv -> inv.getArgument(0));
 
@@ -226,11 +230,11 @@ class EmailVerificationServiceTest {
           .doesNotThrowAnyException();
 
       verify(userRepository).save(unverifiedUser);
-      assert newEmail.equals(unverifiedUser.getEmail());
+      assert normalised.equals(unverifiedUser.getEmail());
       // Called once explicitly in updateEmailForUnverifiedUser and once inside
       // sendVerificationEmail
       verify(tokenRepository, times(2)).deleteUnusedTokensByUserId(unverifiedUser.getId());
-      verify(emailService).sendVerificationEmail(eq(newEmail), anyString(), anyString());
+      verify(emailService).sendVerificationEmail(eq(normalised), anyString(), anyString());
     }
 
     @Test
@@ -287,6 +291,9 @@ class EmailVerificationServiceTest {
       when(userRepository.findById(unverifiedUser.getId())).thenReturn(Optional.of(unverifiedUser));
       when(userRepository.findByEmailIgnoreCase(sameEmail)).thenReturn(Optional.of(unverifiedUser));
       when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+      // Stub cooldown — no previous token
+      when(tokenRepository.findTopByUserOrderByCreatedAtDesc(unverifiedUser))
+          .thenReturn(Optional.empty());
       when(tokenRepository.save(any(EmailVerificationToken.class)))
           .thenAnswer(inv -> inv.getArgument(0));
 

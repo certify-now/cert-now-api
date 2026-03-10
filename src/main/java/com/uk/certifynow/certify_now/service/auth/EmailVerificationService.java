@@ -10,6 +10,7 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -227,8 +228,11 @@ public class EmailVerificationService {
               }
             });
 
-    user.setEmail(newEmail);
+    user.setEmail(newEmail.toLowerCase(Locale.ROOT));
     userRepository.save(user);
+
+    // Enforce cooldown to prevent abuse
+    enforceCooldown(user);
 
     // Delete old unused verification tokens
     tokenRepository.deleteUnusedTokensByUserId(userId);

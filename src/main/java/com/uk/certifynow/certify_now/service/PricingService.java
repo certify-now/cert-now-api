@@ -26,8 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -35,10 +34,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 public class PricingService {
-
-  private static final Logger log = LoggerFactory.getLogger(PricingService.class);
 
   private final PricingRuleRepository pricingRuleRepository;
   private final PricingModifierRepository pricingModifierRepository;
@@ -278,7 +276,13 @@ public class PricingService {
     rule.setIsActive(true);
     rule.setCreatedAt(OffsetDateTime.now());
 
-    return toRuleResponse(pricingRuleRepository.save(rule));
+    final PricingRuleResponse response = toRuleResponse(pricingRuleRepository.save(rule));
+    log.info(
+        "Pricing rule created for type={} region={} base={}",
+        request.certificateType(),
+        request.region(),
+        request.basePricePence());
+    return response;
   }
 
   @Transactional
@@ -302,6 +306,7 @@ public class PricingService {
       rule.setEffectiveTo(request.effectiveTo());
     }
 
+    log.info("Pricing rule {} updated", id);
     return toRuleResponse(pricingRuleRepository.save(rule));
   }
 
@@ -394,6 +399,7 @@ public class PricingService {
     }
 
     pricingModifierRepository.delete(modifier);
+    log.info("Modifier {} removed from rule {}", modifierId, ruleId);
   }
 
   @Transactional
@@ -409,6 +415,7 @@ public class PricingService {
 
     multiplier.setMultiplier(request.multiplier());
 
+    log.info("Urgency multiplier {} updated to {}", id, request.multiplier());
     return toMultiplierResponse(urgencyMultiplierRepository.save(multiplier));
   }
 

@@ -43,8 +43,14 @@ dependencies {
     implementation('io.github.wimdeblauwe:error-handling-spring-boot-starter:5.0.1')
     implementation('org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.1')
     implementation('commons-codec:commons-codec:1.16.0')  // For SHA-256 hashing
+    // MapStruct for compile-time DTO mapping (Apache 2.0)
+    implementation('org.mapstruct:mapstruct:1.6.3')
+    annotationProcessor('org.mapstruct:mapstruct-processor:1.6.3')
+    testAnnotationProcessor('org.mapstruct:mapstruct-processor:1.6.3')
     compileOnly('org.projectlombok:lombok')
     annotationProcessor('org.projectlombok:lombok')
+    // Lombok-MapStruct binding — lets MapStruct see Lombok-generated getters/setters
+    annotationProcessor('org.projectlombok:lombok-mapstruct-binding:0.2.0')
     testCompileOnly('org.projectlombok:lombok')
     testAnnotationProcessor('org.projectlombok:lombok')
     developmentOnly('org.springframework.boot:spring-boot-docker-compose')
@@ -65,6 +71,14 @@ dependencies {
     testImplementation('io.jsonwebtoken:jjwt-api:0.12.6')
     testRuntimeOnly('io.jsonwebtoken:jjwt-impl:0.12.6')
     testRuntimeOnly('io.jsonwebtoken:jjwt-jackson:0.12.6')
+}
+
+// Configure MapStruct to use Spring component model
+compileJava {
+    options.compilerArgs += [
+        '-Amapstruct.defaultComponentModel=spring',
+        '-Amapstruct.unmappedTargetPolicy=IGNORE'
+    ]
 }
 
 tasks.withType(Test) {

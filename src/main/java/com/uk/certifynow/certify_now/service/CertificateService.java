@@ -13,15 +13,19 @@ import com.uk.certifynow.certify_now.repos.CertificateRepository;
 import com.uk.certifynow.certify_now.repos.JobRepository;
 import com.uk.certifynow.certify_now.repos.PropertyRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
+import com.uk.certifynow.certify_now.service.mappers.CertificateMapper;
 import com.uk.certifynow.certify_now.util.NotFoundException;
 import com.uk.certifynow.certify_now.util.ReferencedException;
 import java.util.List;
 import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 public class CertificateService {
 
@@ -30,103 +34,66 @@ public class CertificateService {
   private final JobRepository jobRepository;
   private final PropertyRepository propertyRepository;
   private final ApplicationEventPublisher publisher;
+  private final CertificateMapper certificateMapper;
 
   public CertificateService(
       final CertificateRepository certificateRepository,
       final UserRepository userRepository,
       final JobRepository jobRepository,
       final PropertyRepository propertyRepository,
-      final ApplicationEventPublisher publisher) {
+      final ApplicationEventPublisher publisher,
+      final CertificateMapper certificateMapper) {
     this.certificateRepository = certificateRepository;
     this.userRepository = userRepository;
     this.jobRepository = jobRepository;
     this.propertyRepository = propertyRepository;
     this.publisher = publisher;
+    this.certificateMapper = certificateMapper;
   }
 
   public List<CertificateDTO> findAll() {
     final List<Certificate> certificates = certificateRepository.findAll(Sort.by("id"));
-    return certificates.stream()
-        .map(certificate -> mapToDTO(certificate, new CertificateDTO()))
-        .toList();
+    return certificates.stream().map(certificateMapper::toDTO).toList();
   }
 
   public CertificateDTO get(final UUID id) {
     return certificateRepository
         .findById(id)
-        .map(certificate -> mapToDTO(certificate, new CertificateDTO()))
+        .map(certificateMapper::toDTO)
         .orElseThrow(NotFoundException::new);
   }
 
+  @Transactional
   public UUID create(final CertificateDTO certificateDTO) {
     final Certificate certificate = new Certificate();
-    mapToEntity(certificateDTO, certificate);
-    return certificateRepository.save(certificate).getId();
+    certificateMapper.updateEntity(certificateDTO, certificate);
+    resolveReferences(certificateDTO, certificate);
+    UUID savedId = certificateRepository.save(certificate).getId();
+    log.info("Certificate {} created (type={})", savedId, certificateDTO.getCertificateType());
+    return savedId;
   }
 
+  @Transactional
   public void update(final UUID id, final CertificateDTO certificateDTO) {
     final Certificate certificate =
         certificateRepository.findById(id).orElseThrow(NotFoundException::new);
-    mapToEntity(certificateDTO, certificate);
+    certificateMapper.updateEntity(certificateDTO, certificate);
+    resolveReferences(certificateDTO, certificate);
     certificateRepository.save(certificate);
+    log.info("Certificate {} updated", id);
   }
 
+  @Transactional
   public void delete(final UUID id) {
     final Certificate certificate =
         certificateRepository.findById(id).orElseThrow(NotFoundException::new);
     publisher.publishEvent(new BeforeDeleteCertificate(id));
     certificateRepository.delete(certificate);
+    log.info("Certificate {} deleted", id);
   }
 
-  private CertificateDTO mapToDTO(
-      final Certificate certificate, final CertificateDTO certificateDTO) {
-    certificateDTO.setId(certificate.getId());
-    certificateDTO.setEpcScore(certificate.getEpcScore());
-    certificateDTO.setExpiryAt(certificate.getExpiryAt());
-    certificateDTO.setIssuedAt(certificate.getIssuedAt());
-    certificateDTO.setValidYears(certificate.getValidYears());
-    certificateDTO.setCreatedAt(certificate.getCreatedAt());
-    certificateDTO.setShareTokenCreated(certificate.getShareTokenCreated());
-    certificateDTO.setUpdatedAt(certificate.getUpdatedAt());
-    certificateDTO.setDocumentHash(certificate.getDocumentHash());
-    certificateDTO.setShareToken(certificate.getShareToken());
-    certificateDTO.setCertificateNumber(certificate.getCertificateNumber());
-    certificateDTO.setDocumentUrl(certificate.getDocumentUrl());
-    certificateDTO.setCertificateType(certificate.getCertificateType());
-    certificateDTO.setEpcRating(certificate.getEpcRating());
-    certificateDTO.setResult(certificate.getResult());
-    certificateDTO.setStatus(certificate.getStatus());
-    certificateDTO.setMetadata(certificate.getMetadata());
-    certificateDTO.setIssuedByEngineer(
-        certificate.getIssuedByEngineer() == null
-            ? null
-            : certificate.getIssuedByEngineer().getId());
-    certificateDTO.setJob(certificate.getJob() == null ? null : certificate.getJob().getId());
-    certificateDTO.setProperty(
-        certificate.getProperty() == null ? null : certificate.getProperty().getId());
-    certificateDTO.setSupersededBy(
-        certificate.getSupersededBy() == null ? null : certificate.getSupersededBy().getId());
-    return certificateDTO;
-  }
-
-  private Certificate mapToEntity(
+  private void resolveReferences(
       final CertificateDTO certificateDTO, final Certificate certificate) {
-    certificate.setEpcScore(certificateDTO.getEpcScore());
-    certificate.setExpiryAt(certificateDTO.getExpiryAt());
-    certificate.setIssuedAt(certificateDTO.getIssuedAt());
-    certificate.setValidYears(certificateDTO.getValidYears());
-    certificate.setCreatedAt(certificateDTO.getCreatedAt());
-    certificate.setShareTokenCreated(certificateDTO.getShareTokenCreated());
-    certificate.setUpdatedAt(certificateDTO.getUpdatedAt());
-    certificate.setDocumentHash(certificateDTO.getDocumentHash());
-    certificate.setShareToken(certificateDTO.getShareToken());
-    certificate.setCertificateNumber(certificateDTO.getCertificateNumber());
-    certificate.setDocumentUrl(certificateDTO.getDocumentUrl());
-    certificate.setCertificateType(certificateDTO.getCertificateType());
-    certificate.setEpcRating(certificateDTO.getEpcRating());
-    certificate.setResult(certificateDTO.getResult());
-    certificate.setStatus(certificateDTO.getStatus());
-    certificate.setMetadata(certificateDTO.getMetadata());
     final User issuedByEngineer =
         certificateDTO.getIssuedByEngineer() == null
             ? null
@@ -155,7 +122,6 @@ public class CertificateService {
                 .findById(certificateDTO.getSupersededBy())
                 .orElseThrow(() -> new NotFoundException("supersededBy not found"));
     certificate.setSupersededBy(supersededBy);
-    return certificate;
   }
 
   @EventListener(BeforeDeleteUser.class)

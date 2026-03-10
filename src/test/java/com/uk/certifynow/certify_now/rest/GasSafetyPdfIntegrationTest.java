@@ -246,9 +246,9 @@ class GasSafetyPdfIntegrationTest {
 
   private String createGasSafetyJobAndWalkToCompleted(final UUID propId) {
     final String body =
-        "{\"property_id\": \""
+        "{\"propertyId\": \""
             + propId
-            + "\", \"certificate_type\": \"GAS_SAFETY\", \"urgency\": \"STANDARD\"}";
+            + "\", \"certificateType\": \"GAS_SAFETY\", \"urgency\": \"STANDARD\"}";
 
     final String jobId =
         given()
@@ -262,7 +262,7 @@ class GasSafetyPdfIntegrationTest {
             .extract()
             .path("data.id");
 
-    final String matchBody = "{\"engineer_id\": \"" + engineer.getId() + "\"}";
+    final String matchBody = "{\"engineerId\": \"" + engineer.getId() + "\"}";
     given()
         .contentType(ContentType.JSON)
         .header("Authorization", "Bearer " + adminToken)
@@ -276,8 +276,7 @@ class GasSafetyPdfIntegrationTest {
     given()
         .contentType(ContentType.JSON)
         .header("Authorization", "Bearer " + engineerToken)
-        .body(
-            "{\"scheduled_date\": \"" + scheduledDate + "\", \"scheduled_time_slot\": \"MORNING\"}")
+        .body("{\"scheduledDate\": \"" + scheduledDate + "\", \"scheduledTimeSlot\": \"MORNING\"}")
         .when()
         .put("/api/v1/jobs/" + jobId + "/accept")
         .then()
@@ -313,117 +312,117 @@ class GasSafetyPdfIntegrationTest {
     return """
         {
           "certificate": {
-            "certificate_number": "CP12-PDF-TEST-001",
-            "certificate_reference": "REF-PDF-001",
-            "certificate_type": "Domestic/Landlord Gas Safety Record",
-            "issue_date": "2026-03-07",
-            "next_inspection_due_on_or_before": "2027-03-07",
-            "number_of_appliances_tested": 1,
-            "qr_code_url": "https://example.com/qr/CP12-PDF-TEST-001",
-            "verification_url": "https://example.com/verify/CP12-PDF-TEST-001"
+            "certificateNumber": "CP12-PDF-TEST-001",
+            "certificateReference": "REF-PDF-001",
+            "certificateType": "Domestic/Landlord Gas Safety Record",
+            "issueDate": "2026-03-07",
+            "nextInspectionDueOnOrBefore": "2027-03-07",
+            "numberOfAppliancesTested": 1,
+            "qrCodeUrl": "https://example.com/qr/CP12-PDF-TEST-001",
+            "verificationUrl": "https://example.com/verify/CP12-PDF-TEST-001"
           },
-          "company_details": {
-            "trading_title": "PDF Test Gas Engineers",
-            "address_line1": "1 Engineer Street",
-            "post_code": "AB1 2CD",
-            "gas_safe_registration_number": "GS123456",
-            "company_phone": "01234567890",
-            "company_email": "info@pdftestgas.com"
+          "companyDetails": {
+            "tradingTitle": "PDF Test Gas Engineers",
+            "addressLine1": "1 Engineer Street",
+            "postCode": "AB1 2CD",
+            "gasSafeRegistrationNumber": "GS123456",
+            "companyPhone": "01234567890",
+            "companyEmail": "info@pdftestgas.com"
           },
-          "engineer_details": {
+          "engineerDetails": {
             "name": "PDF Test Engineer",
-            "gas_safe_registration_number": "ENG999",
-            "engineer_licence_card_number": "LC-PDF-001",
-            "time_of_arrival": "09:00",
-            "time_of_departure": "10:30",
-            "report_issued_date": "2026-03-07",
-            "engineer_notes": "PDF integration test"
+            "gasSafeRegistrationNumber": "ENG999",
+            "engineerLicenceCardNumber": "LC-PDF-001",
+            "timeOfArrival": "09:00",
+            "timeOfDeparture": "10:30",
+            "reportIssuedDate": "2026-03-07",
+            "engineerNotes": "PDF integration test"
           },
-          "client_details": {
+          "clientDetails": {
             "name": "PDF Client",
-            "address_line1": "10 Test Street",
-            "post_code": "SW1A 2AA",
+            "addressLine1": "10 Test Street",
+            "postCode": "SW1A 2AA",
             "telephone": "07700900000",
             "email": "pdfclient@example.com"
           },
-          "tenant_details": {
+          "tenantDetails": {
             "name": "PDF Tenant",
             "email": "pdftenant@example.com",
             "telephone": "07700900001"
           },
-          "installation_details": {
-            "name_or_flat": "Flat 1",
-            "address_line1": "10 Test Street",
-            "post_code": "SW1A 2AA"
+          "installationDetails": {
+            "nameOrFlat": "Flat 1",
+            "addressLine1": "10 Test Street",
+            "postCode": "SW1A 2AA"
           },
           "appliances": [
             {
               "index": 1,
               "location": "Kitchen",
-              "appliance_type": "Boiler",
+              "applianceType": "Boiler",
               "make": "Worcester",
               "model": "Greenstar 30i",
-              "serial_number": "SN-PDF-001",
-              "landlords_appliance": true,
-              "inspection_type": "FULL",
-              "appliance_inspected": true,
-              "appliance_serviced": true,
-              "appliance_safe_to_use": true,
-              "classification_code": "None",
-              "classification_description": "Safe to use",
-              "flue_type": "Room sealed",
-              "ventilation_provision_satisfactory": true,
-              "flue_visual_condition_termination_satisfactory": true,
-              "flue_performance_tests": "PASS",
-              "spillage_test": "N/A",
-              "operating_pressure_mbar": 20.0,
-              "burner_pressure_mbar": 10.5,
-              "gas_rate": "2.5 m3/hr",
-              "heat_input_kw": 30.0,
-              "combustion_readings": {
-                "co_ppm": 10.0,
-                "co2_percentage": 9.0,
-                "co_to_co2_ratio": 0.0011,
-                "combustion_low": 55.0,
-                "combustion_high": 60.0
+              "serialNumber": "SN-PDF-001",
+              "landlordsAppliance": true,
+              "inspectionType": "FULL",
+              "applianceInspected": true,
+              "applianceServiced": true,
+              "applianceSafeToUse": true,
+              "classificationCode": "None",
+              "classificationDescription": "Safe to use",
+              "flueType": "Room sealed",
+              "ventilationProvisionSatisfactory": true,
+              "flueVisualConditionTerminationSatisfactory": true,
+              "fluePerformanceTests": "PASS",
+              "spillageTest": "N/A",
+              "operatingPressureMbar": 20.0,
+              "burnerPressureMbar": 10.5,
+              "gasRate": "2.5 m3/hr",
+              "heatInputKw": 30.0,
+              "combustionReadings": {
+                "coPpm": 10.0,
+                "co2Percentage": 9.0,
+                "coToCo2Ratio": 0.0011,
+                "combustionLow": 55.0,
+                "combustionHigh": 60.0
               },
-              "safety_devices_correct_operation": true,
-              "emergency_control_accessible": true,
-              "gas_installation_pipework_visual_inspection_satisfactory": true,
-              "gas_tightness_satisfactory": true,
-              "equipotential_bonding": true,
-              "warning_notice_fixed": false,
-              "additional_notes": "PDF test appliance"
+              "safetyDevicesCorrectOperation": true,
+              "emergencyControlAccessible": true,
+              "gasInstallationPipeworkVisualInspectionSatisfactory": true,
+              "gasTightnessSatisfactory": true,
+              "equipotentialBonding": true,
+              "warningNoticeFixed": false,
+              "additionalNotes": "PDF test appliance"
             }
           ],
-          "final_checks": {
-            "gas_tightness_pass": "YES",
-            "gas_pipe_work_visual_pass": "YES",
-            "emergency_control_accessible": "YES",
-            "equipotential_bonding": "YES",
-            "installation_pass": "YES",
-            "co_alarm_fitted_working_same_room": "YES",
-            "smoke_alarm_fitted_working": "YES",
-            "additional_observations": "PDF test"
+          "finalChecks": {
+            "gasTightnessPass": "YES",
+            "gasPipeWorkVisualPass": "YES",
+            "emergencyControlAccessible": "YES",
+            "equipotentialBonding": "YES",
+            "installationPass": "YES",
+            "coAlarmFittedWorkingSameRoom": "YES",
+            "smokeAlarmFittedWorking": "YES",
+            "additionalObservations": "PDF test"
           },
-          "faults_and_remedials": {
-            "faults_notes": "",
-            "remedial_work_taken": "",
-            "warning_notice_fixed": false,
-            "appliance_isolated": false,
-            "isolation_reason": ""
+          "faultsAndRemedials": {
+            "faultsNotes": "",
+            "remedialWorkTaken": "",
+            "warningNoticeFixed": false,
+            "applianceIsolated": false,
+            "isolationReason": ""
           },
           "signatures": {
-            "engineer_signed": true,
-            "engineer_signed_date": "2026-03-07",
-            "customer_name": "PDF Client",
-            "customer_signed": true,
-            "customer_signed_date": "2026-03-07",
-            "tenant_signed": false,
-            "privacy_policy_accepted": true
+            "engineerSigned": true,
+            "engineerSignedDate": "2026-03-07",
+            "customerName": "PDF Client",
+            "customerSigned": true,
+            "customerSignedDate": "2026-03-07",
+            "tenantSigned": false,
+            "privacyPolicyAccepted": true
           },
           "metadata": {
-            "created_by_software": "CertifyNow",
+            "createdBySoftware": "CertifyNow",
             "version": "1.0",
             "platform": "CertifyNow Platform"
           }

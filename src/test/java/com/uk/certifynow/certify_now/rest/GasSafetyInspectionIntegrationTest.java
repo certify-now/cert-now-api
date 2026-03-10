@@ -132,17 +132,17 @@ class GasSafetyInspectionIntegrationTest {
         .then()
         .statusCode(201)
         .body("data.id", notNullValue())
-        .body("data.job_id", equalTo(jobId))
-        .body("data.certificate_number", equalTo("CP12-2026-001"))
-        .body("data.certificate_type", equalTo("Domestic/Landlord Gas Safety Record"))
-        .body("data.number_of_appliances_tested", equalTo(1))
-        .body("data.engineer.engineer_name", equalTo("John Smith"))
+        .body("data.jobId", equalTo(jobId))
+        .body("data.certificateNumber", equalTo("CP12-2026-001"))
+        .body("data.certificateType", equalTo("Domestic/Landlord Gas Safety Record"))
+        .body("data.numberOfAppliancesTested", equalTo(1))
+        .body("data.engineer.engineerName", equalTo("John Smith"))
         .body("data.appliances", hasSize(1))
         .body("data.appliances[0].location", equalTo("Kitchen"))
-        .body("data.appliances[0].appliance_type", equalTo("Boiler"))
-        .body("data.appliances[0].appliance_safe_to_use", equalTo(true))
-        .body("data.final_checks.gas_tightness_pass", equalTo("YES"))
-        .body("data.signatures.engineer_signed", equalTo(true));
+        .body("data.appliances[0].applianceType", equalTo("Boiler"))
+        .body("data.appliances[0].applianceSafeToUse", equalTo(true))
+        .body("data.finalChecks.gasTightnessPass", equalTo("YES"))
+        .body("data.signatures.engineerSigned", equalTo(true));
 
     // Verify job transitioned to CERTIFIED (synchronous — status is set in the
     // same transaction as the inspection record submission)
@@ -161,7 +161,7 @@ class GasSafetyInspectionIntegrationTest {
         .get("/api/v1/jobs/" + jobId + "/inspection/gas-safety")
         .then()
         .statusCode(200)
-        .body("data.certificate_number", equalTo("CP12-2026-001"))
+        .body("data.certificateNumber", equalTo("CP12-2026-001"))
         .body("data.appliances", hasSize(1));
   }
 
@@ -254,7 +254,7 @@ class GasSafetyInspectionIntegrationTest {
     // Build a body where numberOfAppliancesTested=2 but only 1 appliance in list
     final String mismatchBody =
         buildGasSafetyRecordJson()
-            .replace("\"number_of_appliances_tested\": 1", "\"number_of_appliances_tested\": 2");
+            .replace("\"numberOfAppliancesTested\": 1", "\"numberOfAppliancesTested\": 2");
 
     given()
         .contentType(ContentType.JSON)
@@ -336,9 +336,9 @@ class GasSafetyInspectionIntegrationTest {
 
   private String createGasSafetyJobViaApi(final UUID propId) {
     final String body =
-        "{\"property_id\": \""
+        "{\"propertyId\": \""
             + propId
-            + "\", \"certificate_type\": \"GAS_SAFETY\", \"urgency\": \"STANDARD\"}";
+            + "\", \"certificateType\": \"GAS_SAFETY\", \"urgency\": \"STANDARD\"}";
 
     return given()
         .contentType(ContentType.JSON)
@@ -354,9 +354,9 @@ class GasSafetyInspectionIntegrationTest {
 
   private String createEpcJobViaApi(final UUID propId) {
     final String body =
-        "{\"property_id\": \""
+        "{\"propertyId\": \""
             + propId
-            + "\", \"certificate_type\": \"EPC\", \"urgency\": \"STANDARD\"}";
+            + "\", \"certificateType\": \"EPC\", \"urgency\": \"STANDARD\"}";
 
     return given()
         .contentType(ContentType.JSON)
@@ -391,7 +391,7 @@ class GasSafetyInspectionIntegrationTest {
 
   private void walkJobToCompleted(final String jobId) {
     // CREATED -> MATCHED
-    final String matchBody = "{\"engineer_id\": \"" + engineer.getId() + "\"}";
+    final String matchBody = "{\"engineerId\": \"" + engineer.getId() + "\"}";
     given()
         .contentType(ContentType.JSON)
         .header("Authorization", "Bearer " + adminToken)
@@ -405,7 +405,7 @@ class GasSafetyInspectionIntegrationTest {
     // MATCHED -> ACCEPTED
     final String scheduledDate = LocalDate.now().plusDays(3).toString();
     final String acceptBody =
-        "{\"scheduled_date\": \"" + scheduledDate + "\", \"scheduled_time_slot\": \"MORNING\"}";
+        "{\"scheduledDate\": \"" + scheduledDate + "\", \"scheduledTimeSlot\": \"MORNING\"}";
     given()
         .contentType(ContentType.JSON)
         .header("Authorization", "Bearer " + engineerToken)
@@ -447,123 +447,123 @@ class GasSafetyInspectionIntegrationTest {
         .body("data.status", equalTo("COMPLETED"));
   }
 
-  /** Builds a complete gas safety record JSON payload with all required fields (snake_case). */
+  /** Builds a complete gas safety record JSON payload with all required fields (camelCase). */
   private String buildGasSafetyRecordJson() {
     return """
         {
           "certificate": {
-            "certificate_number": "CP12-2026-001",
-            "certificate_reference": "REF-001",
-            "certificate_type": "Domestic/Landlord Gas Safety Record",
-            "issue_date": "2026-03-07",
-            "next_inspection_due_on_or_before": "2027-03-07",
-            "number_of_appliances_tested": 1,
-            "qr_code_url": "https://example.com/qr/CP12-2026-001",
-            "verification_url": "https://example.com/verify/CP12-2026-001"
+            "certificateNumber": "CP12-2026-001",
+            "certificateReference": "REF-001",
+            "certificateType": "Domestic/Landlord Gas Safety Record",
+            "issueDate": "2026-03-07",
+            "nextInspectionDueOnOrBefore": "2027-03-07",
+            "numberOfAppliancesTested": 1,
+            "qrCodeUrl": "https://example.com/qr/CP12-2026-001",
+            "verificationUrl": "https://example.com/verify/CP12-2026-001"
           },
-          "company_details": {
-            "trading_title": "Gas Safe Engineers Ltd",
-            "address_line1": "1 Gas Street",
-            "address_line2": "Industrial Estate",
-            "post_code": "AB1 2CD",
-            "gas_safe_registration_number": "123456",
-            "company_phone": "01onal234567",
-            "company_email": "info@gassafe.com"
+          "companyDetails": {
+            "tradingTitle": "Gas Safe Engineers Ltd",
+            "addressLine1": "1 Gas Street",
+            "addressLine2": "Industrial Estate",
+            "postCode": "AB1 2CD",
+            "gasSafeRegistrationNumber": "123456",
+            "companyPhone": "01onal234567",
+            "companyEmail": "info@gassafe.com"
           },
-          "engineer_details": {
+          "engineerDetails": {
             "name": "John Smith",
-            "gas_safe_registration_number": "654321",
-            "engineer_licence_card_number": "LC-001",
-            "time_of_arrival": "09:00",
-            "time_of_departure": "10:30",
-            "report_issued_date": "2026-03-07",
-            "engineer_notes": "All appliances in good condition"
+            "gasSafeRegistrationNumber": "654321",
+            "engineerLicenceCardNumber": "LC-001",
+            "timeOfArrival": "09:00",
+            "timeOfDeparture": "10:30",
+            "reportIssuedDate": "2026-03-07",
+            "engineerNotes": "All appliances in good condition"
           },
-          "client_details": {
+          "clientDetails": {
             "name": "Jane Doe",
-            "address_line1": "10 Downing Street",
-            "post_code": "SW1A 2AA",
+            "addressLine1": "10 Downing Street",
+            "postCode": "SW1A 2AA",
             "telephone": "07700900000",
             "email": "jane@example.com"
           },
-          "tenant_details": {
+          "tenantDetails": {
             "name": "Tenant Name",
             "email": "tenant@example.com",
             "telephone": "07700900001"
           },
-          "installation_details": {
-            "name_or_flat": "Flat 1",
-            "address_line1": "10 Downing Street",
-            "post_code": "SW1A 2AA"
+          "installationDetails": {
+            "nameOrFlat": "Flat 1",
+            "addressLine1": "10 Downing Street",
+            "postCode": "SW1A 2AA"
           },
           "appliances": [
             {
               "index": 1,
               "location": "Kitchen",
-              "appliance_type": "Boiler",
+              "applianceType": "Boiler",
               "make": "Worcester",
               "model": "Greenstar 30i",
-              "serial_number": "SN-12345",
-              "landlords_appliance": true,
-              "inspection_type": "FULL",
-              "appliance_inspected": true,
-              "appliance_serviced": true,
-              "appliance_safe_to_use": true,
-              "classification_code": "None",
-              "classification_description": "Safe to use",
-              "flue_type": "Room sealed",
-              "ventilation_provision_satisfactory": true,
-              "flue_visual_condition_termination_satisfactory": true,
-              "flue_performance_tests": "PASS",
-              "spillage_test": "N/A",
-              "operating_pressure_mbar": 20.0,
-              "burner_pressure_mbar": 10.5,
-              "gas_rate": "2.5 m3/hr",
-              "heat_input_kw": 30.0,
-              "combustion_readings": {
-                "co_ppm": 15.0,
-                "co2_percentage": 9.2,
-                "co_to_co2_ratio": 0.0016,
-                "combustion_low": 55.0,
-                "combustion_high": 60.0
+              "serialNumber": "SN-12345",
+              "landlordsAppliance": true,
+              "inspectionType": "FULL",
+              "applianceInspected": true,
+              "applianceServiced": true,
+              "applianceSafeToUse": true,
+              "classificationCode": "None",
+              "classificationDescription": "Safe to use",
+              "flueType": "Room sealed",
+              "ventilationProvisionSatisfactory": true,
+              "flueVisualConditionTerminationSatisfactory": true,
+              "fluePerformanceTests": "PASS",
+              "spillageTest": "N/A",
+              "operatingPressureMbar": 20.0,
+              "burnerPressureMbar": 10.5,
+              "gasRate": "2.5 m3/hr",
+              "heatInputKw": 30.0,
+              "combustionReadings": {
+                "coPpm": 15.0,
+                "co2Percentage": 9.2,
+                "coToCo2Ratio": 0.0016,
+                "combustionLow": 55.0,
+                "combustionHigh": 60.0
               },
-              "safety_devices_correct_operation": true,
-              "emergency_control_accessible": true,
-              "gas_installation_pipework_visual_inspection_satisfactory": true,
-              "gas_tightness_satisfactory": true,
-              "equipotential_bonding": true,
-              "warning_notice_fixed": false,
-              "additional_notes": "Serviced and tested"
+              "safetyDevicesCorrectOperation": true,
+              "emergencyControlAccessible": true,
+              "gasInstallationPipeworkVisualInspectionSatisfactory": true,
+              "gasTightnessSatisfactory": true,
+              "equipotentialBonding": true,
+              "warningNoticeFixed": false,
+              "additionalNotes": "Serviced and tested"
             }
           ],
-          "final_checks": {
-            "gas_tightness_pass": "YES",
-            "gas_pipe_work_visual_pass": "YES",
-            "emergency_control_accessible": "YES",
-            "equipotential_bonding": "YES",
-            "installation_pass": "YES",
-            "co_alarm_fitted_working_same_room": "YES",
-            "smoke_alarm_fitted_working": "YES",
-            "additional_observations": "No issues found"
+          "finalChecks": {
+            "gasTightnessPass": "YES",
+            "gasPipeWorkVisualPass": "YES",
+            "emergencyControlAccessible": "YES",
+            "equipotentialBonding": "YES",
+            "installationPass": "YES",
+            "coAlarmFittedWorkingSameRoom": "YES",
+            "smokeAlarmFittedWorking": "YES",
+            "additionalObservations": "No issues found"
           },
-          "faults_and_remedials": {
-            "faults_notes": "",
-            "remedial_work_taken": "",
-            "warning_notice_fixed": false,
-            "appliance_isolated": false,
-            "isolation_reason": ""
+          "faultsAndRemedials": {
+            "faultsNotes": "",
+            "remedialWorkTaken": "",
+            "warningNoticeFixed": false,
+            "applianceIsolated": false,
+            "isolationReason": ""
           },
           "signatures": {
-            "engineer_signed": true,
-            "engineer_signed_date": "2026-03-07",
-            "customer_name": "Jane Doe",
-            "customer_signed": true,
-            "customer_signed_date": "2026-03-07",
-            "tenant_signed": false,
-            "privacy_policy_accepted": true
+            "engineerSigned": true,
+            "engineerSignedDate": "2026-03-07",
+            "customerName": "Jane Doe",
+            "customerSigned": true,
+            "customerSignedDate": "2026-03-07",
+            "tenantSigned": false,
+            "privacyPolicyAccepted": true
           },
           "metadata": {
-            "created_by_software": "CertifyNow",
+            "createdBySoftware": "CertifyNow",
             "version": "1.0",
             "platform": "CertifyNow Platform"
           }

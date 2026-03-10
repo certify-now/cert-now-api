@@ -310,9 +310,9 @@ class EpcInspectionIntegrationTest {
 
   private String createEpcJobViaApi(final UUID propId) {
     final String body =
-        "{\"property_id\": \""
+        "{\"propertyId\": \""
             + propId
-            + "\", \"certificate_type\": \"EPC\", \"urgency\": \"STANDARD\"}";
+            + "\", \"certificateType\": \"EPC\", \"urgency\": \"STANDARD\"}";
 
     return given()
         .contentType(ContentType.JSON)
@@ -328,9 +328,9 @@ class EpcInspectionIntegrationTest {
 
   private String createGasSafetyJobViaApi(final UUID propId) {
     final String body =
-        "{\"property_id\": \""
+        "{\"propertyId\": \""
             + propId
-            + "\", \"certificate_type\": \"GAS_SAFETY\", \"urgency\": \"STANDARD\"}";
+            + "\", \"certificateType\": \"GAS_SAFETY\", \"urgency\": \"STANDARD\"}";
 
     return given()
         .contentType(ContentType.JSON)
@@ -358,7 +358,7 @@ class EpcInspectionIntegrationTest {
 
   private void walkJobToCompleted(final String jobId) {
     // CREATED -> MATCHED
-    final String matchBody = "{\"engineer_id\": \"" + engineer.getId() + "\"}";
+    final String matchBody = "{\"engineerId\": \"" + engineer.getId() + "\"}";
     given()
         .contentType(ContentType.JSON)
         .header("Authorization", "Bearer " + adminToken)
@@ -372,7 +372,7 @@ class EpcInspectionIntegrationTest {
     // MATCHED -> ACCEPTED
     final String scheduledDate = LocalDate.now().plusDays(3).toString();
     final String acceptBody =
-        "{\"scheduled_date\": \"" + scheduledDate + "\", \"scheduled_time_slot\": \"MORNING\"}";
+        "{\"scheduledDate\": \"" + scheduledDate + "\", \"scheduledTimeSlot\": \"MORNING\"}";
     given()
         .contentType(ContentType.JSON)
         .header("Authorization", "Bearer " + engineerToken)
@@ -418,7 +418,7 @@ class EpcInspectionIntegrationTest {
     final String tomorrow = LocalDate.now().plusDays(1).toString();
     return """
                 {
-                  "property_details": {
+                  "propertyDetails": {
                     "address_line1": "10 Downing Street",
                     "address_line2": "",
                     "postcode": "SW1A 2AA",
@@ -426,23 +426,23 @@ class EpcInspectionIntegrationTest {
                     "number_of_bedrooms": 3,
                     "year_built": 1990
                   },
-                  "client_details": {
+                  "clientDetails": {
                     "name": "Jane Doe",
                     "email": "jane@example.com",
                     "telephone": "07700900000"
                   },
-                  "occupier_details": {
+                  "occupierDetails": {
                     "name": "John Tenant",
                     "telephone": "07700900001",
                     "email": "tenant@example.com",
                     "access_instructions": "Key under mat"
                   },
-                  "booking_details": {
+                  "bookingDetails": {
                     "appointment_date": "%s",
                     "appointment_time": "09:00:00",
                     "notes_for_assessor": "Side gate access"
                   },
-                  "pre_assessment_data": {
+                  "preAssessmentData": {
                     "wall_type": "Cavity",
                     "roof_insulation_depth_mm": 270,
                     "window_type": "Double glazed",

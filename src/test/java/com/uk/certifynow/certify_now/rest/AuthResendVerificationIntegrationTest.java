@@ -83,7 +83,7 @@ class AuthResendVerificationIntegrationTest {
         .body(
             "data.message",
             equalTo("If that email is registered and unverified, a new code has been sent."))
-        .body("meta.request_id", notNullValue());
+        .body("meta.requestId", notNullValue());
   }
 
   @Test

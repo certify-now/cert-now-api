@@ -4,6 +4,7 @@ import com.uk.certifynow.certify_now.domain.Job;
 import com.uk.certifynow.certify_now.domain.Payment;
 import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.events.BeforeDeleteJob;
+import com.uk.certifynow.certify_now.events.BeforeDeletePayment;
 import com.uk.certifynow.certify_now.events.BeforeDeleteUser;
 import com.uk.certifynow.certify_now.model.PaymentDTO;
 import com.uk.certifynow.certify_now.repos.JobRepository;
@@ -15,6 +16,7 @@ import com.uk.certifynow.certify_now.util.ReferencedException;
 import java.util.List;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -28,16 +30,19 @@ public class PaymentService {
   private final UserRepository userRepository;
   private final JobRepository jobRepository;
   private final PaymentMapper paymentMapper;
+  private final ApplicationEventPublisher publisher;
 
   public PaymentService(
       final PaymentRepository paymentRepository,
       final UserRepository userRepository,
       final JobRepository jobRepository,
-      final PaymentMapper paymentMapper) {
+      final PaymentMapper paymentMapper,
+      final ApplicationEventPublisher publisher) {
     this.paymentRepository = paymentRepository;
     this.userRepository = userRepository;
     this.jobRepository = jobRepository;
     this.paymentMapper = paymentMapper;
+    this.publisher = publisher;
   }
 
   public List<PaymentDTO> findAll() {
@@ -57,8 +62,8 @@ public class PaymentService {
     final Payment payment = new Payment();
     paymentMapper.updateEntity(paymentDTO, payment);
     resolveReferences(paymentDTO, payment);
-    UUID savedId = paymentRepository.save(payment).getId();
-    log.info("Payment {} created (amount={})", savedId, paymentDTO.getAmountPence());
+    final UUID savedId = paymentRepository.save(payment).getId();
+    log.info("Payment {} created", savedId);
     return savedId;
   }
 
@@ -73,35 +78,36 @@ public class PaymentService {
 
   @Transactional
   public void delete(final UUID id) {
-    paymentRepository.findById(id).orElseThrow(NotFoundException::new);
-    paymentRepository.deleteById(id);
+    final Payment payment = paymentRepository.findById(id).orElseThrow(NotFoundException::new);
+    publisher.publishEvent(new BeforeDeletePayment(id));
+    paymentRepository.delete(payment);
     log.info("Payment {} deleted", id);
   }
 
-  private void resolveReferences(final PaymentDTO paymentDTO, final Payment payment) {
-    final User user =
-        paymentDTO.getUser() == null
+  private void resolveReferences(final PaymentDTO dto, final Payment entity) {
+    final User customer =
+        dto.getCustomer() == null
             ? null
             : userRepository
-                .findById(paymentDTO.getUser())
-                .orElseThrow(() -> new NotFoundException("user not found"));
-    payment.setUser(user);
+                .findById(dto.getCustomer())
+                .orElseThrow(() -> new NotFoundException("customer not found"));
+    entity.setCustomer(customer);
     final Job job =
-        paymentDTO.getJob() == null
+        dto.getJob() == null
             ? null
             : jobRepository
-                .findById(paymentDTO.getJob())
+                .findById(dto.getJob())
                 .orElseThrow(() -> new NotFoundException("job not found"));
-    payment.setJob(job);
+    entity.setJob(job);
   }
 
   @EventListener(BeforeDeleteUser.class)
   public void on(final BeforeDeleteUser event) {
     final ReferencedException referencedException = new ReferencedException();
-    final Payment userPayment = paymentRepository.findFirstByUserId(event.getId());
-    if (userPayment != null) {
-      referencedException.setKey("user.payment.user.referenced");
-      referencedException.addParam(userPayment.getId());
+    final Payment customerPayment = paymentRepository.findFirstByCustomerId(event.getId());
+    if (customerPayment != null) {
+      referencedException.setKey("user.payment.customer.referenced");
+      referencedException.addParam(customerPayment.getId());
       throw referencedException;
     }
   }

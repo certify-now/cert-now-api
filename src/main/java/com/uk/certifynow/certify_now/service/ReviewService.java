@@ -57,8 +57,8 @@ public class ReviewService {
     final Review review = new Review();
     reviewMapper.updateEntity(reviewDTO, review);
     resolveReferences(reviewDTO, review);
-    UUID savedId = reviewRepository.save(review).getId();
-    log.info("Review {} created (rating={})", savedId, reviewDTO.getRating());
+    final UUID savedId = reviewRepository.save(review).getId();
+    log.info("Review {} created", savedId);
     return savedId;
   }
 
@@ -73,33 +73,33 @@ public class ReviewService {
 
   @Transactional
   public void delete(final UUID id) {
-    reviewRepository.findById(id).orElseThrow(NotFoundException::new);
-    reviewRepository.deleteById(id);
+    final Review review = reviewRepository.findById(id).orElseThrow(NotFoundException::new);
+    reviewRepository.delete(review);
     log.info("Review {} deleted", id);
   }
 
-  private void resolveReferences(final ReviewDTO reviewDTO, final Review review) {
+  private void resolveReferences(final ReviewDTO dto, final Review entity) {
     final Job job =
-        reviewDTO.getJob() == null
+        dto.getJob() == null
             ? null
             : jobRepository
-                .findById(reviewDTO.getJob())
+                .findById(dto.getJob())
                 .orElseThrow(() -> new NotFoundException("job not found"));
-    review.setJob(job);
-    final User reviewer =
-        reviewDTO.getReviewer() == null
-            ? null
-            : userRepository
-                .findById(reviewDTO.getReviewer())
-                .orElseThrow(() -> new NotFoundException("reviewer not found"));
-    review.setReviewer(reviewer);
+    entity.setJob(job);
     final User reviewee =
-        reviewDTO.getReviewee() == null
+        dto.getReviewee() == null
             ? null
             : userRepository
-                .findById(reviewDTO.getReviewee())
+                .findById(dto.getReviewee())
                 .orElseThrow(() -> new NotFoundException("reviewee not found"));
-    review.setReviewee(reviewee);
+    entity.setReviewee(reviewee);
+    final User reviewer =
+        dto.getReviewer() == null
+            ? null
+            : userRepository
+                .findById(dto.getReviewer())
+                .orElseThrow(() -> new NotFoundException("reviewer not found"));
+    entity.setReviewer(reviewer);
   }
 
   @EventListener(BeforeDeleteJob.class)
@@ -114,8 +114,14 @@ public class ReviewService {
   }
 
   @EventListener(BeforeDeleteUser.class)
-  public void onReviewer(final BeforeDeleteUser event) {
+  public void on(final BeforeDeleteUser event) {
     final ReferencedException referencedException = new ReferencedException();
+    final Review revieweeReview = reviewRepository.findFirstByRevieweeId(event.getId());
+    if (revieweeReview != null) {
+      referencedException.setKey("user.review.reviewee.referenced");
+      referencedException.addParam(revieweeReview.getId());
+      throw referencedException;
+    }
     final Review reviewerReview = reviewRepository.findFirstByReviewerId(event.getId());
     if (reviewerReview != null) {
       referencedException.setKey("user.review.reviewer.referenced");

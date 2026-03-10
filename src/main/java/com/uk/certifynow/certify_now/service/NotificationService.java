@@ -4,6 +4,7 @@ import com.uk.certifynow.certify_now.domain.Job;
 import com.uk.certifynow.certify_now.domain.Notification;
 import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.events.BeforeDeleteJob;
+import com.uk.certifynow.certify_now.events.BeforeDeleteNotification;
 import com.uk.certifynow.certify_now.events.BeforeDeleteUser;
 import com.uk.certifynow.certify_now.model.NotificationDTO;
 import com.uk.certifynow.certify_now.repos.JobRepository;
@@ -15,6 +16,7 @@ import com.uk.certifynow.certify_now.util.ReferencedException;
 import java.util.List;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -28,16 +30,19 @@ public class NotificationService {
   private final JobRepository jobRepository;
   private final UserRepository userRepository;
   private final NotificationMapper notificationMapper;
+  private final ApplicationEventPublisher publisher;
 
   public NotificationService(
       final NotificationRepository notificationRepository,
       final JobRepository jobRepository,
       final UserRepository userRepository,
-      final NotificationMapper notificationMapper) {
+      final NotificationMapper notificationMapper,
+      final ApplicationEventPublisher publisher) {
     this.notificationRepository = notificationRepository;
     this.jobRepository = jobRepository;
     this.userRepository = userRepository;
     this.notificationMapper = notificationMapper;
+    this.publisher = publisher;
   }
 
   public List<NotificationDTO> findAll() {
@@ -57,12 +62,8 @@ public class NotificationService {
     final Notification notification = new Notification();
     notificationMapper.updateEntity(notificationDTO, notification);
     resolveReferences(notificationDTO, notification);
-    UUID savedId = notificationRepository.save(notification).getId();
-    log.info(
-        "Notification {} created (type={}) for user {}",
-        savedId,
-        notificationDTO.getNotificationType(),
-        notificationDTO.getUser());
+    final UUID savedId = notificationRepository.save(notification).getId();
+    log.info("Notification {} created", savedId);
     return savedId;
   }
 
@@ -78,36 +79,38 @@ public class NotificationService {
 
   @Transactional
   public void delete(final UUID id) {
-    notificationRepository.findById(id).orElseThrow(NotFoundException::new);
-    notificationRepository.deleteById(id);
+    final Notification notification =
+        notificationRepository.findById(id).orElseThrow(NotFoundException::new);
+    publisher.publishEvent(new BeforeDeleteNotification(id));
+    notificationRepository.delete(notification);
     log.info("Notification {} deleted", id);
   }
 
-  private void resolveReferences(
-      final NotificationDTO notificationDTO, final Notification notification) {
-    final Job job =
-        notificationDTO.getJob() == null
+  private void resolveReferences(final NotificationDTO dto, final Notification entity) {
+    final Job relatedJob =
+        dto.getRelatedJob() == null
             ? null
             : jobRepository
-                .findById(notificationDTO.getJob())
-                .orElseThrow(() -> new NotFoundException("job not found"));
-    notification.setJob(job);
+                .findById(dto.getRelatedJob())
+                .orElseThrow(() -> new NotFoundException("relatedJob not found"));
+    entity.setRelatedJob(relatedJob);
     final User user =
-        notificationDTO.getUser() == null
+        dto.getUser() == null
             ? null
             : userRepository
-                .findById(notificationDTO.getUser())
+                .findById(dto.getUser())
                 .orElseThrow(() -> new NotFoundException("user not found"));
-    notification.setUser(user);
+    entity.setUser(user);
   }
 
   @EventListener(BeforeDeleteJob.class)
   public void on(final BeforeDeleteJob event) {
     final ReferencedException referencedException = new ReferencedException();
-    final Notification jobNotification = notificationRepository.findFirstByJobId(event.getId());
-    if (jobNotification != null) {
-      referencedException.setKey("job.notification.job.referenced");
-      referencedException.addParam(jobNotification.getId());
+    final Notification relatedJobNotification =
+        notificationRepository.findFirstByRelatedJobId(event.getId());
+    if (relatedJobNotification != null) {
+      referencedException.setKey("job.notification.relatedJob.referenced");
+      referencedException.addParam(relatedJobNotification.getId());
       throw referencedException;
     }
   }

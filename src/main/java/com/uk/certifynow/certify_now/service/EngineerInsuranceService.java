@@ -6,9 +6,12 @@ import com.uk.certifynow.certify_now.events.BeforeDeleteEngineerProfile;
 import com.uk.certifynow.certify_now.model.EngineerInsuranceDTO;
 import com.uk.certifynow.certify_now.repos.EngineerInsuranceRepository;
 import com.uk.certifynow.certify_now.repos.EngineerProfileRepository;
+import com.uk.certifynow.certify_now.rest.dto.engineer.AddInsuranceRequest;
+import com.uk.certifynow.certify_now.rest.dto.engineer.InsuranceResponse;
 import com.uk.certifynow.certify_now.service.mappers.EngineerInsuranceMapper;
 import com.uk.certifynow.certify_now.util.NotFoundException;
 import com.uk.certifynow.certify_now.util.ReferencedException;
+import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -25,15 +28,20 @@ public class EngineerInsuranceService {
   private final EngineerInsuranceRepository engineerInsuranceRepository;
   private final EngineerProfileRepository engineerProfileRepository;
   private final EngineerInsuranceMapper engineerInsuranceMapper;
+  private final Clock clock;
 
   public EngineerInsuranceService(
       final EngineerInsuranceRepository engineerInsuranceRepository,
       final EngineerProfileRepository engineerProfileRepository,
-      final EngineerInsuranceMapper engineerInsuranceMapper) {
+      final EngineerInsuranceMapper engineerInsuranceMapper,
+      final Clock clock) {
     this.engineerInsuranceRepository = engineerInsuranceRepository;
     this.engineerProfileRepository = engineerProfileRepository;
     this.engineerInsuranceMapper = engineerInsuranceMapper;
+    this.clock = clock;
   }
+
+  // -- Existing generic CRUD methods (kept for backward compat) ---------------
 
   public List<EngineerInsuranceDTO> findAll() {
     final List<EngineerInsurance> engineerInsurances =
@@ -52,15 +60,8 @@ public class EngineerInsuranceService {
   public UUID create(final EngineerInsuranceDTO engineerInsuranceDTO) {
     final EngineerInsurance engineerInsurance = new EngineerInsurance();
     engineerInsuranceMapper.updateEntity(engineerInsuranceDTO, engineerInsurance);
-    // Resolve engineer profile reference from UUID
-    final EngineerProfile engineerProfile =
-        engineerInsuranceDTO.getEngineerProfile() == null
-            ? null
-            : engineerProfileRepository
-                .findById(engineerInsuranceDTO.getEngineerProfile())
-                .orElseThrow(() -> new NotFoundException("engineerProfile not found"));
-    engineerInsurance.setEngineerProfile(engineerProfile);
-    UUID savedId = engineerInsuranceRepository.save(engineerInsurance).getId();
+    resolveReferences(engineerInsuranceDTO, engineerInsurance);
+    final UUID savedId = engineerInsuranceRepository.save(engineerInsurance).getId();
     log.info("EngineerInsurance {} created", savedId);
     return savedId;
   }
@@ -70,71 +71,97 @@ public class EngineerInsuranceService {
     final EngineerInsurance engineerInsurance =
         engineerInsuranceRepository.findById(id).orElseThrow(NotFoundException::new);
     engineerInsuranceMapper.updateEntity(engineerInsuranceDTO, engineerInsurance);
-    // Resolve engineer profile reference from UUID
-    final EngineerProfile engineerProfile =
-        engineerInsuranceDTO.getEngineerProfile() == null
-            ? null
-            : engineerProfileRepository
-                .findById(engineerInsuranceDTO.getEngineerProfile())
-                .orElseThrow(() -> new NotFoundException("engineerProfile not found"));
-    engineerInsurance.setEngineerProfile(engineerProfile);
+    resolveReferences(engineerInsuranceDTO, engineerInsurance);
     engineerInsuranceRepository.save(engineerInsurance);
     log.info("EngineerInsurance {} updated", id);
   }
 
   @Transactional
   public void delete(final UUID id) {
-    engineerInsuranceRepository.findById(id).orElseThrow(NotFoundException::new);
-    engineerInsuranceRepository.deleteById(id);
+    final EngineerInsurance engineerInsurance =
+        engineerInsuranceRepository.findById(id).orElseThrow(NotFoundException::new);
+    engineerInsuranceRepository.delete(engineerInsurance);
     log.info("EngineerInsurance {} deleted", id);
   }
 
+  // -- New business methods (Phase 5) -----------------------------------------
+
   @Transactional
-  public EngineerInsuranceDTO addInsurance(
-      final UUID engineerProfileId,
-      final String insuranceType,
-      final String provider,
-      final String policyNumber,
-      final java.time.LocalDate expiryDate,
-      final String documentUrl) {
-    final EngineerProfile engineerProfile =
-        engineerProfileRepository
-            .findById(engineerProfileId)
-            .orElseThrow(() -> new NotFoundException("Engineer profile not found"));
+  public InsuranceResponse addInsurance(final UUID userId, final AddInsuranceRequest request) {
+    final EngineerProfile profile = resolveProfileByUserId(userId);
+    final OffsetDateTime now = OffsetDateTime.now(clock);
     final EngineerInsurance insurance = new EngineerInsurance();
-    insurance.setEngineerProfile(engineerProfile);
-    insurance.setInsuranceType(insuranceType);
-    insurance.setProvider(provider);
-    insurance.setPolicyNumber(policyNumber);
-    insurance.setExpiryDate(expiryDate);
-    insurance.setDocumentUrl(documentUrl);
-    insurance.setVerified(false);
-    final EngineerInsurance saved = engineerInsuranceRepository.save(insurance);
+    insurance.setEngineerProfile(profile);
+    insurance.setPolicyType(request.policyType());
+    insurance.setProvider(request.provider());
+    insurance.setPolicyNumber(request.policyNumber());
+    insurance.setStartDate(request.startDate());
+    insurance.setExpiryDate(request.expiryDate());
+    insurance.setCoverAmountPence(request.coverAmountPence());
+    insurance.setDocumentUrl(request.documentUrl());
+    insurance.setVerificationStatus("PENDING");
+    insurance.setCreatedAt(now);
+    insurance.setUpdatedAt(now);
+    final InsuranceResponse response = toResponse(engineerInsuranceRepository.save(insurance));
     log.info(
-        "Insurance {} added for engineer {} (type={})",
-        saved.getId(),
-        engineerProfileId,
-        insuranceType);
-    return engineerInsuranceMapper.toDTO(saved);
+        "Insurance {} added for engineer user {} (type={})",
+        response.id(),
+        userId,
+        request.policyType());
+    return response;
+  }
+
+  public List<InsuranceResponse> getMyInsurance(final UUID userId) {
+    final EngineerProfile profile = resolveProfileByUserId(userId);
+    return engineerInsuranceRepository.findAllByEngineerProfileId(profile.getId()).stream()
+        .map(this::toResponse)
+        .toList();
   }
 
   @Transactional
-  public EngineerInsuranceDTO verifyInsurance(final UUID insuranceId, final boolean verified) {
+  public InsuranceResponse verifyInsurance(
+      final UUID insuranceId, final UUID adminId, final String newStatus) {
     final EngineerInsurance insurance =
-        engineerInsuranceRepository
-            .findById(insuranceId)
-            .orElseThrow(() -> new NotFoundException("Insurance not found"));
-    insurance.setVerified(verified);
-    insurance.setVerifiedAt(verified ? OffsetDateTime.now() : null);
-    final EngineerInsurance saved = engineerInsuranceRepository.save(insurance);
-    log.info("Insurance {} verification set to {}", insuranceId, verified);
-    return engineerInsuranceMapper.toDTO(saved);
+        engineerInsuranceRepository.findById(insuranceId).orElseThrow(NotFoundException::new);
+    insurance.setVerificationStatus(newStatus);
+    insurance.setUpdatedAt(OffsetDateTime.now(clock));
+    final InsuranceResponse response = toResponse(engineerInsuranceRepository.save(insurance));
+    log.info("Insurance {} verified with status={}", insuranceId, newStatus);
+    return response;
   }
 
-  public List<EngineerInsuranceDTO> getByEngineerProfile(final UUID engineerProfileId) {
-    return engineerInsuranceRepository.findAllByEngineerProfileId(engineerProfileId).stream()
-        .map(engineerInsuranceMapper::toDTO)
-        .toList();
+  // -- Mapping helpers --------------------------------------------------------
+
+  private EngineerProfile resolveProfileByUserId(final UUID userId) {
+    return engineerProfileRepository
+        .findByUserId(userId)
+        .orElseThrow(() -> new NotFoundException("Engineer profile not found for user"));
+  }
+
+  private InsuranceResponse toResponse(final EngineerInsurance i) {
+    return new InsuranceResponse(
+        i.getId(),
+        i.getEngineerProfile() == null ? null : i.getEngineerProfile().getId(),
+        i.getPolicyType(),
+        i.getProvider(),
+        i.getPolicyNumber(),
+        i.getStartDate(),
+        i.getExpiryDate(),
+        i.getCoverAmountPence(),
+        i.getDocumentUrl(),
+        i.getVerificationStatus(),
+        i.getCreatedAt(),
+        i.getUpdatedAt());
+  }
+
+  private void resolveReferences(final EngineerInsuranceDTO dto, final EngineerInsurance entity) {
+    final EngineerProfile engineerProfile =
+        dto.getEngineerProfile() == null
+            ? null
+            : engineerProfileRepository
+                .findById(dto.getEngineerProfile())
+                .orElseThrow(() -> new NotFoundException("engineerProfile not found"));
+    entity.setEngineerProfile(engineerProfile);
   }
 
   @EventListener(BeforeDeleteEngineerProfile.class)

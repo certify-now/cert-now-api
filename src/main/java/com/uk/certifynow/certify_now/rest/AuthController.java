@@ -1,6 +1,7 @@
 package com.uk.certifynow.certify_now.rest;
 
 import com.uk.certifynow.certify_now.config.RequestIdFilter;
+import com.uk.certifynow.certify_now.model.UpdateEmailRequest;
 import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
 import com.uk.certifynow.certify_now.service.auth.AuthFacade;
 import com.uk.certifynow.certify_now.service.auth.EmailVerificationService;
@@ -24,6 +25,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -200,6 +202,36 @@ public class AuthController {
     return ApiResponse.of(
         Map.of("message", "If that email is registered and unverified, a new code has been sent."),
         requestId(httpRequest));
+  }
+
+  @PutMapping("/update-email")
+  @Operation(
+      summary = "Update email for unverified user",
+      description =
+          "Allows an authenticated but unverified user to correct their email address."
+              + " Deletes existing verification tokens and sends a new code to the updated email.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Email updated and verification code resent"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "User is already verified or validation error"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Not authenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "409",
+        description = "Email is already in use by another account")
+  })
+  public ApiResponse<Map<String, String>> updateEmail(
+      @Valid @RequestBody final UpdateEmailRequest request,
+      final Authentication authentication,
+      final HttpServletRequest httpRequest) {
+    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
+    emailVerificationService.updateEmailForUnverifiedUser(userId, request.email());
+    return ApiResponse.of(
+        Map.of("message", "Email updated and verification code resent."), requestId(httpRequest));
   }
 
   private String requestId(final HttpServletRequest request) {

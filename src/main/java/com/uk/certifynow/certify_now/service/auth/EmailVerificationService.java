@@ -10,6 +10,7 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -188,6 +189,55 @@ public class EmailVerificationService {
 
     enforceCooldown(user);
 
+    sendVerificationEmail(user);
+  }
+
+  /**
+   * Update the email address of an unverified user and resend the verification code.
+   *
+   * <p>This allows a user who made a typo during registration to correct their email before
+   * verification. Throws if the user is already verified or if the new email is taken by another
+   * user.
+   *
+   * @param userId authenticated user's ID
+   * @param newEmail corrected email address
+   */
+  @Transactional
+  public void updateEmailForUnverifiedUser(final UUID userId, final String newEmail) {
+    final User user =
+        userRepository
+            .findById(userId)
+            .orElseThrow(
+                () ->
+                    new BusinessException(
+                        HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "User not found"));
+
+    if (user.getEmailVerified()) {
+      throw new BusinessException(
+          HttpStatus.BAD_REQUEST, "ALREADY_VERIFIED", "Cannot change email after verification");
+    }
+
+    // Check the new email isn't already taken by a different user
+    userRepository
+        .findByEmailIgnoreCase(newEmail)
+        .ifPresent(
+            existing -> {
+              if (!existing.getId().equals(userId)) {
+                throw new BusinessException(
+                    HttpStatus.CONFLICT, "EMAIL_TAKEN", "Email is already in use");
+              }
+            });
+
+    user.setEmail(newEmail.toLowerCase(Locale.ROOT));
+    userRepository.save(user);
+
+    // Enforce cooldown to prevent abuse
+    enforceCooldown(user);
+
+    // Delete old unused verification tokens
+    tokenRepository.deleteUnusedTokensByUserId(userId);
+
+    // Send a new verification email to the corrected address
     sendVerificationEmail(user);
   }
 

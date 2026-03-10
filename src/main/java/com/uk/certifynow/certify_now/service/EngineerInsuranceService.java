@@ -8,30 +8,36 @@ import com.uk.certifynow.certify_now.repos.EngineerInsuranceRepository;
 import com.uk.certifynow.certify_now.repos.EngineerProfileRepository;
 import com.uk.certifynow.certify_now.rest.dto.engineer.AddInsuranceRequest;
 import com.uk.certifynow.certify_now.rest.dto.engineer.InsuranceResponse;
+import com.uk.certifynow.certify_now.service.mappers.EngineerInsuranceMapper;
 import com.uk.certifynow.certify_now.util.NotFoundException;
 import com.uk.certifynow.certify_now.util.ReferencedException;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 public class EngineerInsuranceService {
 
   private final EngineerInsuranceRepository engineerInsuranceRepository;
   private final EngineerProfileRepository engineerProfileRepository;
+  private final EngineerInsuranceMapper engineerInsuranceMapper;
   private final Clock clock;
 
   public EngineerInsuranceService(
       final EngineerInsuranceRepository engineerInsuranceRepository,
       final EngineerProfileRepository engineerProfileRepository,
+      final EngineerInsuranceMapper engineerInsuranceMapper,
       final Clock clock) {
     this.engineerInsuranceRepository = engineerInsuranceRepository;
     this.engineerProfileRepository = engineerProfileRepository;
+    this.engineerInsuranceMapper = engineerInsuranceMapper;
     this.clock = clock;
   }
 
@@ -40,35 +46,42 @@ public class EngineerInsuranceService {
   public List<EngineerInsuranceDTO> findAll() {
     final List<EngineerInsurance> engineerInsurances =
         engineerInsuranceRepository.findAll(Sort.by("id"));
-    return engineerInsurances.stream()
-        .map(engineerInsurance -> mapToDTO(engineerInsurance, new EngineerInsuranceDTO()))
-        .toList();
+    return engineerInsurances.stream().map(engineerInsuranceMapper::toDTO).toList();
   }
 
   public EngineerInsuranceDTO get(final UUID id) {
     return engineerInsuranceRepository
         .findById(id)
-        .map(engineerInsurance -> mapToDTO(engineerInsurance, new EngineerInsuranceDTO()))
+        .map(engineerInsuranceMapper::toDTO)
         .orElseThrow(NotFoundException::new);
   }
 
+  @Transactional
   public UUID create(final EngineerInsuranceDTO engineerInsuranceDTO) {
     final EngineerInsurance engineerInsurance = new EngineerInsurance();
-    mapToEntity(engineerInsuranceDTO, engineerInsurance);
-    return engineerInsuranceRepository.save(engineerInsurance).getId();
+    engineerInsuranceMapper.updateEntity(engineerInsuranceDTO, engineerInsurance);
+    resolveReferences(engineerInsuranceDTO, engineerInsurance);
+    final UUID savedId = engineerInsuranceRepository.save(engineerInsurance).getId();
+    log.info("EngineerInsurance {} created", savedId);
+    return savedId;
   }
 
+  @Transactional
   public void update(final UUID id, final EngineerInsuranceDTO engineerInsuranceDTO) {
     final EngineerInsurance engineerInsurance =
         engineerInsuranceRepository.findById(id).orElseThrow(NotFoundException::new);
-    mapToEntity(engineerInsuranceDTO, engineerInsurance);
+    engineerInsuranceMapper.updateEntity(engineerInsuranceDTO, engineerInsurance);
+    resolveReferences(engineerInsuranceDTO, engineerInsurance);
     engineerInsuranceRepository.save(engineerInsurance);
+    log.info("EngineerInsurance {} updated", id);
   }
 
+  @Transactional
   public void delete(final UUID id) {
     final EngineerInsurance engineerInsurance =
         engineerInsuranceRepository.findById(id).orElseThrow(NotFoundException::new);
     engineerInsuranceRepository.delete(engineerInsurance);
+    log.info("EngineerInsurance {} deleted", id);
   }
 
   // -- New business methods (Phase 5) -----------------------------------------
@@ -89,7 +102,13 @@ public class EngineerInsuranceService {
     insurance.setVerificationStatus("PENDING");
     insurance.setCreatedAt(now);
     insurance.setUpdatedAt(now);
-    return toResponse(engineerInsuranceRepository.save(insurance));
+    final InsuranceResponse response = toResponse(engineerInsuranceRepository.save(insurance));
+    log.info(
+        "Insurance {} added for engineer user {} (type={})",
+        response.id(),
+        userId,
+        request.policyType());
+    return response;
   }
 
   public List<InsuranceResponse> getMyInsurance(final UUID userId) {
@@ -106,7 +125,9 @@ public class EngineerInsuranceService {
         engineerInsuranceRepository.findById(insuranceId).orElseThrow(NotFoundException::new);
     insurance.setVerificationStatus(newStatus);
     insurance.setUpdatedAt(OffsetDateTime.now(clock));
-    return toResponse(engineerInsuranceRepository.save(insurance));
+    final InsuranceResponse response = toResponse(engineerInsuranceRepository.save(insurance));
+    log.info("Insurance {} verified with status={}", insuranceId, newStatus);
+    return response;
   }
 
   // -- Mapping helpers --------------------------------------------------------
@@ -133,48 +154,14 @@ public class EngineerInsuranceService {
         i.getUpdatedAt());
   }
 
-  // -- Existing DTO mapping (kept for backward compat) ------------------------
-
-  private EngineerInsuranceDTO mapToDTO(
-      final EngineerInsurance engineerInsurance, final EngineerInsuranceDTO engineerInsuranceDTO) {
-    engineerInsuranceDTO.setId(engineerInsurance.getId());
-    engineerInsuranceDTO.setExpiryDate(engineerInsurance.getExpiryDate());
-    engineerInsuranceDTO.setStartDate(engineerInsurance.getStartDate());
-    engineerInsuranceDTO.setCoverAmountPence(engineerInsurance.getCoverAmountPence());
-    engineerInsuranceDTO.setCreatedAt(engineerInsurance.getCreatedAt());
-    engineerInsuranceDTO.setUpdatedAt(engineerInsurance.getUpdatedAt());
-    engineerInsuranceDTO.setPolicyType(engineerInsurance.getPolicyType());
-    engineerInsuranceDTO.setPolicyNumber(engineerInsurance.getPolicyNumber());
-    engineerInsuranceDTO.setDocumentUrl(engineerInsurance.getDocumentUrl());
-    engineerInsuranceDTO.setProvider(engineerInsurance.getProvider());
-    engineerInsuranceDTO.setVerificationStatus(engineerInsurance.getVerificationStatus());
-    engineerInsuranceDTO.setEngineerProfile(
-        engineerInsurance.getEngineerProfile() == null
-            ? null
-            : engineerInsurance.getEngineerProfile().getId());
-    return engineerInsuranceDTO;
-  }
-
-  private EngineerInsurance mapToEntity(
-      final EngineerInsuranceDTO engineerInsuranceDTO, final EngineerInsurance engineerInsurance) {
-    engineerInsurance.setExpiryDate(engineerInsuranceDTO.getExpiryDate());
-    engineerInsurance.setStartDate(engineerInsuranceDTO.getStartDate());
-    engineerInsurance.setCoverAmountPence(engineerInsuranceDTO.getCoverAmountPence());
-    engineerInsurance.setCreatedAt(engineerInsuranceDTO.getCreatedAt());
-    engineerInsurance.setUpdatedAt(engineerInsuranceDTO.getUpdatedAt());
-    engineerInsurance.setPolicyType(engineerInsuranceDTO.getPolicyType());
-    engineerInsurance.setPolicyNumber(engineerInsuranceDTO.getPolicyNumber());
-    engineerInsurance.setDocumentUrl(engineerInsuranceDTO.getDocumentUrl());
-    engineerInsurance.setProvider(engineerInsuranceDTO.getProvider());
-    engineerInsurance.setVerificationStatus(engineerInsuranceDTO.getVerificationStatus());
+  private void resolveReferences(final EngineerInsuranceDTO dto, final EngineerInsurance entity) {
     final EngineerProfile engineerProfile =
-        engineerInsuranceDTO.getEngineerProfile() == null
+        dto.getEngineerProfile() == null
             ? null
             : engineerProfileRepository
-                .findById(engineerInsuranceDTO.getEngineerProfile())
+                .findById(dto.getEngineerProfile())
                 .orElseThrow(() -> new NotFoundException("engineerProfile not found"));
-    engineerInsurance.setEngineerProfile(engineerProfile);
-    return engineerInsurance;
+    entity.setEngineerProfile(engineerProfile);
   }
 
   @EventListener(BeforeDeleteEngineerProfile.class)

@@ -6,38 +6,43 @@ import com.uk.certifynow.certify_now.events.BeforeDeleteUser;
 import com.uk.certifynow.certify_now.model.CustomerProfileDTO;
 import com.uk.certifynow.certify_now.repos.CustomerProfileRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
+import com.uk.certifynow.certify_now.service.mappers.CustomerProfileMapper;
 import com.uk.certifynow.certify_now.util.NotFoundException;
 import com.uk.certifynow.certify_now.util.ReferencedException;
 import java.util.List;
 import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 public class CustomerProfileService {
 
   private final CustomerProfileRepository customerProfileRepository;
   private final UserRepository userRepository;
+  private final CustomerProfileMapper customerProfileMapper;
 
   public CustomerProfileService(
       final CustomerProfileRepository customerProfileRepository,
-      final UserRepository userRepository) {
+      final UserRepository userRepository,
+      final CustomerProfileMapper customerProfileMapper) {
     this.customerProfileRepository = customerProfileRepository;
     this.userRepository = userRepository;
+    this.customerProfileMapper = customerProfileMapper;
   }
 
   public List<CustomerProfileDTO> findAll() {
     final List<CustomerProfile> customerProfiles = customerProfileRepository.findAll(Sort.by("id"));
-    return customerProfiles.stream()
-        .map(customerProfile -> mapToDTO(customerProfile, new CustomerProfileDTO()))
-        .toList();
+    return customerProfiles.stream().map(customerProfileMapper::toDTO).toList();
   }
 
   public CustomerProfileDTO get(final UUID id) {
     return customerProfileRepository
         .findById(id)
-        .map(customerProfile -> mapToDTO(customerProfile, new CustomerProfileDTO()))
+        .map(customerProfileMapper::toDTO)
         .orElseThrow(NotFoundException::new);
   }
 
@@ -46,61 +51,25 @@ public class CustomerProfileService {
     if (profile == null) {
       throw new NotFoundException("Profile not found for user " + userId);
     }
-    return mapToDTO(profile, new CustomerProfileDTO());
+    return customerProfileMapper.toDTO(profile);
   }
 
+  @Transactional
   public void incrementPropertyCount(final UUID userId) {
     CustomerProfile profile = customerProfileRepository.findFirstByUserId(userId);
     if (profile != null) {
       profile.setTotalProperties(
           (profile.getTotalProperties() == null ? 0 : profile.getTotalProperties()) + 1);
       customerProfileRepository.save(profile);
+      log.info("Incremented property count for user {}", userId);
     }
   }
 
+  @Transactional
   public UUID create(final CustomerProfileDTO customerProfileDTO) {
     final CustomerProfile customerProfile = new CustomerProfile();
-    mapToEntity(customerProfileDTO, customerProfile);
-    return customerProfileRepository.save(customerProfile).getId();
-  }
-
-  public void update(final UUID id, final CustomerProfileDTO customerProfileDTO) {
-    final CustomerProfile customerProfile =
-        customerProfileRepository.findById(id).orElseThrow(NotFoundException::new);
-    mapToEntity(customerProfileDTO, customerProfile);
-    customerProfileRepository.save(customerProfile);
-  }
-
-  public void delete(final UUID id) {
-    final CustomerProfile customerProfile =
-        customerProfileRepository.findById(id).orElseThrow(NotFoundException::new);
-    customerProfileRepository.delete(customerProfile);
-  }
-
-  private CustomerProfileDTO mapToDTO(
-      final CustomerProfile customerProfile, final CustomerProfileDTO customerProfileDTO) {
-    customerProfileDTO.setId(customerProfile.getId());
-    customerProfileDTO.setComplianceScore(customerProfile.getComplianceScore());
-    customerProfileDTO.setIsLettingAgent(customerProfile.getIsLettingAgent());
-    customerProfileDTO.setTotalProperties(customerProfile.getTotalProperties());
-    customerProfileDTO.setCreatedAt(customerProfile.getCreatedAt());
-    customerProfileDTO.setUpdatedAt(customerProfile.getUpdatedAt());
-    customerProfileDTO.setCompanyName(customerProfile.getCompanyName());
-    customerProfileDTO.setNotificationPrefs(customerProfile.getNotificationPrefs());
-    customerProfileDTO.setUser(
-        customerProfile.getUser() == null ? null : customerProfile.getUser().getId());
-    return customerProfileDTO;
-  }
-
-  private CustomerProfile mapToEntity(
-      final CustomerProfileDTO customerProfileDTO, final CustomerProfile customerProfile) {
-    customerProfile.setComplianceScore(customerProfileDTO.getComplianceScore());
-    customerProfile.setIsLettingAgent(customerProfileDTO.getIsLettingAgent());
-    customerProfile.setTotalProperties(customerProfileDTO.getTotalProperties());
-    customerProfile.setCreatedAt(customerProfileDTO.getCreatedAt());
-    customerProfile.setUpdatedAt(customerProfileDTO.getUpdatedAt());
-    customerProfile.setCompanyName(customerProfileDTO.getCompanyName());
-    customerProfile.setNotificationPrefs(customerProfileDTO.getNotificationPrefs());
+    customerProfileMapper.updateEntity(customerProfileDTO, customerProfile);
+    // Resolve user reference from UUID
     final User user =
         customerProfileDTO.getUser() == null
             ? null
@@ -108,7 +77,34 @@ public class CustomerProfileService {
                 .findById(customerProfileDTO.getUser())
                 .orElseThrow(() -> new NotFoundException("user not found"));
     customerProfile.setUser(user);
-    return customerProfile;
+    UUID savedId = customerProfileRepository.save(customerProfile).getId();
+    log.info("CustomerProfile {} created for user {}", savedId, customerProfileDTO.getUser());
+    return savedId;
+  }
+
+  @Transactional
+  public void update(final UUID id, final CustomerProfileDTO customerProfileDTO) {
+    final CustomerProfile customerProfile =
+        customerProfileRepository.findById(id).orElseThrow(NotFoundException::new);
+    customerProfileMapper.updateEntity(customerProfileDTO, customerProfile);
+    // Resolve user reference from UUID
+    final User user =
+        customerProfileDTO.getUser() == null
+            ? null
+            : userRepository
+                .findById(customerProfileDTO.getUser())
+                .orElseThrow(() -> new NotFoundException("user not found"));
+    customerProfile.setUser(user);
+    customerProfileRepository.save(customerProfile);
+    log.info("CustomerProfile {} updated", id);
+  }
+
+  @Transactional
+  public void delete(final UUID id) {
+    final CustomerProfile customerProfile =
+        customerProfileRepository.findById(id).orElseThrow(NotFoundException::new);
+    customerProfileRepository.delete(customerProfile);
+    log.info("CustomerProfile {} deleted", id);
   }
 
   @EventListener(BeforeDeleteUser.class)

@@ -9,6 +9,7 @@ import com.uk.certifynow.certify_now.repos.EngineerProfileRepository;
 import com.uk.certifynow.certify_now.rest.dto.engineer.AvailabilityOverrideRequest;
 import com.uk.certifynow.certify_now.rest.dto.engineer.AvailabilityResponse;
 import com.uk.certifynow.certify_now.rest.dto.engineer.AvailabilitySlotRequest;
+import com.uk.certifynow.certify_now.service.mappers.EngineerAvailabilityMapper;
 import com.uk.certifynow.certify_now.util.NotFoundException;
 import com.uk.certifynow.certify_now.util.ReferencedException;
 import java.time.Clock;
@@ -20,24 +21,29 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 public class EngineerAvailabilityService {
 
   private final EngineerAvailabilityRepository engineerAvailabilityRepository;
   private final EngineerProfileRepository engineerProfileRepository;
+  private final EngineerAvailabilityMapper engineerAvailabilityMapper;
   private final Clock clock;
 
   public EngineerAvailabilityService(
       final EngineerAvailabilityRepository engineerAvailabilityRepository,
       final EngineerProfileRepository engineerProfileRepository,
+      final EngineerAvailabilityMapper engineerAvailabilityMapper,
       final Clock clock) {
     this.engineerAvailabilityRepository = engineerAvailabilityRepository;
     this.engineerProfileRepository = engineerProfileRepository;
+    this.engineerAvailabilityMapper = engineerAvailabilityMapper;
     this.clock = clock;
   }
 
@@ -46,35 +52,42 @@ public class EngineerAvailabilityService {
   public List<EngineerAvailabilityDTO> findAll() {
     final List<EngineerAvailability> engineerAvailabilities =
         engineerAvailabilityRepository.findAll(Sort.by("id"));
-    return engineerAvailabilities.stream()
-        .map(engineerAvailability -> mapToDTO(engineerAvailability, new EngineerAvailabilityDTO()))
-        .toList();
+    return engineerAvailabilities.stream().map(engineerAvailabilityMapper::toDTO).toList();
   }
 
   public EngineerAvailabilityDTO get(final UUID id) {
     return engineerAvailabilityRepository
         .findById(id)
-        .map(engineerAvailability -> mapToDTO(engineerAvailability, new EngineerAvailabilityDTO()))
+        .map(engineerAvailabilityMapper::toDTO)
         .orElseThrow(NotFoundException::new);
   }
 
+  @Transactional
   public UUID create(final EngineerAvailabilityDTO engineerAvailabilityDTO) {
     final EngineerAvailability engineerAvailability = new EngineerAvailability();
-    mapToEntity(engineerAvailabilityDTO, engineerAvailability);
-    return engineerAvailabilityRepository.save(engineerAvailability).getId();
+    engineerAvailabilityMapper.updateEntity(engineerAvailabilityDTO, engineerAvailability);
+    resolveReferences(engineerAvailabilityDTO, engineerAvailability);
+    final UUID savedId = engineerAvailabilityRepository.save(engineerAvailability).getId();
+    log.info("EngineerAvailability {} created", savedId);
+    return savedId;
   }
 
+  @Transactional
   public void update(final UUID id, final EngineerAvailabilityDTO engineerAvailabilityDTO) {
     final EngineerAvailability engineerAvailability =
         engineerAvailabilityRepository.findById(id).orElseThrow(NotFoundException::new);
-    mapToEntity(engineerAvailabilityDTO, engineerAvailability);
+    engineerAvailabilityMapper.updateEntity(engineerAvailabilityDTO, engineerAvailability);
+    resolveReferences(engineerAvailabilityDTO, engineerAvailability);
     engineerAvailabilityRepository.save(engineerAvailability);
+    log.info("EngineerAvailability {} updated", id);
   }
 
+  @Transactional
   public void delete(final UUID id) {
     final EngineerAvailability engineerAvailability =
         engineerAvailabilityRepository.findById(id).orElseThrow(NotFoundException::new);
     engineerAvailabilityRepository.delete(engineerAvailability);
+    log.info("EngineerAvailability {} deleted", id);
   }
 
   // -- New business methods (Phase 5) -----------------------------------------
@@ -99,7 +112,10 @@ public class EngineerAvailabilityService {
       availability.setUpdatedAt(now);
       newSlots.add(availability);
     }
-    return engineerAvailabilityRepository.saveAll(newSlots).stream().map(this::toResponse).toList();
+    final List<AvailabilityResponse> result =
+        engineerAvailabilityRepository.saveAll(newSlots).stream().map(this::toResponse).toList();
+    log.info("Availability set for engineer user {} ({} slots)", userId, result.size());
+    return result;
   }
 
   @Transactional
@@ -117,7 +133,13 @@ public class EngineerAvailabilityService {
     override.setOverrideDate(request.overrideDate());
     override.setCreatedAt(now);
     override.setUpdatedAt(now);
-    return toResponse(engineerAvailabilityRepository.save(override));
+    final AvailabilityResponse response = toResponse(engineerAvailabilityRepository.save(override));
+    log.info(
+        "Availability override {} added for engineer user {} on {}",
+        response.id(),
+        userId,
+        request.overrideDate());
+    return response;
   }
 
   public List<AvailabilityResponse> getAvailableSlots(final UUID profileId, final LocalDate date) {
@@ -176,46 +198,15 @@ public class EngineerAvailabilityService {
         a.getUpdatedAt());
   }
 
-  // -- Existing DTO mapping (kept for backward compat) ------------------------
-
-  private EngineerAvailabilityDTO mapToDTO(
-      final EngineerAvailability engineerAvailability,
-      final EngineerAvailabilityDTO engineerAvailabilityDTO) {
-    engineerAvailabilityDTO.setId(engineerAvailability.getId());
-    engineerAvailabilityDTO.setDayOfWeek(engineerAvailability.getDayOfWeek());
-    engineerAvailabilityDTO.setEndTime(engineerAvailability.getEndTime());
-    engineerAvailabilityDTO.setIsAvailable(engineerAvailability.getIsAvailable());
-    engineerAvailabilityDTO.setIsRecurring(engineerAvailability.getIsRecurring());
-    engineerAvailabilityDTO.setOverrideDate(engineerAvailability.getOverrideDate());
-    engineerAvailabilityDTO.setStartTime(engineerAvailability.getStartTime());
-    engineerAvailabilityDTO.setCreatedAt(engineerAvailability.getCreatedAt());
-    engineerAvailabilityDTO.setUpdatedAt(engineerAvailability.getUpdatedAt());
-    engineerAvailabilityDTO.setEngineerProfile(
-        engineerAvailability.getEngineerProfile() == null
-            ? null
-            : engineerAvailability.getEngineerProfile().getId());
-    return engineerAvailabilityDTO;
-  }
-
-  private EngineerAvailability mapToEntity(
-      final EngineerAvailabilityDTO engineerAvailabilityDTO,
-      final EngineerAvailability engineerAvailability) {
-    engineerAvailability.setDayOfWeek(engineerAvailabilityDTO.getDayOfWeek());
-    engineerAvailability.setEndTime(engineerAvailabilityDTO.getEndTime());
-    engineerAvailability.setIsAvailable(engineerAvailabilityDTO.getIsAvailable());
-    engineerAvailability.setIsRecurring(engineerAvailabilityDTO.getIsRecurring());
-    engineerAvailability.setOverrideDate(engineerAvailabilityDTO.getOverrideDate());
-    engineerAvailability.setStartTime(engineerAvailabilityDTO.getStartTime());
-    engineerAvailability.setCreatedAt(engineerAvailabilityDTO.getCreatedAt());
-    engineerAvailability.setUpdatedAt(engineerAvailabilityDTO.getUpdatedAt());
+  private void resolveReferences(
+      final EngineerAvailabilityDTO dto, final EngineerAvailability entity) {
     final EngineerProfile engineerProfile =
-        engineerAvailabilityDTO.getEngineerProfile() == null
+        dto.getEngineerProfile() == null
             ? null
             : engineerProfileRepository
-                .findById(engineerAvailabilityDTO.getEngineerProfile())
+                .findById(dto.getEngineerProfile())
                 .orElseThrow(() -> new NotFoundException("engineerProfile not found"));
-    engineerAvailability.setEngineerProfile(engineerProfile);
-    return engineerAvailability;
+    entity.setEngineerProfile(engineerProfile);
   }
 
   @EventListener(BeforeDeleteEngineerProfile.class)

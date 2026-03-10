@@ -8,30 +8,36 @@ import com.uk.certifynow.certify_now.repos.EngineerProfileRepository;
 import com.uk.certifynow.certify_now.repos.EngineerQualificationRepository;
 import com.uk.certifynow.certify_now.rest.dto.engineer.AddQualificationRequest;
 import com.uk.certifynow.certify_now.rest.dto.engineer.QualificationResponse;
+import com.uk.certifynow.certify_now.service.mappers.EngineerQualificationMapper;
 import com.uk.certifynow.certify_now.util.NotFoundException;
 import com.uk.certifynow.certify_now.util.ReferencedException;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 public class EngineerQualificationService {
 
   private final EngineerQualificationRepository engineerQualificationRepository;
   private final EngineerProfileRepository engineerProfileRepository;
+  private final EngineerQualificationMapper engineerQualificationMapper;
   private final Clock clock;
 
   public EngineerQualificationService(
       final EngineerQualificationRepository engineerQualificationRepository,
       final EngineerProfileRepository engineerProfileRepository,
+      final EngineerQualificationMapper engineerQualificationMapper,
       final Clock clock) {
     this.engineerQualificationRepository = engineerQualificationRepository;
     this.engineerProfileRepository = engineerProfileRepository;
+    this.engineerQualificationMapper = engineerQualificationMapper;
     this.clock = clock;
   }
 
@@ -40,39 +46,42 @@ public class EngineerQualificationService {
   public List<EngineerQualificationDTO> findAll() {
     final List<EngineerQualification> engineerQualifications =
         engineerQualificationRepository.findAll(Sort.by("id"));
-    return engineerQualifications.stream()
-        .map(
-            engineerQualification ->
-                mapToDTO(engineerQualification, new EngineerQualificationDTO()))
-        .toList();
+    return engineerQualifications.stream().map(engineerQualificationMapper::toDTO).toList();
   }
 
   public EngineerQualificationDTO get(final UUID id) {
     return engineerQualificationRepository
         .findById(id)
-        .map(
-            engineerQualification ->
-                mapToDTO(engineerQualification, new EngineerQualificationDTO()))
+        .map(engineerQualificationMapper::toDTO)
         .orElseThrow(NotFoundException::new);
   }
 
+  @Transactional
   public UUID create(final EngineerQualificationDTO engineerQualificationDTO) {
     final EngineerQualification engineerQualification = new EngineerQualification();
-    mapToEntity(engineerQualificationDTO, engineerQualification);
-    return engineerQualificationRepository.save(engineerQualification).getId();
+    engineerQualificationMapper.updateEntity(engineerQualificationDTO, engineerQualification);
+    resolveReferences(engineerQualificationDTO, engineerQualification);
+    final UUID savedId = engineerQualificationRepository.save(engineerQualification).getId();
+    log.info("EngineerQualification {} created", savedId);
+    return savedId;
   }
 
+  @Transactional
   public void update(final UUID id, final EngineerQualificationDTO engineerQualificationDTO) {
     final EngineerQualification engineerQualification =
         engineerQualificationRepository.findById(id).orElseThrow(NotFoundException::new);
-    mapToEntity(engineerQualificationDTO, engineerQualification);
+    engineerQualificationMapper.updateEntity(engineerQualificationDTO, engineerQualification);
+    resolveReferences(engineerQualificationDTO, engineerQualification);
     engineerQualificationRepository.save(engineerQualification);
+    log.info("EngineerQualification {} updated", id);
   }
 
+  @Transactional
   public void delete(final UUID id) {
     final EngineerQualification engineerQualification =
         engineerQualificationRepository.findById(id).orElseThrow(NotFoundException::new);
     engineerQualificationRepository.delete(engineerQualification);
+    log.info("EngineerQualification {} deleted", id);
   }
 
   // -- New business methods (Phase 5) -----------------------------------------
@@ -94,7 +103,14 @@ public class EngineerQualificationService {
     qualification.setExternalVerified(false);
     qualification.setCreatedAt(now);
     qualification.setUpdatedAt(now);
-    return toResponse(engineerQualificationRepository.save(qualification));
+    final QualificationResponse response =
+        toResponse(engineerQualificationRepository.save(qualification));
+    log.info(
+        "Qualification {} added for engineer user {} (type={})",
+        response.id(),
+        userId,
+        request.type());
+    return response;
   }
 
   public List<QualificationResponse> getMyQualifications(final UUID userId) {
@@ -115,7 +131,10 @@ public class EngineerQualificationService {
     qualification.setVerifiedAt(OffsetDateTime.now(clock));
     qualification.setVerifiedBy(adminId);
     qualification.setUpdatedAt(OffsetDateTime.now(clock));
-    return toResponse(engineerQualificationRepository.save(qualification));
+    final QualificationResponse response =
+        toResponse(engineerQualificationRepository.save(qualification));
+    log.info("Qualification {} verified with status={}", qualificationId, newStatus);
+    return response;
   }
 
   // -- Mapping helpers --------------------------------------------------------
@@ -144,58 +163,15 @@ public class EngineerQualificationService {
         q.getUpdatedAt());
   }
 
-  // -- Existing DTO mapping (kept for backward compat) ------------------------
-
-  private EngineerQualificationDTO mapToDTO(
-      final EngineerQualification engineerQualification,
-      final EngineerQualificationDTO engineerQualificationDTO) {
-    engineerQualificationDTO.setId(engineerQualification.getId());
-    engineerQualificationDTO.setExpiryDate(engineerQualification.getExpiryDate());
-    engineerQualificationDTO.setExternalVerified(engineerQualification.getExternalVerified());
-    engineerQualificationDTO.setIssueDate(engineerQualification.getIssueDate());
-    engineerQualificationDTO.setCreatedAt(engineerQualification.getCreatedAt());
-    engineerQualificationDTO.setLastApiCheckAt(engineerQualification.getLastApiCheckAt());
-    engineerQualificationDTO.setUpdatedAt(engineerQualification.getUpdatedAt());
-    engineerQualificationDTO.setVerifiedAt(engineerQualification.getVerifiedAt());
-    engineerQualificationDTO.setVerifiedBy(engineerQualification.getVerifiedBy());
-    engineerQualificationDTO.setRegistrationNumber(engineerQualification.getRegistrationNumber());
-    engineerQualificationDTO.setDocumentUrl(engineerQualification.getDocumentUrl());
-    engineerQualificationDTO.setSchemeName(engineerQualification.getSchemeName());
-    engineerQualificationDTO.setType(engineerQualification.getType());
-    engineerQualificationDTO.setVerificationStatus(engineerQualification.getVerificationStatus());
-    engineerQualificationDTO.setMetadata(engineerQualification.getMetadata());
-    engineerQualificationDTO.setEngineerProfile(
-        engineerQualification.getEngineerProfile() == null
-            ? null
-            : engineerQualification.getEngineerProfile().getId());
-    return engineerQualificationDTO;
-  }
-
-  private EngineerQualification mapToEntity(
-      final EngineerQualificationDTO engineerQualificationDTO,
-      final EngineerQualification engineerQualification) {
-    engineerQualification.setExpiryDate(engineerQualificationDTO.getExpiryDate());
-    engineerQualification.setExternalVerified(engineerQualificationDTO.getExternalVerified());
-    engineerQualification.setIssueDate(engineerQualificationDTO.getIssueDate());
-    engineerQualification.setCreatedAt(engineerQualificationDTO.getCreatedAt());
-    engineerQualification.setLastApiCheckAt(engineerQualificationDTO.getLastApiCheckAt());
-    engineerQualification.setUpdatedAt(engineerQualificationDTO.getUpdatedAt());
-    engineerQualification.setVerifiedAt(engineerQualificationDTO.getVerifiedAt());
-    engineerQualification.setVerifiedBy(engineerQualificationDTO.getVerifiedBy());
-    engineerQualification.setRegistrationNumber(engineerQualificationDTO.getRegistrationNumber());
-    engineerQualification.setDocumentUrl(engineerQualificationDTO.getDocumentUrl());
-    engineerQualification.setSchemeName(engineerQualificationDTO.getSchemeName());
-    engineerQualification.setType(engineerQualificationDTO.getType());
-    engineerQualification.setVerificationStatus(engineerQualificationDTO.getVerificationStatus());
-    engineerQualification.setMetadata(engineerQualificationDTO.getMetadata());
+  private void resolveReferences(
+      final EngineerQualificationDTO dto, final EngineerQualification entity) {
     final EngineerProfile engineerProfile =
-        engineerQualificationDTO.getEngineerProfile() == null
+        dto.getEngineerProfile() == null
             ? null
             : engineerProfileRepository
-                .findById(engineerQualificationDTO.getEngineerProfile())
+                .findById(dto.getEngineerProfile())
                 .orElseThrow(() -> new NotFoundException("engineerProfile not found"));
-    engineerQualification.setEngineerProfile(engineerProfile);
-    return engineerQualification;
+    entity.setEngineerProfile(engineerProfile);
   }
 
   @EventListener(BeforeDeleteEngineerProfile.class)

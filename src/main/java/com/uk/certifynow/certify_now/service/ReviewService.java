@@ -9,108 +9,97 @@ import com.uk.certifynow.certify_now.model.ReviewDTO;
 import com.uk.certifynow.certify_now.repos.JobRepository;
 import com.uk.certifynow.certify_now.repos.ReviewRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
+import com.uk.certifynow.certify_now.service.mappers.ReviewMapper;
 import com.uk.certifynow.certify_now.util.NotFoundException;
 import com.uk.certifynow.certify_now.util.ReferencedException;
 import java.util.List;
 import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 public class ReviewService {
 
   private final ReviewRepository reviewRepository;
   private final JobRepository jobRepository;
   private final UserRepository userRepository;
+  private final ReviewMapper reviewMapper;
 
   public ReviewService(
       final ReviewRepository reviewRepository,
       final JobRepository jobRepository,
-      final UserRepository userRepository) {
+      final UserRepository userRepository,
+      final ReviewMapper reviewMapper) {
     this.reviewRepository = reviewRepository;
     this.jobRepository = jobRepository;
     this.userRepository = userRepository;
+    this.reviewMapper = reviewMapper;
   }
 
   public List<ReviewDTO> findAll() {
     final List<Review> reviews = reviewRepository.findAll(Sort.by("id"));
-    return reviews.stream().map(review -> mapToDTO(review, new ReviewDTO())).toList();
+    return reviews.stream().map(reviewMapper::toDTO).toList();
   }
 
   public ReviewDTO get(final UUID id) {
     return reviewRepository
         .findById(id)
-        .map(review -> mapToDTO(review, new ReviewDTO()))
+        .map(reviewMapper::toDTO)
         .orElseThrow(NotFoundException::new);
   }
 
+  @Transactional
   public UUID create(final ReviewDTO reviewDTO) {
     final Review review = new Review();
-    mapToEntity(reviewDTO, review);
-    return reviewRepository.save(review).getId();
+    reviewMapper.updateEntity(reviewDTO, review);
+    resolveReferences(reviewDTO, review);
+    final UUID savedId = reviewRepository.save(review).getId();
+    log.info("Review {} created", savedId);
+    return savedId;
   }
 
+  @Transactional
   public void update(final UUID id, final ReviewDTO reviewDTO) {
     final Review review = reviewRepository.findById(id).orElseThrow(NotFoundException::new);
-    mapToEntity(reviewDTO, review);
+    reviewMapper.updateEntity(reviewDTO, review);
+    resolveReferences(reviewDTO, review);
     reviewRepository.save(review);
+    log.info("Review {} updated", id);
   }
 
+  @Transactional
   public void delete(final UUID id) {
     final Review review = reviewRepository.findById(id).orElseThrow(NotFoundException::new);
     reviewRepository.delete(review);
+    log.info("Review {} deleted", id);
   }
 
-  private ReviewDTO mapToDTO(final Review review, final ReviewDTO reviewDTO) {
-    reviewDTO.setId(review.getId());
-    reviewDTO.setCommunication(review.getCommunication());
-    reviewDTO.setIsVisible(review.getIsVisible());
-    reviewDTO.setProfessionalism(review.getProfessionalism());
-    reviewDTO.setPunctuality(review.getPunctuality());
-    reviewDTO.setQuality(review.getQuality());
-    reviewDTO.setRating(review.getRating());
-    reviewDTO.setCreatedAt(review.getCreatedAt());
-    reviewDTO.setComment(review.getComment());
-    reviewDTO.setDirection(review.getDirection());
-    reviewDTO.setJob(review.getJob() == null ? null : review.getJob().getId());
-    reviewDTO.setReviewee(review.getReviewee() == null ? null : review.getReviewee().getId());
-    reviewDTO.setReviewer(review.getReviewer() == null ? null : review.getReviewer().getId());
-    return reviewDTO;
-  }
-
-  private Review mapToEntity(final ReviewDTO reviewDTO, final Review review) {
-    review.setCommunication(reviewDTO.getCommunication());
-    review.setIsVisible(reviewDTO.getIsVisible());
-    review.setProfessionalism(reviewDTO.getProfessionalism());
-    review.setPunctuality(reviewDTO.getPunctuality());
-    review.setQuality(reviewDTO.getQuality());
-    review.setRating(reviewDTO.getRating());
-    review.setCreatedAt(reviewDTO.getCreatedAt());
-    review.setComment(reviewDTO.getComment());
-    review.setDirection(reviewDTO.getDirection());
+  private void resolveReferences(final ReviewDTO dto, final Review entity) {
     final Job job =
-        reviewDTO.getJob() == null
+        dto.getJob() == null
             ? null
             : jobRepository
-                .findById(reviewDTO.getJob())
+                .findById(dto.getJob())
                 .orElseThrow(() -> new NotFoundException("job not found"));
-    review.setJob(job);
+    entity.setJob(job);
     final User reviewee =
-        reviewDTO.getReviewee() == null
+        dto.getReviewee() == null
             ? null
             : userRepository
-                .findById(reviewDTO.getReviewee())
+                .findById(dto.getReviewee())
                 .orElseThrow(() -> new NotFoundException("reviewee not found"));
-    review.setReviewee(reviewee);
+    entity.setReviewee(reviewee);
     final User reviewer =
-        reviewDTO.getReviewer() == null
+        dto.getReviewer() == null
             ? null
             : userRepository
-                .findById(reviewDTO.getReviewer())
+                .findById(dto.getReviewer())
                 .orElseThrow(() -> new NotFoundException("reviewer not found"));
-    review.setReviewer(reviewer);
-    return review;
+    entity.setReviewer(reviewer);
   }
 
   @EventListener(BeforeDeleteJob.class)

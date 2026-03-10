@@ -13,6 +13,13 @@ import org.mapstruct.MappingTarget;
 public interface PropertyMapper {
 
   @Mapping(target = "owner", source = "owner.id")
+  @Mapping(
+      target = "hasGasCertPdf",
+      expression = "java(property.getGasCertPdf() != null && property.getGasCertPdf().length > 0)")
+  @Mapping(
+      target = "hasEicrCertPdf",
+      expression =
+          "java(property.getEicrCertPdf() != null && property.getEicrCertPdf().length > 0)")
   PropertyDTO toDTO(Property property);
 
   @Mapping(target = "owner", ignore = true)
@@ -22,6 +29,8 @@ public interface PropertyMapper {
   @Mapping(target = "dateCreated", ignore = true)
   @Mapping(target = "lastUpdated", ignore = true)
   @Mapping(target = "id", ignore = true)
+  @Mapping(target = "gasCertPdf", ignore = true)
+  @Mapping(target = "eicrCertPdf", ignore = true)
   Property toEntity(PropertyDTO dto);
 
   @Mapping(target = "owner", ignore = true)
@@ -31,6 +40,8 @@ public interface PropertyMapper {
   @Mapping(target = "dateCreated", ignore = true)
   @Mapping(target = "lastUpdated", ignore = true)
   @Mapping(target = "id", ignore = true)
+  @Mapping(target = "gasCertPdf", ignore = true)
+  @Mapping(target = "eicrCertPdf", ignore = true)
   void updateEntity(PropertyDTO dto, @MappingTarget Property property);
 
   @AfterMapping

@@ -59,6 +59,7 @@ certifynow:
     expired-broadcast-check-interval-ms: 30000
 
 app:
+  base-url: ${APP_BASE_URL:http://localhost:8080}
   cors:
     allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*}
   pricing:

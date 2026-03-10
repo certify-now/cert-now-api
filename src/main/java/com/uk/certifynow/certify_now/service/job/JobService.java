@@ -217,6 +217,7 @@ public class JobService {
   // ────────────────────────────────────────────────────────────────────────────
 
   @Cacheable(value = "jobs", key = "#jobId")
+  @Transactional(readOnly = true)
   public JobResponse getById(final UUID jobId, final UUID actorId, final UserRole actorRole) {
     final Job job = loadJobOrThrow(jobId);
     authoriseRead(job, actorId, actorRole);
@@ -228,6 +229,7 @@ public class JobService {
   // LIST JOBS
   // ────────────────────────────────────────────────────────────────────────────
 
+  @Transactional(readOnly = true)
   public Page<JobSummaryResponse> listJobs(
       final UUID actorId,
       final UserRole actorRole,

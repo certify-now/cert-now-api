@@ -24,6 +24,13 @@ repositories {
 
 
 dependencies {
+    // PDF generation (OpenHTMLtoPDF LGPL 2.1, PDFBox Apache 2.0 — safe for commercial SaaS)
+    implementation('com.openhtmltopdf:openhtmltopdf-pdfbox:1.0.10')
+    // QR code generation (ZXing, Apache 2.0)
+    implementation('com.google.zxing:core:3.5.3')
+    implementation('com.google.zxing:javase:3.5.3')
+    // Standalone Thymeleaf for PDF template rendering (Apache 2.0)
+    implementation('org.thymeleaf:thymeleaf:3.1.3.RELEASE')
     implementation('org.springframework.boot:spring-boot-starter-web')
     implementation('org.springframework.boot:spring-boot-starter-mail')
     implementation('org.springframework.boot:spring-boot-starter-validation')

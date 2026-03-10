@@ -114,10 +114,10 @@ class JobControllerIntegrationTest {
     propertyId = createPropertyForCustomer(customer);
 
     final String createBody =
-        "{\"property_id\": \""
+        "{\"propertyId\": \""
             + propertyId
-            + "\", \"certificate_type\": \"EPC\", \"urgency\": \"STANDARD\","
-            + " \"access_instructions\": \"Ring bell twice\", \"customer_notes\": \"Dog is"
+            + "\", \"certificateType\": \"EPC\", \"urgency\": \"STANDARD\","
+            + " \"accessInstructions\": \"Ring bell twice\", \"customerNotes\": \"Dog is"
             + " friendly\"}";
 
     final String jobId =
@@ -130,11 +130,11 @@ class JobControllerIntegrationTest {
             .then()
             .statusCode(201)
             .body("data.status", equalTo("CREATED"))
-            .body("data.reference_number", notNullValue())
+            .body("data.referenceNumber", notNullValue())
             .extract()
             .path("data.id");
 
-    final String matchBody = "{\"engineer_id\": \"" + engineer.getId() + "\"}";
+    final String matchBody = "{\"engineerId\": \"" + engineer.getId() + "\"}";
     given()
         .contentType(ContentType.JSON)
         .header("Authorization", "Bearer " + adminToken)
@@ -147,7 +147,7 @@ class JobControllerIntegrationTest {
 
     final String scheduledDate = LocalDate.now().plusDays(3).toString();
     final String acceptBody =
-        "{\"scheduled_date\": \"" + scheduledDate + "\", \"scheduled_time_slot\": \"MORNING\"}";
+        "{\"scheduledDate\": \"" + scheduledDate + "\", \"scheduledTimeSlot\": \"MORNING\"}";
     given()
         .contentType(ContentType.JSON)
         .header("Authorization", "Bearer " + engineerToken)
@@ -214,7 +214,7 @@ class JobControllerIntegrationTest {
     propertyId = createPropertyForCustomer(customer);
     final String jobId = createJobViaApi(propertyId);
 
-    final String matchBody = "{\"engineer_id\": \"" + engineer.getId() + "\"}";
+    final String matchBody = "{\"engineerId\": \"" + engineer.getId() + "\"}";
     given()
         .contentType(ContentType.JSON)
         .header("Authorization", "Bearer " + adminToken)
@@ -324,9 +324,9 @@ class JobControllerIntegrationTest {
   /** Creates a job via the REST API and returns its ID. */
   private String createJobViaApi(final UUID propId) {
     final String body =
-        "{\"property_id\": \""
+        "{\"propertyId\": \""
             + propId
-            + "\", \"certificate_type\": \"EPC\", \"urgency\": \"STANDARD\"}";
+            + "\", \"certificateType\": \"EPC\", \"urgency\": \"STANDARD\"}";
 
     return given()
         .contentType(ContentType.JSON)

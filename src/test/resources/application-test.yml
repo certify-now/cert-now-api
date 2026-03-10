@@ -9,6 +9,7 @@ spring:
     show-sql: false
 
 app:
+  base-url: http://localhost:8080
   email:
     provider: stub
     from: no-reply@certifynow.test

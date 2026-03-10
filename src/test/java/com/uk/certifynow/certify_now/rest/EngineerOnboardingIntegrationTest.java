@@ -122,12 +122,12 @@ class EngineerOnboardingIntegrationTest {
   void addQualificationReturnsPendingStatus() {
     final String body =
         "{\"type\": \"GAS_SAFE\","
-            + " \"registration_number\": \"GS123456\","
-            + " \"expiry_date\": \""
+            + " \"registrationNumber\": \"GS123456\","
+            + " \"expiryDate\": \""
             + LocalDate.now().plusYears(1)
             + "\","
-            + " \"scheme_name\": \"Gas Safe Register\","
-            + " \"document_url\": \"https://example.com/cert.pdf\"}";
+            + " \"schemeName\": \"Gas Safe Register\","
+            + " \"documentUrl\": \"https://example.com/cert.pdf\"}";
 
     given()
         .contentType(ContentType.JSON)
@@ -137,9 +137,9 @@ class EngineerOnboardingIntegrationTest {
         .post("/api/v1/engineer/qualifications")
         .then()
         .statusCode(201)
-        .body("data.verification_status", equalTo("PENDING"))
+        .body("data.verificationStatus", equalTo("PENDING"))
         .body("data.type", equalTo("GAS_SAFE"))
-        .body("data.registration_number", equalTo("GS123456"));
+        .body("data.registrationNumber", equalTo("GS123456"));
   }
 
   // ========================================================================
@@ -150,17 +150,17 @@ class EngineerOnboardingIntegrationTest {
   @DisplayName("POST /engineer/insurance → insurance created with PENDING status")
   void addInsuranceReturnsPendingStatus() {
     final String body =
-        "{\"policy_type\": \"PUBLIC_LIABILITY\","
+        "{\"policyType\": \"PUBLIC_LIABILITY\","
             + " \"provider\": \"Aviva\","
-            + " \"policy_number\": \"PL-001\","
-            + " \"start_date\": \""
+            + " \"policyNumber\": \"PL-001\","
+            + " \"startDate\": \""
             + LocalDate.now().minusMonths(1)
             + "\","
-            + " \"expiry_date\": \""
+            + " \"expiryDate\": \""
             + LocalDate.now().plusYears(1)
             + "\","
-            + " \"cover_amount_pence\": 500000000,"
-            + " \"document_url\": \"https://example.com/insurance.pdf\"}";
+            + " \"coverAmountPence\": 500000000,"
+            + " \"documentUrl\": \"https://example.com/insurance.pdf\"}";
 
     given()
         .contentType(ContentType.JSON)
@@ -170,8 +170,8 @@ class EngineerOnboardingIntegrationTest {
         .post("/api/v1/engineer/insurance")
         .then()
         .statusCode(201)
-        .body("data.verification_status", equalTo("PENDING"))
-        .body("data.policy_type", equalTo("PUBLIC_LIABILITY"));
+        .body("data.verificationStatus", equalTo("PENDING"))
+        .body("data.policyType", equalTo("PUBLIC_LIABILITY"));
   }
 
   // ========================================================================
@@ -183,8 +183,8 @@ class EngineerOnboardingIntegrationTest {
   void setAvailabilityCreatesRecurringSlots() {
     final String body =
         "{\"slots\": ["
-            + "{\"day_of_week\": 1, \"start_time\": \"09:00\", \"end_time\": \"17:00\", \"is_available\": true},"
-            + "{\"day_of_week\": 2, \"start_time\": \"09:00\", \"end_time\": \"17:00\", \"is_available\": true}"
+            + "{\"dayOfWeek\": 1, \"startTime\": \"09:00\", \"endTime\": \"17:00\", \"isAvailable\": true},"
+            + "{\"dayOfWeek\": 2, \"startTime\": \"09:00\", \"endTime\": \"17:00\", \"isAvailable\": true}"
             + "]}";
 
     given()
@@ -196,8 +196,8 @@ class EngineerOnboardingIntegrationTest {
         .then()
         .statusCode(200)
         .body("data", hasSize(2))
-        .body("data[0].is_recurring", equalTo(true))
-        .body("data[1].is_recurring", equalTo(true));
+        .body("data[0].isRecurring", equalTo(true))
+        .body("data[1].isRecurring", equalTo(true));
   }
 
   // ========================================================================
@@ -209,7 +209,7 @@ class EngineerOnboardingIntegrationTest {
   void adminVerifyQualification() {
     final String qualId = addQualificationViaApi();
 
-    final String verifyBody = "{\"verification_status\": \"VERIFIED\"}";
+    final String verifyBody = "{\"verificationStatus\": \"VERIFIED\"}";
     given()
         .contentType(ContentType.JSON)
         .header("Authorization", "Bearer " + adminToken)
@@ -222,7 +222,7 @@ class EngineerOnboardingIntegrationTest {
                 + qualId)
         .then()
         .statusCode(200)
-        .body("data.verification_status", equalTo("VERIFIED"));
+        .body("data.verificationStatus", equalTo("VERIFIED"));
   }
 
   // ========================================================================
@@ -244,7 +244,7 @@ class EngineerOnboardingIntegrationTest {
         .then()
         .statusCode(200)
         .body("data.status", equalTo("APPROVED"))
-        .body("data.approved_at", notNullValue());
+        .body("data.approvedAt", notNullValue());
   }
 
   // ========================================================================
@@ -255,7 +255,7 @@ class EngineerOnboardingIntegrationTest {
   @DisplayName("PUT /engineer/online-status → isOnline true only after APPROVED")
   void onlineStatusRequiresApproval() {
     // Attempt to go online before approval → 409
-    final String onlineBody = "{\"is_online\": true}";
+    final String onlineBody = "{\"isOnline\": true}";
     given()
         .contentType(ContentType.JSON)
         .header("Authorization", "Bearer " + engineerToken)
@@ -339,8 +339,8 @@ class EngineerOnboardingIntegrationTest {
   private String addQualificationViaApi() {
     final String body =
         "{\"type\": \"GAS_SAFE\","
-            + " \"registration_number\": \"GS123456\","
-            + " \"expiry_date\": \""
+            + " \"registrationNumber\": \"GS123456\","
+            + " \"expiryDate\": \""
             + LocalDate.now().plusYears(1)
             + "\"}";
     return given()
@@ -364,7 +364,7 @@ class EngineerOnboardingIntegrationTest {
           .then()
           .statusCode(200);
     } else {
-      final String body = "{\"target_status\": \"" + targetStatus.name() + "\"}";
+      final String body = "{\"targetStatus\": \"" + targetStatus.name() + "\"}";
       given()
           .contentType(ContentType.JSON)
           .header("Authorization", "Bearer " + adminToken)

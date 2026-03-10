@@ -1,6 +1,7 @@
 package com.uk.certifynow.certify_now.repos;
 
 import com.uk.certifynow.certify_now.domain.EmailVerificationToken;
+import com.uk.certifynow.certify_now.domain.User;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -19,6 +20,14 @@ public interface EmailVerificationTokenRepository
    * @return optional token entity
    */
   Optional<EmailVerificationToken> findByTokenHash(String tokenHash);
+
+  /**
+   * Find the most recent token for a user, ordered by creation time descending.
+   *
+   * @param user the user to find the latest token for
+   * @return optional most recent token
+   */
+  Optional<EmailVerificationToken> findTopByUserOrderByCreatedAtDesc(User user);
 
   /**
    * Delete all expired and used tokens for cleanup.

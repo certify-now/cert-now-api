@@ -8,7 +8,9 @@ import com.uk.certifynow.certify_now.repos.UserRepository;
 import com.uk.certifynow.certify_now.service.EmailService;
 import java.security.SecureRandom;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.Optional;
 import java.util.UUID;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,10 +22,11 @@ import org.springframework.transaction.annotation.Transactional;
  * Service for email verification operations.
  *
  * <p>Handles: - Generating and sending verification codes - Verifying email addresses with codes -
- * Token expiry and single-use enforcement
+ * Token expiry and single-use enforcement - Cooldown enforcement for resend requests
  *
  * <p>Security features: - Cryptographically secure random 6-digit codes - SHA-256 hashing (codes
- * never stored in plaintext) - 24-hour expiry window - Single-use enforcement
+ * never stored in plaintext) - 24-hour expiry window - Single-use enforcement - Configurable
+ * cooldown between resend requests
  */
 @Service
 public class EmailVerificationService {
@@ -35,6 +38,9 @@ public class EmailVerificationService {
 
   @Value("${app.email-verification.token-expiry-hours:24}")
   private int tokenExpiryHours;
+
+  @Value("${app.email-verification.resend-cooldown-seconds:60}")
+  private int resendCooldownSeconds;
 
   public EmailVerificationService(
       final UserRepository userRepository,
@@ -129,7 +135,9 @@ public class EmailVerificationService {
   }
 
   /**
-   * Resend verification email to user.
+   * Resend verification email to user by user ID.
+   *
+   * <p>Enforces a cooldown period between resend requests to prevent abuse.
    *
    * @param userId user ID
    * @return raw verification code
@@ -149,7 +157,65 @@ public class EmailVerificationService {
           HttpStatus.BAD_REQUEST, "ALREADY_VERIFIED", "Email is already verified");
     }
 
+    enforceCooldown(user);
+
     return sendVerificationEmail(user);
+  }
+
+  /**
+   * Resend verification email by email address.
+   *
+   * <p>Designed for unauthenticated access. Returns silently for unknown or already-verified emails
+   * to prevent email enumeration attacks.
+   *
+   * @param email email address to resend verification to
+   */
+  @Transactional
+  public void resendVerificationEmailByEmail(final String email) {
+    final Optional<User> optionalUser = userRepository.findByEmailIgnoreCase(email);
+
+    // If user not found, return silently to prevent email enumeration
+    if (optionalUser.isEmpty()) {
+      return;
+    }
+
+    final User user = optionalUser.get();
+
+    // If already verified, return silently to prevent leaking state
+    if (user.getEmailVerified()) {
+      return;
+    }
+
+    enforceCooldown(user);
+
+    sendVerificationEmail(user);
+  }
+
+  /**
+   * Enforce cooldown period between verification email resend requests.
+   *
+   * @param user user to check cooldown for
+   * @throws BusinessException with TOO_MANY_REQUESTS if within cooldown period
+   */
+  private void enforceCooldown(final User user) {
+    tokenRepository
+        .findTopByUserOrderByCreatedAtDesc(user)
+        .ifPresent(
+            lastToken -> {
+              final OffsetDateTime now = OffsetDateTime.now(clock);
+              final Duration elapsed = Duration.between(lastToken.getCreatedAt(), now);
+              final long cooldownSeconds = resendCooldownSeconds;
+
+              if (elapsed.getSeconds() < cooldownSeconds) {
+                final long remainingSeconds = cooldownSeconds - elapsed.getSeconds();
+                throw new BusinessException(
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "RESEND_COOLDOWN",
+                    "Please wait "
+                        + remainingSeconds
+                        + " seconds before requesting another verification email");
+              }
+            });
   }
 
   /**

@@ -94,6 +94,8 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers(HttpMethod.POST, "/api/v1/auth/verify-email")
                     .permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/v1/auth/resend-verification")
+                    .permitAll()
                     .requestMatchers(HttpMethod.POST, "/api/v1/auth/request-password-reset")
                     .permitAll()
                     .requestMatchers(HttpMethod.POST, "/api/v1/auth/reset-password")

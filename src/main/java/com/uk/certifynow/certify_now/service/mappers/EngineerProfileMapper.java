@@ -3,12 +3,14 @@ package com.uk.certifynow.certify_now.service.mappers;
 import com.uk.certifynow.certify_now.domain.EngineerProfile;
 import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.model.EngineerProfileDTO;
+import com.uk.certifynow.certify_now.service.auth.EngineerApplicationStatus;
+import com.uk.certifynow.certify_now.service.auth.EngineerTier;
 import java.util.UUID;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 
-@Mapper
+@Mapper(imports = {EngineerApplicationStatus.class, EngineerTier.class})
 public interface EngineerProfileMapper {
 
   @Mapping(target = "status", expression = "java(entity.getStatus().name())")

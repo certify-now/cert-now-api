@@ -3,11 +3,14 @@ package com.uk.certifynow.certify_now.service.mappers;
 import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.model.UserDTO;
 import com.uk.certifynow.certify_now.model.UserMeDTO;
+import com.uk.certifynow.certify_now.service.auth.AuthProvider;
+import com.uk.certifynow.certify_now.service.auth.UserRole;
+import com.uk.certifynow.certify_now.service.auth.UserStatus;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 
-@Mapper
+@Mapper(imports = {AuthProvider.class, UserRole.class, UserStatus.class})
 public interface UserMapper {
 
   @Mapping(target = "authProvider", expression = "java(user.getAuthProvider().name())")

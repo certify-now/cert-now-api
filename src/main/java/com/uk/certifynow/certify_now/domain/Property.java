@@ -8,7 +8,6 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import java.math.BigDecimal;
@@ -99,7 +98,6 @@ public class Property {
 
   @Column private LocalDate gasExpiryDate;
 
-  @Lob
   @Basic(fetch = FetchType.LAZY)
   @Column(columnDefinition = "bytea")
   private byte[] gasCertPdf;
@@ -113,7 +111,6 @@ public class Property {
 
   @Column private LocalDate eicrExpiryDate;
 
-  @Lob
   @Basic(fetch = FetchType.LAZY)
   @Column(columnDefinition = "bytea")
   private byte[] eicrCertPdf;

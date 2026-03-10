@@ -9,6 +9,7 @@ import com.uk.certifynow.certify_now.service.auth.dto.LoginRequest;
 import com.uk.certifynow.certify_now.service.auth.dto.LogoutRequest;
 import com.uk.certifynow.certify_now.service.auth.dto.RefreshRequest;
 import com.uk.certifynow.certify_now.service.auth.dto.RegisterRequest;
+import com.uk.certifynow.certify_now.service.auth.dto.ResendVerificationRequest;
 import com.uk.certifynow.certify_now.service.auth.dto.VerifyEmailRequest;
 import com.uk.certifynow.certify_now.util.IpAddressUtils;
 import io.swagger.v3.oas.annotations.Operation;
@@ -173,6 +174,32 @@ public class AuthController {
     emailVerificationService.verifyEmail(request.code());
     return ApiResponse.of(
         Map.of("message", "Email verified. You can now log in."), requestId(httpRequest));
+  }
+
+  @PostMapping("/resend-verification")
+  @SecurityRequirements
+  @Operation(
+      summary = "Resend email verification code",
+      description =
+          "Sends a new verification code to the specified email address."
+              + " Returns a generic success response regardless of whether the email exists"
+              + " or is already verified, to prevent email enumeration."
+              + " Subject to a cooldown period between requests.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Request processed (generic response)"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "429",
+        description = "Too many requests — cooldown period has not elapsed")
+  })
+  public ApiResponse<Map<String, String>> resendVerification(
+      @Valid @RequestBody final ResendVerificationRequest request,
+      final HttpServletRequest httpRequest) {
+    emailVerificationService.resendVerificationEmailByEmail(request.email());
+    return ApiResponse.of(
+        Map.of("message", "If that email is registered and unverified, a new code has been sent."),
+        requestId(httpRequest));
   }
 
   private String requestId(final HttpServletRequest request) {

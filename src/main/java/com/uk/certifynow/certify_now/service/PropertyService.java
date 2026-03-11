@@ -4,21 +4,27 @@ import com.uk.certifynow.certify_now.domain.Property;
 import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.events.BeforeDeleteProperty;
 import com.uk.certifynow.certify_now.events.BeforeDeleteUser;
+import com.uk.certifynow.certify_now.events.PropertyRestoredEvent;
+import com.uk.certifynow.certify_now.events.PropertySoftDeletedEvent;
+import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.model.ComplianceHealthDTO;
 import com.uk.certifynow.certify_now.model.MyPropertiesResponse;
 import com.uk.certifynow.certify_now.model.PropertyDTO;
+import com.uk.certifynow.certify_now.repos.JobRepository;
 import com.uk.certifynow.certify_now.repos.PropertyRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
 import com.uk.certifynow.certify_now.service.mappers.PropertyMapper;
 import com.uk.certifynow.certify_now.util.NotFoundException;
 import com.uk.certifynow.certify_now.util.ReferencedException;
 import java.io.IOException;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -27,8 +33,12 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 public class PropertyService {
 
+  private static final List<String> TERMINAL_STATUSES =
+      List.of("COMPLETED", "CERTIFIED", "CANCELLED", "FAILED");
+
   private final PropertyRepository propertyRepository;
   private final UserRepository userRepository;
+  private final JobRepository jobRepository;
   private final ApplicationEventPublisher publisher;
   private final PropertyMapper propertyMapper;
   private final ComplianceService complianceService;
@@ -36,11 +46,13 @@ public class PropertyService {
   public PropertyService(
       final PropertyRepository propertyRepository,
       final UserRepository userRepository,
+      final JobRepository jobRepository,
       final ApplicationEventPublisher publisher,
       final PropertyMapper propertyMapper,
       final ComplianceService complianceService) {
     this.propertyRepository = propertyRepository;
     this.userRepository = userRepository;
+    this.jobRepository = jobRepository;
     this.publisher = publisher;
     this.propertyMapper = propertyMapper;
     this.complianceService = complianceService;
@@ -146,6 +158,58 @@ public class PropertyService {
     publisher.publishEvent(new BeforeDeleteProperty(id));
     propertyRepository.delete(property);
     log.info("Property {} deleted", id);
+  }
+
+  // ── Soft-delete operations ──────────────────────────────────────────────────
+
+  /**
+   * Soft-deletes a property by setting deletedAt/deletedBy. Validates there are no active
+   * (non-terminal) jobs referencing this property.
+   */
+  @Transactional
+  public void softDelete(final UUID id, final UUID deletedByUserId) {
+    final Property property =
+        propertyRepository.findByIdIncludingDeleted(id).orElseThrow(NotFoundException::new);
+
+    if (property.isDeleted()) {
+      throw new BusinessException(
+          HttpStatus.CONFLICT, "ALREADY_DELETED", "Property is already soft-deleted");
+    }
+
+    // Validate: no active (non-terminal) jobs on this property
+    final boolean hasActiveJobs =
+        jobRepository.existsByPropertyIdAndStatusNotIn(id, TERMINAL_STATUSES);
+    if (hasActiveJobs) {
+      throw new BusinessException(
+          HttpStatus.CONFLICT, "ACTIVE_JOBS_EXIST", "Cannot soft-delete property with active jobs");
+    }
+
+    final OffsetDateTime now = OffsetDateTime.now();
+    property.setDeletedAt(now);
+    property.setDeletedBy(deletedByUserId);
+    propertyRepository.save(property);
+
+    log.info("Property {} soft-deleted by {}", id, deletedByUserId);
+    publisher.publishEvent(new PropertySoftDeletedEvent(id, deletedByUserId));
+  }
+
+  /** Restores a soft-deleted property by clearing deletedAt/deletedBy. Admin only. */
+  @Transactional
+  public void restore(final UUID id, final UUID restoredByUserId) {
+    final Property property =
+        propertyRepository.findByIdIncludingDeleted(id).orElseThrow(NotFoundException::new);
+
+    if (!property.isDeleted()) {
+      throw new BusinessException(
+          HttpStatus.CONFLICT, "NOT_DELETED", "Property is not soft-deleted");
+    }
+
+    property.setDeletedAt(null);
+    property.setDeletedBy(null);
+    propertyRepository.save(property);
+
+    log.info("Property {} restored by {}", id, restoredByUserId);
+    publisher.publishEvent(new PropertyRestoredEvent(id, restoredByUserId));
   }
 
   /** Upload or update the Gas Safety Certificate PDF and/or expiry metadata for a property. */

@@ -593,6 +593,8 @@ public class JobService {
 
   @EventListener(BeforeDeleteUser.class)
   public void on(final BeforeDeleteUser event) {
+    // Only block hard-delete if there are ANY jobs (active or terminal).
+    // Soft-delete uses its own validation that only checks active jobs.
     final ReferencedException ex = new ReferencedException();
     final Job customerJob = jobRepository.findFirstByCustomerId(event.getId());
     if (customerJob != null) {
@@ -610,6 +612,8 @@ public class JobService {
 
   @EventListener(BeforeDeleteProperty.class)
   public void on(final BeforeDeleteProperty event) {
+    // Only block hard-delete if there are ANY jobs.
+    // Soft-delete uses its own validation that only checks active jobs.
     final ReferencedException ex = new ReferencedException();
     final Job propertyJob = jobRepository.findFirstByPropertyId(event.getId());
     if (propertyJob != null) {

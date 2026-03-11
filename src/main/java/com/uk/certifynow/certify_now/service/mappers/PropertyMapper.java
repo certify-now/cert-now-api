@@ -13,8 +13,13 @@ import org.mapstruct.MappingTarget;
 public interface PropertyMapper {
 
   @Mapping(target = "owner", source = "owner.id")
-  @Mapping(target = "hasGasCertPdf", expression = "java(property.getGasCertPdfName() != null)")
-  @Mapping(target = "hasEicrCertPdf", expression = "java(property.getEicrCertPdfName() != null)")
+  @Mapping(
+      target = "hasGasCertPdf",
+      expression = "java(property.getGasCertPdf() != null && property.getGasCertPdf().length > 0)")
+  @Mapping(
+      target = "hasEicrCertPdf",
+      expression =
+          "java(property.getEicrCertPdf() != null && property.getEicrCertPdf().length > 0)")
   // Computed compliance fields are populated by ComplianceService, not here
   @Mapping(target = "gasStatus", ignore = true)
   @Mapping(target = "eicrStatus", ignore = true)
@@ -32,8 +37,8 @@ public interface PropertyMapper {
   @Mapping(target = "dateCreated", ignore = true)
   @Mapping(target = "lastUpdated", ignore = true)
   @Mapping(target = "id", ignore = true)
-  @Mapping(target = "gasCertPdfBytes", ignore = true)
-  @Mapping(target = "eicrCertPdfBytes", ignore = true)
+  @Mapping(target = "gasCertPdf", ignore = true)
+  @Mapping(target = "eicrCertPdf", ignore = true)
   Property toEntity(PropertyDTO dto);
 
   @Mapping(target = "owner", ignore = true)
@@ -43,8 +48,8 @@ public interface PropertyMapper {
   @Mapping(target = "dateCreated", ignore = true)
   @Mapping(target = "lastUpdated", ignore = true)
   @Mapping(target = "id", ignore = true)
-  @Mapping(target = "gasCertPdfBytes", ignore = true)
-  @Mapping(target = "eicrCertPdfBytes", ignore = true)
+  @Mapping(target = "gasCertPdf", ignore = true)
+  @Mapping(target = "eicrCertPdf", ignore = true)
   // Server-managed fields — must not be overwritten by incoming DTO
   @Mapping(target = "isActive", ignore = true)
   @Mapping(target = "complianceStatus", ignore = true)

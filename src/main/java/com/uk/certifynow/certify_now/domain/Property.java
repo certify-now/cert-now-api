@@ -1,5 +1,6 @@
 package com.uk.certifynow.certify_now.domain;
 
+import jakarta.persistence.Basic;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
@@ -10,6 +11,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.HashSet;
 import java.util.Set;
@@ -90,29 +92,31 @@ public class Property {
 
   @Column private String location;
 
-  // ── Gas Safety Certificate ──────────────────────────────────────────────────
+  // ── Gas Safety certificate fields ──────────────────────────────────────────
+
   @Column private Boolean hasGasCertificate;
 
-  @Column(columnDefinition = "date")
-  private java.time.LocalDate gasExpiryDate;
+  @Column private LocalDate gasExpiryDate;
 
-  @Column private String gasCertPdfName;
-
+  @Basic(fetch = FetchType.LAZY)
   @Column(columnDefinition = "bytea")
-  @jakarta.persistence.Basic(fetch = FetchType.LAZY)
-  private byte[] gasCertPdfBytes;
+  private byte[] gasCertPdf;
 
-  // ── EICR ───────────────────────────────────────────────────────────────────
+  @Column(length = 255)
+  private String gasCertPdfName;
+
+  // ── EICR certificate fields ───────────────────────────────────────────────
+
   @Column private Boolean hasEicr;
 
-  @Column(columnDefinition = "date")
-  private java.time.LocalDate eicrExpiryDate;
+  @Column private LocalDate eicrExpiryDate;
 
-  @Column private String eicrCertPdfName;
-
+  @Basic(fetch = FetchType.LAZY)
   @Column(columnDefinition = "bytea")
-  @jakarta.persistence.Basic(fetch = FetchType.LAZY)
-  private byte[] eicrCertPdfBytes;
+  private byte[] eicrCertPdf;
+
+  @Column(length = 255)
+  private String eicrCertPdfName;
 
   @OneToMany(mappedBy = "property")
   private Set<Certificate> propertyCertificates = new HashSet<>();

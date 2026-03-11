@@ -12,6 +12,7 @@ import com.uk.certifynow.certify_now.repos.UserRepository;
 import com.uk.certifynow.certify_now.service.mappers.PropertyMapper;
 import com.uk.certifynow.certify_now.util.NotFoundException;
 import com.uk.certifynow.certify_now.util.ReferencedException;
+import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
@@ -72,7 +73,7 @@ public class PropertyService {
    */
   public MyPropertiesResponse getMyPropertiesWithCompliance(final UUID ownerId) {
     final List<PropertyDTO> properties =
-        propertyRepository.findByOwnerIdAndIsActiveTrue(ownerId).stream()
+        propertyRepository.findByOwnerIdAndIsActiveTrue(ownerId, Sort.by("createdAt").descending()).stream()
             .map(p -> enriched(propertyMapper.toDTO(p)))
             .toList();
     final ComplianceHealthDTO health = complianceService.computeHealth(properties);
@@ -80,7 +81,10 @@ public class PropertyService {
   }
 
   @Transactional
-  public PropertyDTO create(final PropertyDTO propertyDTO) {
+  public PropertyDTO create(
+      final PropertyDTO propertyDTO,
+      final MultipartFile gasCertPdf,
+      final MultipartFile eicrCertPdf) {
     final Property property = new Property();
     propertyMapper.updateEntity(propertyDTO, property);
     // Resolve owner reference from UUID
@@ -96,6 +100,7 @@ public class PropertyService {
       property.setCreatedAt(now);
       property.setUpdatedAt(now);
     }
+    attachPdfs(property, gasCertPdf, eicrCertPdf);
     Property saved = propertyRepository.save(property);
     if (saved.getOwner() != null) {
       log.info("Property {} created for owner {}", saved.getId(), saved.getOwner().getId());
@@ -144,8 +149,6 @@ public class PropertyService {
 
   /**
    * Upload or update the Gas Safety Certificate PDF and/or expiry metadata for a property.
-   * The landlord may supply only metadata (no file) if they declared cert info during registration
-   * and just want to upload the PDF now.
    */
   @Transactional
   public PropertyDTO uploadGasCertificate(
@@ -162,9 +165,9 @@ public class PropertyService {
     }
     if (pdfFile != null && !pdfFile.isEmpty()) {
       try {
-        property.setGasCertPdfBytes(pdfFile.getBytes());
+        property.setGasCertPdf(pdfFile.getBytes());
         property.setGasCertPdfName(pdfFile.getOriginalFilename());
-      } catch (java.io.IOException e) {
+      } catch (IOException e) {
         throw new RuntimeException("Failed to read gas cert PDF", e);
       }
     }
@@ -192,9 +195,9 @@ public class PropertyService {
     }
     if (pdfFile != null && !pdfFile.isEmpty()) {
       try {
-        property.setEicrCertPdfBytes(pdfFile.getBytes());
+        property.setEicrCertPdf(pdfFile.getBytes());
         property.setEicrCertPdfName(pdfFile.getOriginalFilename());
-      } catch (java.io.IOException e) {
+      } catch (IOException e) {
         throw new RuntimeException("Failed to read EICR PDF", e);
       }
     }
@@ -202,6 +205,28 @@ public class PropertyService {
     final Property saved = propertyRepository.save(property);
     log.info("EICR certificate updated for property {}", id);
     return enriched(propertyMapper.toDTO(saved));
+  }
+
+  /**
+   * Returns the raw Gas Safety certificate PDF bytes for the given property.
+   */
+  public byte[] getGasCertPdf(final UUID id) {
+    final Property property = propertyRepository.findById(id).orElseThrow(NotFoundException::new);
+    if (property.getGasCertPdf() == null || property.getGasCertPdf().length == 0) {
+      throw new NotFoundException("No gas certificate PDF found");
+    }
+    return property.getGasCertPdf();
+  }
+
+  /**
+   * Returns the raw EICR certificate PDF bytes for the given property.
+   */
+  public byte[] getEicrCertPdf(final UUID id) {
+    final Property property = propertyRepository.findById(id).orElseThrow(NotFoundException::new);
+    if (property.getEicrCertPdf() == null || property.getEicrCertPdf().length == 0) {
+      throw new NotFoundException("No EICR certificate PDF found");
+    }
+    return property.getEicrCertPdf();
   }
 
   @EventListener(BeforeDeleteUser.class)

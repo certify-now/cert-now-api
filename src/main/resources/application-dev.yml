@@ -1,3 +1,9 @@
+logging:
+  level:
+    # Suppress benign PostgreSQL NOTICE messages that Hibernate surfaces as WARN
+    # when ddl-auto:update tries to drop constraints that don't exist yet
+    org.hibernate.orm.jdbc.warn: ERROR
+
 spring:
   config:
     import:

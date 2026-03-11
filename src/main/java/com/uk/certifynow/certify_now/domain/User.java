@@ -11,6 +11,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.HashSet;
@@ -24,7 +25,12 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
-@Table(name = "\"user\"")
+@Table(
+    name = "\"user\"",
+    uniqueConstraints = {
+      @UniqueConstraint(name = "uq_user_email", columnNames = "email"),
+      @UniqueConstraint(name = "uq_user_phone", columnNames = "phone")
+    })
 @EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter
@@ -50,7 +56,7 @@ public class User {
   @Column(nullable = false)
   private OffsetDateTime updatedAt;
 
-  @Column(length = 20, unique = true)
+  @Column(length = 20)
   private String phone;
 
   @Column(nullable = false, length = 50)
@@ -60,7 +66,7 @@ public class User {
   @Column(length = 512)
   private String avatarUrl;
 
-  @Column(nullable = false, unique = true)
+  @Column(nullable = false)
   private String email;
 
   @Column private String externalAuthId;

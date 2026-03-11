@@ -15,7 +15,10 @@ import java.util.UUID;
  * window - Single-use enforcement (usedAt timestamp) - Automatic cleanup of expired tokens
  */
 @Entity
-@Table(name = "email_verification_tokens")
+@Table(
+    name = "email_verification_tokens",
+    uniqueConstraints =
+        @UniqueConstraint(name = "uq_email_verification_token_hash", columnNames = "token_hash"))
 public class EmailVerificationToken {
 
   @Id
@@ -26,7 +29,7 @@ public class EmailVerificationToken {
   @JoinColumn(name = "user_id", nullable = false)
   private User user;
 
-  @Column(name = "token_hash", nullable = false, unique = true, length = 64)
+  @Column(name = "token_hash", nullable = false, length = 64)
   private String tokenHash; // SHA-256 hash of raw token
 
   @Column(name = "expires_at", nullable = false)

@@ -17,6 +17,7 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -30,7 +31,14 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
-@Table(name = "gas_safety_record")
+@Table(
+    name = "gas_safety_record",
+    uniqueConstraints = {
+      @UniqueConstraint(name = "uq_gas_safety_record_job_id", columnNames = "job_id"),
+      @UniqueConstraint(
+          name = "uq_gas_safety_record_certificate_number",
+          columnNames = "certificate_number")
+    })
 @EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter
@@ -43,11 +51,11 @@ public class GasSafetyRecord {
   private UUID id;
 
   @OneToOne(fetch = FetchType.LAZY)
-  @JoinColumn(name = "job_id", nullable = false, unique = true)
+  @JoinColumn(name = "job_id", nullable = false)
   private Job job;
 
   // Certificate fields
-  @Column(nullable = false, unique = true, length = 100)
+  @Column(nullable = false, length = 100)
   private String certificateNumber;
 
   @Column(length = 100)

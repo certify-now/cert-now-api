@@ -90,6 +90,30 @@ public class Property {
 
   @Column private String location;
 
+  // ── Gas Safety Certificate ──────────────────────────────────────────────────
+  @Column private Boolean hasGasCertificate;
+
+  @Column(columnDefinition = "date")
+  private java.time.LocalDate gasExpiryDate;
+
+  @Column private String gasCertPdfName;
+
+  @Column(columnDefinition = "bytea")
+  @jakarta.persistence.Basic(fetch = FetchType.LAZY)
+  private byte[] gasCertPdfBytes;
+
+  // ── EICR ───────────────────────────────────────────────────────────────────
+  @Column private Boolean hasEicr;
+
+  @Column(columnDefinition = "date")
+  private java.time.LocalDate eicrExpiryDate;
+
+  @Column private String eicrCertPdfName;
+
+  @Column(columnDefinition = "bytea")
+  @jakarta.persistence.Basic(fetch = FetchType.LAZY)
+  private byte[] eicrCertPdfBytes;
+
   @OneToMany(mappedBy = "property")
   private Set<Certificate> propertyCertificates = new HashSet<>();
 

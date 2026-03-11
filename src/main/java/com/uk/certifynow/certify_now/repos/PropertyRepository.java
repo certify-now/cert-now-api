@@ -10,4 +10,6 @@ public interface PropertyRepository extends JpaRepository<Property, UUID> {
 
   org.springframework.data.domain.Page<Property> findByOwnerId(
       UUID ownerId, org.springframework.data.domain.Pageable pageable);
+
+  java.util.List<Property> findByOwnerIdAndIsActiveTrue(UUID ownerId);
 }

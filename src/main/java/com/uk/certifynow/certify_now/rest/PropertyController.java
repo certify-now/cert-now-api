@@ -1,6 +1,7 @@
 package com.uk.certifynow.certify_now.rest;
 
 import com.uk.certifynow.certify_now.config.RequestIdFilter;
+import com.uk.certifynow.certify_now.model.MyPropertiesResponse;
 import com.uk.certifynow.certify_now.model.PropertyDTO;
 import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
 import com.uk.certifynow.certify_now.service.PropertyService;
@@ -10,14 +11,17 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.time.LocalDate;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/properties")
@@ -188,6 +192,71 @@ public class PropertyController {
       throw new AccessDeniedException("You do not own this property");
     }
     propertyService.deactivate(id);
+  }
+
+  @GetMapping("/with-compliance")
+  @Operation(
+      summary = "List my properties with live compliance health",
+      description =
+          "Returns all active properties for the authenticated customer with live-computed"
+              + " compliance statuses, expiry countdowns, next actions and an aggregate health score.")
+  public ApiResponse<MyPropertiesResponse> getMyPropertiesWithCompliance(
+      final Authentication authentication, final HttpServletRequest request) {
+    ensureCustomer(authentication);
+    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
+    return ApiResponse.of(propertyService.getMyPropertiesWithCompliance(userId), requestId(request));
+  }
+
+  @PostMapping("/{id}/gas-certificate")
+  @Operation(
+      summary = "Upload / update Gas Safety Certificate",
+      description =
+          "Stores the Gas Safety Certificate PDF and/or updates expiry metadata for a property."
+              + " Useful when the landlord declared cert details during registration but hasn't"
+              + " uploaded the PDF yet.")
+  public ApiResponse<PropertyDTO> uploadGasCertificate(
+      @Parameter(description = "Property ID") @PathVariable final UUID id,
+      @RequestParam(required = false) final Boolean hasGasCertificate,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+          final LocalDate gasExpiryDate,
+      @RequestParam(required = false) final MultipartFile gasCertPdf,
+      final Authentication authentication,
+      final HttpServletRequest request) {
+    ensureCustomer(authentication);
+    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
+    final PropertyDTO existing = propertyService.get(id);
+    if (!userId.equals(existing.getOwner())) {
+      throw new AccessDeniedException("You do not own this property");
+    }
+    return ApiResponse.of(
+        propertyService.uploadGasCertificate(id, hasGasCertificate, gasExpiryDate, gasCertPdf),
+        requestId(request));
+  }
+
+  @PostMapping("/{id}/eicr-certificate")
+  @Operation(
+      summary = "Upload / update EICR Certificate",
+      description =
+          "Stores the EICR PDF and/or updates expiry metadata for a property."
+              + " Useful when the landlord declared cert details during registration but hasn't"
+              + " uploaded the PDF yet.")
+  public ApiResponse<PropertyDTO> uploadEicrCertificate(
+      @Parameter(description = "Property ID") @PathVariable final UUID id,
+      @RequestParam(required = false) final Boolean hasEicr,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+          final LocalDate eicrExpiryDate,
+      @RequestParam(required = false) final MultipartFile eicrCertPdf,
+      final Authentication authentication,
+      final HttpServletRequest request) {
+    ensureCustomer(authentication);
+    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
+    final PropertyDTO existing = propertyService.get(id);
+    if (!userId.equals(existing.getOwner())) {
+      throw new AccessDeniedException("You do not own this property");
+    }
+    return ApiResponse.of(
+        propertyService.uploadEicrCertificate(id, hasEicr, eicrExpiryDate, eicrCertPdf),
+        requestId(request));
   }
 
   private String requestId(final HttpServletRequest request) {

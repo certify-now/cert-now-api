@@ -144,7 +144,7 @@ public class PropertyController {
         responseCode = "404",
         description = "Property not found")
   })
-  public ApiResponse<Void> updateProperty(
+  public ApiResponse<PropertyDTO> updateProperty(
       @Parameter(description = "Property ID") @PathVariable final UUID id,
       @Valid @RequestBody final PropertyDTO propertyDTO,
       final Authentication authentication,
@@ -157,8 +157,7 @@ public class PropertyController {
     }
     propertyDTO.setId(id);
     propertyDTO.setOwner(userId);
-    propertyService.update(id, propertyDTO);
-    return ApiResponse.of(null, requestId(request));
+    return ApiResponse.of(propertyService.update(id, propertyDTO), requestId(request));
   }
 
   @DeleteMapping("/{id}")

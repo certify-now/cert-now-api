@@ -107,7 +107,7 @@ public class PropertyService {
   }
 
   @Transactional
-  public void update(final UUID id, final PropertyDTO propertyDTO) {
+  public PropertyDTO update(final UUID id, final PropertyDTO propertyDTO) {
     final Property property = propertyRepository.findById(id).orElseThrow(NotFoundException::new);
     final java.time.OffsetDateTime createdAt = property.getCreatedAt();
     propertyMapper.updateEntity(propertyDTO, property);
@@ -121,8 +121,9 @@ public class PropertyService {
     property.setOwner(owner);
     property.setCreatedAt(createdAt);
     property.setUpdatedAt(java.time.OffsetDateTime.now());
-    propertyRepository.save(property);
+    final Property saved = propertyRepository.save(property);
     log.info("Property {} updated", id);
+    return enriched(propertyMapper.toDTO(saved));
   }
 
   @Transactional

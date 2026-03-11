@@ -48,9 +48,7 @@ public class PropertyService {
 
   public List<PropertyDTO> findAll() {
     final List<Property> properties = propertyRepository.findAll(Sort.by("id"));
-    return properties.stream()
-        .map(p -> enriched(propertyMapper.toDTO(p)))
-        .toList();
+    return properties.stream().map(p -> enriched(propertyMapper.toDTO(p))).toList();
   }
 
   public PropertyDTO get(final UUID id) {
@@ -68,12 +66,14 @@ public class PropertyService {
   }
 
   /**
-   * Returns all active properties for an owner together with the aggregate compliance health.
-   * This is the primary endpoint for the properties list screen.
+   * Returns all active properties for an owner together with the aggregate compliance health. This
+   * is the primary endpoint for the properties list screen.
    */
   public MyPropertiesResponse getMyPropertiesWithCompliance(final UUID ownerId) {
     final List<PropertyDTO> properties =
-        propertyRepository.findByOwnerIdAndIsActiveTrue(ownerId, Sort.by("createdAt").descending()).stream()
+        propertyRepository
+            .findByOwnerIdAndIsActiveTrue(ownerId, Sort.by("createdAt").descending())
+            .stream()
             .map(p -> enriched(propertyMapper.toDTO(p)))
             .toList();
     final ComplianceHealthDTO health = complianceService.computeHealth(properties);
@@ -147,9 +147,7 @@ public class PropertyService {
     log.info("Property {} deleted", id);
   }
 
-  /**
-   * Upload or update the Gas Safety Certificate PDF and/or expiry metadata for a property.
-   */
+  /** Upload or update the Gas Safety Certificate PDF and/or expiry metadata for a property. */
   @Transactional
   public PropertyDTO uploadGasCertificate(
       final UUID id,
@@ -177,9 +175,7 @@ public class PropertyService {
     return enriched(propertyMapper.toDTO(saved));
   }
 
-  /**
-   * Upload or update the EICR PDF and/or expiry metadata for a property.
-   */
+  /** Upload or update the EICR PDF and/or expiry metadata for a property. */
   @Transactional
   public PropertyDTO uploadEicrCertificate(
       final UUID id,
@@ -207,9 +203,7 @@ public class PropertyService {
     return enriched(propertyMapper.toDTO(saved));
   }
 
-  /**
-   * Returns the raw Gas Safety certificate PDF bytes for the given property.
-   */
+  /** Returns the raw Gas Safety certificate PDF bytes for the given property. */
   public byte[] getGasCertPdf(final UUID id) {
     final Property property = propertyRepository.findById(id).orElseThrow(NotFoundException::new);
     if (property.getGasCertPdf() == null || property.getGasCertPdf().length == 0) {
@@ -218,9 +212,7 @@ public class PropertyService {
     return property.getGasCertPdf();
   }
 
-  /**
-   * Returns the raw EICR certificate PDF bytes for the given property.
-   */
+  /** Returns the raw EICR certificate PDF bytes for the given property. */
   public byte[] getEicrCertPdf(final UUID id) {
     final Property property = propertyRepository.findById(id).orElseThrow(NotFoundException::new);
     if (property.getEicrCertPdf() == null || property.getEicrCertPdf().length == 0) {
@@ -243,5 +235,25 @@ public class PropertyService {
   private PropertyDTO enriched(final PropertyDTO dto) {
     complianceService.enrich(dto);
     return dto;
+  }
+
+  private void attachPdfs(
+      final Property property, final MultipartFile gasCertPdf, final MultipartFile eicrCertPdf) {
+    if (gasCertPdf != null && !gasCertPdf.isEmpty()) {
+      try {
+        property.setGasCertPdf(gasCertPdf.getBytes());
+        property.setGasCertPdfName(gasCertPdf.getOriginalFilename());
+      } catch (IOException e) {
+        throw new RuntimeException("Failed to read gas cert PDF", e);
+      }
+    }
+    if (eicrCertPdf != null && !eicrCertPdf.isEmpty()) {
+      try {
+        property.setEicrCertPdf(eicrCertPdf.getBytes());
+        property.setEicrCertPdfName(eicrCertPdf.getOriginalFilename());
+      } catch (IOException e) {
+        throw new RuntimeException("Failed to read EICR PDF", e);
+      }
+    }
   }
 }

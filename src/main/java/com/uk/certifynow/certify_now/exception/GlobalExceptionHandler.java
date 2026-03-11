@@ -65,16 +65,25 @@ public class GlobalExceptionHandler {
       return build(
           request, HttpStatus.CONFLICT, "EMAIL_EXISTS", "Email already registered", List.of());
     }
-    if (message.contains("not-null") || message.contains("null value") || message.contains("not null")) {
+    if (message.contains("not-null")
+        || message.contains("null value")
+        || message.contains("not null")) {
       return build(
-          request, HttpStatus.BAD_REQUEST, "INVALID_DATA", "A required field is missing or null", List.of());
+          request,
+          HttpStatus.BAD_REQUEST,
+          "INVALID_DATA",
+          "A required field is missing or null",
+          List.of());
     }
     if (message.contains("unique") || message.contains("duplicate")) {
       return build(
-          request, HttpStatus.CONFLICT, "DUPLICATE_VALUE", "A unique constraint was violated", List.of());
+          request,
+          HttpStatus.CONFLICT,
+          "DUPLICATE_VALUE",
+          "A unique constraint was violated",
+          List.of());
     }
-    return build(
-        request, HttpStatus.CONFLICT, "DATA_CONFLICT", "Data integrity error", List.of());
+    return build(request, HttpStatus.CONFLICT, "DATA_CONFLICT", "Data integrity error", List.of());
   }
 
   @ExceptionHandler(MissingServletRequestParameterException.class)

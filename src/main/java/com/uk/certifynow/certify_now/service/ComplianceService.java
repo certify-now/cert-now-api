@@ -11,8 +11,8 @@ import java.util.Set;
 import org.springframework.stereotype.Service;
 
 /**
- * Computes per-property and aggregate compliance status from certificate expiry data.
- * All business logic for compliance lives here — not in the controller or frontend.
+ * Computes per-property and aggregate compliance status from certificate expiry data. All business
+ * logic for compliance lives here — not in the controller or frontend.
  */
 @Service
 public class ComplianceService {
@@ -25,8 +25,8 @@ public class ComplianceService {
   /**
    * Derives the compliance status for a single certificate category.
    *
-   * @param hasSupply  whether this utility (gas/electric) is present at the property
-   * @param hasCert    whether the landlord has declared they hold a valid certificate
+   * @param hasSupply whether this utility (gas/electric) is present at the property
+   * @param hasCert whether the landlord has declared they hold a valid certificate
    * @param expiryDate the certificate's expiry date
    */
   public String computeCertStatus(Boolean hasSupply, Boolean hasCert, LocalDate expiryDate) {
@@ -46,9 +46,7 @@ public class ComplianceService {
     return "COMPLIANT";
   }
 
-  /**
-   * Computes days until the certificate expires, or null if not applicable / already expired.
-   */
+  /** Computes days until the certificate expires, or null if not applicable / already expired. */
   public Integer computeDaysUntilExpiry(String certStatus, LocalDate expiryDate) {
     if (!"COMPLIANT".equals(certStatus) && !"EXPIRING_SOON".equals(certStatus)) {
       return null;
@@ -112,15 +110,16 @@ public class ComplianceService {
   // ── Next actions ───────────────────────────────────────────────────────────
 
   /**
-   * Builds a prioritised list of actionable next steps for the landlord.
-   * Business rule: if the landlord declared a cert + expiry date but hasn't uploaded a PDF,
-   * we prompt them to upload rather than re-register.
+   * Builds a prioritised list of actionable next steps for the landlord. Business rule: if the
+   * landlord declared a cert + expiry date but hasn't uploaded a PDF, we prompt them to upload
+   * rather than re-register.
    */
   public List<String> computeNextActions(PropertyDTO dto, String gasStatus, String eicrStatus) {
     List<String> actions = new ArrayList<>();
 
     if ("MISSING".equals(gasStatus)) {
-      if (Boolean.TRUE.equals(dto.getHasGasCertificate()) && dto.getGasExpiryDate() != null
+      if (Boolean.TRUE.equals(dto.getHasGasCertificate())
+          && dto.getGasExpiryDate() != null
           && !Boolean.TRUE.equals(dto.getHasGasCertPdf())) {
         actions.add("Upload Gas Safety Certificate");
       } else {
@@ -133,7 +132,8 @@ public class ComplianceService {
     }
 
     if ("MISSING".equals(eicrStatus)) {
-      if (Boolean.TRUE.equals(dto.getHasEicr()) && dto.getEicrExpiryDate() != null
+      if (Boolean.TRUE.equals(dto.getHasEicr())
+          && dto.getEicrExpiryDate() != null
           && !Boolean.TRUE.equals(dto.getHasEicrCertPdf())) {
         actions.add("Upload EICR");
       } else {
@@ -151,17 +151,18 @@ public class ComplianceService {
   // ── Enrich a DTO ──────────────────────────────────────────────────────────
 
   /**
-   * Populates all computed compliance fields on the DTO in-place.
-   * Call this after mapping the entity to DTO.
+   * Populates all computed compliance fields on the DTO in-place. Call this after mapping the
+   * entity to DTO.
    */
   public void enrich(PropertyDTO dto) {
-    String gasStatus = computeCertStatus(
-        dto.getHasGasSupply(), dto.getHasGasCertificate(), dto.getGasExpiryDate());
+    String gasStatus =
+        computeCertStatus(
+            dto.getHasGasSupply(), dto.getHasGasCertificate(), dto.getGasExpiryDate());
     dto.setGasStatus(gasStatus);
     dto.setGasDaysUntilExpiry(computeDaysUntilExpiry(gasStatus, dto.getGasExpiryDate()));
 
-    String eicrStatus = computeCertStatus(
-        dto.getHasElectric(), dto.getHasEicr(), dto.getEicrExpiryDate());
+    String eicrStatus =
+        computeCertStatus(dto.getHasElectric(), dto.getHasEicr(), dto.getEicrExpiryDate());
     dto.setEicrStatus(eicrStatus);
     dto.setEicrDaysUntilExpiry(computeDaysUntilExpiry(eicrStatus, dto.getEicrExpiryDate()));
 
@@ -172,8 +173,8 @@ public class ComplianceService {
   // ── Aggregate health ──────────────────────────────────────────────────────
 
   /**
-   * Computes the aggregate ComplianceHealthDTO from an already-enriched list of properties.
-   * Expects enrich() to have been called on each DTO first.
+   * Computes the aggregate ComplianceHealthDTO from an already-enriched list of properties. Expects
+   * enrich() to have been called on each DTO first.
    */
   public ComplianceHealthDTO computeHealth(List<PropertyDTO> properties) {
     int total = properties.size();
@@ -197,18 +198,30 @@ public class ComplianceService {
         actionRequiredCount++;
       }
 
-      items.add(new PropertyComplianceItemDTO(
-          p.getId(), p.getAddressLine1(), p.getPostcode(),
-          p.getGasStatus(), p.getEicrStatus(), score));
+      items.add(
+          new PropertyComplianceItemDTO(
+              p.getId(),
+              p.getAddressLine1(),
+              p.getPostcode(),
+              p.getGasStatus(),
+              p.getEicrStatus(),
+              score));
     }
 
-    // overallScore = % of fully compliant properties so the ring matches "X of Y properties compliant".
+    // overallScore = % of fully compliant properties so the ring matches "X of Y properties
+    // compliant".
     // The weighted certificate-health average (totalScore/total) is intentionally not used here
-    // because it produces numbers that contradict the displayed property count (e.g. 71% with 3/7 compliant).
+    // because it produces numbers that contradict the displayed property count (e.g. 71% with 3/7
+    // compliant).
     int overallScore = total > 0 ? (compliantCount * 100) / total : 100;
     return new ComplianceHealthDTO(
-        overallScore, total, compliantCount, actionRequiredCount, expiredCount,
-        computeSummaryLabel(overallScore), items);
+        overallScore,
+        total,
+        compliantCount,
+        actionRequiredCount,
+        expiredCount,
+        computeSummaryLabel(overallScore),
+        items);
   }
 
   private String computeSummaryLabel(int score) {

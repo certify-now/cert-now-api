@@ -113,28 +113,6 @@ public class PropertyDTO {
 
   private UUID owner;
 
-  // ── Gas Safety Certificate ──────────────────────────────────────────────────
-  private Boolean hasGasCertificate;
-
-  @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
-  private LocalDate gasExpiryDate;
-
-  private String gasCertPdfName;
-
-  /** True when a PDF file has been uploaded for this certificate. Read-only from API. */
-  private Boolean hasGasCertPdf;
-
-  // ── EICR ───────────────────────────────────────────────────────────────────
-  private Boolean hasEicr;
-
-  @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
-  private LocalDate eicrExpiryDate;
-
-  private String eicrCertPdfName;
-
-  /** True when a PDF file has been uploaded for this certificate. Read-only from API. */
-  private Boolean hasEicrCertPdf;
-
   // ── Computed compliance fields (read-only, populated by ComplianceService) ──
 
   @Schema(
@@ -149,19 +127,23 @@ public class PropertyDTO {
       accessMode = Schema.AccessMode.READ_ONLY)
   private String eicrStatus;
 
-  @Schema(description = "Days until gas cert expires (null if not applicable)", accessMode = Schema.AccessMode.READ_ONLY)
+  @Schema(
+      description = "Days until gas cert expires (null if not applicable)",
+      accessMode = Schema.AccessMode.READ_ONLY)
   private Integer gasDaysUntilExpiry;
 
-  @Schema(description = "Days until EICR expires (null if not applicable)", accessMode = Schema.AccessMode.READ_ONLY)
+  @Schema(
+      description = "Days until EICR expires (null if not applicable)",
+      accessMode = Schema.AccessMode.READ_ONLY)
   private Integer eicrDaysUntilExpiry;
 
-  @Schema(description = "List of recommended next actions for this property", accessMode = Schema.AccessMode.READ_ONLY)
+  @Schema(
+      description = "List of recommended next actions for this property",
+      accessMode = Schema.AccessMode.READ_ONLY)
   private List<String> nextActions;
 
   /** Byte arrays are never sent to the client — only the name/flag fields are. */
-  @JsonIgnore
-  private byte[] gasCertPdfBytes;
+  @JsonIgnore private byte[] gasCertPdfBytes;
 
-  @JsonIgnore
-  private byte[] eicrCertPdfBytes;
+  @JsonIgnore private byte[] eicrCertPdfBytes;
 }

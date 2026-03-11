@@ -224,8 +224,14 @@ public class PropertyController {
     }
     propertyDTO.setId(id);
     propertyDTO.setOwner(userId);
-    propertyService.update(id, propertyDTO, gasCertPdf, eicrCertPdf);
-    return ApiResponse.of(null, requestId(request));
+    PropertyDTO updated = propertyService.update(id, propertyDTO);
+    if (gasCertPdf != null && !gasCertPdf.isEmpty()) {
+      updated = propertyService.uploadGasCertificate(id, null, null, gasCertPdf);
+    }
+    if (eicrCertPdf != null && !eicrCertPdf.isEmpty()) {
+      updated = propertyService.uploadEicrCertificate(id, null, null, eicrCertPdf);
+    }
+    return ApiResponse.of(updated, requestId(request));
   }
 
   @PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -249,7 +255,7 @@ public class PropertyController {
         responseCode = "404",
         description = "Property not found")
   })
-  public ApiResponse<Void> updatePropertyJson(
+  public ApiResponse<PropertyDTO> updatePropertyJson(
       @Parameter(description = "Property ID") @PathVariable final UUID id,
       @Valid @RequestBody final PropertyDTO propertyDTO,
       final Authentication authentication,

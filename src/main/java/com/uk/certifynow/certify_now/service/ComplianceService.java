@@ -202,16 +202,19 @@ public class ComplianceService {
           p.getGasStatus(), p.getEicrStatus(), score));
     }
 
-    int overallScore = total > 0 ? totalScore / total : 100;
+    // overallScore = % of fully compliant properties so the ring matches "X of Y properties compliant".
+    // The weighted certificate-health average (totalScore/total) is intentionally not used here
+    // because it produces numbers that contradict the displayed property count (e.g. 71% with 3/7 compliant).
+    int overallScore = total > 0 ? (compliantCount * 100) / total : 100;
     return new ComplianceHealthDTO(
         overallScore, total, compliantCount, actionRequiredCount, expiredCount,
         computeSummaryLabel(overallScore), items);
   }
 
   private String computeSummaryLabel(int score) {
-    if (score >= 90) return "Excellent";
-    if (score >= 70) return "Good";
-    if (score >= 40) return "Action Required";
+    if (score == 100) return "Fully Compliant";
+    if (score >= 75) return "Good";
+    if (score >= 50) return "Action Required";
     return "Critical";
   }
 }

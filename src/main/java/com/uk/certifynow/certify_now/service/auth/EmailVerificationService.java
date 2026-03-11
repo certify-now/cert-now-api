@@ -93,9 +93,10 @@ public class EmailVerificationService {
    * PENDING_VERIFICATION, activates them.
    *
    * @param rawCode raw code from verification email
+   * @return the activated {@link User} so the caller can immediately issue fresh tokens
    */
   @Transactional
-  public void verifyEmail(final String rawCode) {
+  public User verifyEmail(final String rawCode) {
     final String tokenHash = hashToken(rawCode);
 
     final EmailVerificationToken token =
@@ -133,6 +134,7 @@ public class EmailVerificationService {
     }
 
     userRepository.save(user);
+    return user;
   }
 
   /**

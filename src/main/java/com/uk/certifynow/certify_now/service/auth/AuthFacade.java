@@ -34,16 +34,19 @@ public class AuthFacade {
   private final AuthenticationService authenticationService;
   private final SessionService sessionService;
   private final AuthMapper authMapper;
+  private final EmailVerificationService emailVerificationService;
 
   public AuthFacade(
       final RegistrationService registrationService,
       final AuthenticationService authenticationService,
       final SessionService sessionService,
-      final AuthMapper authMapper) {
+      final AuthMapper authMapper,
+      final EmailVerificationService emailVerificationService) {
     this.registrationService = registrationService;
     this.authenticationService = authenticationService;
     this.sessionService = sessionService;
     this.authMapper = authMapper;
+    this.emailVerificationService = emailVerificationService;
   }
 
   /**
@@ -114,6 +117,26 @@ public class AuthFacade {
   }
 
   /**
+   * Verifies a user's email address and immediately issues fresh tokens.
+   *
+   * <p>After email verification the user's status transitions from PENDING_VERIFICATION to ACTIVE.
+   * The registration-time access token still carries the old status claim, so the app would be
+   * blocked on every authenticated endpoint until the token expires. Issuing fresh tokens here
+   * solves the problem — the new access token encodes {@code status=ACTIVE} and the user can
+   * navigate straight to the home screen without having to log in again.
+   *
+   * @param rawCode 6-digit verification code from the email
+   * @param ipAddress client IP address for audit
+   * @return {@link AuthResponse} with fresh access + refresh tokens for the now-active user
+   */
+  @Transactional
+  public AuthResponse verifyEmailAndIssueTokens(final String rawCode, final String ipAddress) {
+    final User user = emailVerificationService.verifyEmail(rawCode);
+    final SessionService.TokenPair tokens = sessionService.issueTokens(user, null, ipAddress);
+    return authMapper.toAuthResponse(user, tokens);
+  }
+
+  /**
    * Refreshes tokens using a refresh token.
    *
    * <p>Orchestrates: token rotation → DTO mapping
@@ -129,6 +152,26 @@ public class AuthFacade {
 
     // Step 2: Extract user from new access token and map to DTO
     return authMapper.toAuthResponseFromToken(tokens);
+  }
+
+  /**
+   * Resends a verification email to the given address (unauthenticated, no-enum safe).
+   *
+   * @param email address to resend verification to
+   */
+  public void resendVerificationByEmail(final String email) {
+    emailVerificationService.resendVerificationEmailByEmail(email);
+  }
+
+  /**
+   * Allows an authenticated but unverified user to correct their email address.
+   *
+   * @param userId authenticated user's ID
+   * @param newEmail corrected email address
+   */
+  @Transactional
+  public void updateEmailForUnverifiedUser(final UUID userId, final String newEmail) {
+    emailVerificationService.updateEmailForUnverifiedUser(userId, newEmail);
   }
 
   /**

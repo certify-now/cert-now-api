@@ -4,7 +4,6 @@ import com.uk.certifynow.certify_now.config.RequestIdFilter;
 import com.uk.certifynow.certify_now.model.UpdateEmailRequest;
 import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
 import com.uk.certifynow.certify_now.service.auth.AuthFacade;
-import com.uk.certifynow.certify_now.service.auth.EmailVerificationService;
 import com.uk.certifynow.certify_now.service.auth.dto.AuthResponse;
 import com.uk.certifynow.certify_now.service.auth.dto.LoginRequest;
 import com.uk.certifynow.certify_now.service.auth.dto.LogoutRequest;
@@ -37,12 +36,9 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
   private final AuthFacade authService;
-  private final EmailVerificationService emailVerificationService;
 
-  public AuthController(
-      final AuthFacade authService, final EmailVerificationService emailVerificationService) {
+  public AuthController(final AuthFacade authService) {
     this.authService = authService;
-    this.emailVerificationService = emailVerificationService;
   }
 
   @PostMapping("/register")
@@ -171,11 +167,12 @@ public class AuthController {
         responseCode = "400",
         description = "Invalid or expired verification code")
   })
-  public ApiResponse<Map<String, String>> verifyEmail(
+  public ApiResponse<AuthResponse> verifyEmail(
       @Valid @RequestBody final VerifyEmailRequest request, final HttpServletRequest httpRequest) {
-    emailVerificationService.verifyEmail(request.code());
-    return ApiResponse.of(
-        Map.of("message", "Email verified. You can now log in."), requestId(httpRequest));
+    final AuthResponse response =
+        authService.verifyEmailAndIssueTokens(
+            request.code(), IpAddressUtils.extractClientIp(httpRequest));
+    return ApiResponse.of(response, requestId(httpRequest));
   }
 
   @PostMapping("/resend-verification")
@@ -198,7 +195,7 @@ public class AuthController {
   public ApiResponse<Map<String, String>> resendVerification(
       @Valid @RequestBody final ResendVerificationRequest request,
       final HttpServletRequest httpRequest) {
-    emailVerificationService.resendVerificationEmailByEmail(request.email());
+    authService.resendVerificationByEmail(request.email());
     return ApiResponse.of(
         Map.of("message", "If that email is registered and unverified, a new code has been sent."),
         requestId(httpRequest));
@@ -229,7 +226,7 @@ public class AuthController {
       final Authentication authentication,
       final HttpServletRequest httpRequest) {
     final UUID userId = UUID.fromString((String) authentication.getPrincipal());
-    emailVerificationService.updateEmailForUnverifiedUser(userId, request.email());
+    authService.updateEmailForUnverifiedUser(userId, request.email());
     return ApiResponse.of(
         Map.of("message", "Email updated and verification code resent."), requestId(httpRequest));
   }

@@ -8,13 +8,16 @@ import com.uk.certifynow.certify_now.model.PropertyDTO;
 import com.uk.certifynow.certify_now.repos.PropertyRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
 import com.uk.certifynow.certify_now.rest.dto.property.ComplianceHealth;
+import com.uk.certifynow.certify_now.rest.dto.property.ComplianceHealth.PropertyComplianceItem;
 import com.uk.certifynow.certify_now.rest.dto.property.MyPropertiesResponse;
 import com.uk.certifynow.certify_now.service.mappers.PropertyMapper;
 import com.uk.certifynow.certify_now.util.NotFoundException;
 import com.uk.certifynow.certify_now.util.ReferencedException;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
@@ -135,17 +138,65 @@ public class PropertyService {
   }
 
   /**
-   * Returns the full MyPropertiesResponse including compliance health for the home screen.
+   * Returns the full MyPropertiesResponse for the home screen. Each PropertyDTO's complianceStatus
+   * is overwritten with the value derived by ComplianceHealthService so that the UI never needs to
+   * recalculate compliance client-side.
    *
    * @param ownerId UUID of the property owner
-   * @return MyPropertiesResponse with property list and compliance health
+   * @return MyPropertiesResponse with enriched property list and compliance health
    */
   public MyPropertiesResponse getMyPropertiesWithCompliance(final UUID ownerId) {
     final List<Property> properties =
         propertyRepository.findByOwnerIdAndIsActiveTrue(ownerId, Sort.by("createdAt").descending());
-    final List<PropertyDTO> propertyDTOs = properties.stream().map(propertyMapper::toDTO).toList();
     final ComplianceHealth complianceHealth = complianceHealthService.calculate(properties);
+
+    // Build id → computed status map from the compliance items
+    final Map<String, String> statusByPropertyId =
+        complianceHealth.items().stream()
+            .collect(
+                Collectors.toMap(
+                    PropertyComplianceItem::propertyId,
+                    this::deriveComplianceStatus));
+
+    // Map entities to DTOs and overwrite complianceStatus with the computed value
+    final List<PropertyDTO> propertyDTOs =
+        properties.stream()
+            .map(
+                property -> {
+                  final PropertyDTO dto = propertyMapper.toDTO(property);
+                  dto.setComplianceStatus(
+                      statusByPropertyId.getOrDefault(
+                          property.getId().toString(), "PENDING"));
+                  return dto;
+                })
+            .toList();
+
     return new MyPropertiesResponse(propertyDTOs, complianceHealth);
+  }
+
+  /**
+   * Translates a per-property {@link PropertyComplianceItem} into a UI-facing compliance status
+   * string compatible with the frontend {@code COMPLIANCE_STATUS} constants.
+   */
+  private String deriveComplianceStatus(final PropertyComplianceItem item) {
+    final String gas = item.gasStatus();
+    final String eicr = item.eicrStatus();
+
+    if (isCertOk(gas) && isCertOk(eicr)) {
+      return "COMPLIANT";
+    }
+    if ("EXPIRED".equals(gas) || "EXPIRED".equals(eicr)) {
+      return "NON_COMPLIANT";
+    }
+    if ("EXPIRING_SOON".equals(gas) || "EXPIRING_SOON".equals(eicr)) {
+      return "PARTIALLY_COMPLIANT";
+    }
+    // MISSING on at least one applicable cert — property was registered but certs not yet uploaded
+    return "PENDING";
+  }
+
+  private boolean isCertOk(final String status) {
+    return "COMPLIANT".equals(status) || "NOT_APPLICABLE".equals(status);
   }
 
   /**
@@ -174,6 +225,60 @@ public class PropertyService {
       throw new NotFoundException("No EICR certificate PDF found");
     }
     return property.getEicrCertPdf();
+  }
+
+  // ── Certificate update helpers ─────────────────────────────────────────────
+
+  /**
+   * Updates the Gas Safety certificate status, expiry date, and optionally replaces the PDF for
+   * an existing property.
+   */
+  @Transactional
+  public void updateGasCertificate(
+      final UUID id,
+      final Boolean hasGasCertificate,
+      final java.time.LocalDate gasExpiryDate,
+      final MultipartFile gasCertPdf) {
+    final Property property = propertyRepository.findById(id).orElseThrow(NotFoundException::new);
+    property.setHasGasCertificate(hasGasCertificate);
+    property.setGasExpiryDate(gasExpiryDate);
+    if (gasCertPdf != null && !gasCertPdf.isEmpty()) {
+      try {
+        property.setGasCertPdf(gasCertPdf.getBytes());
+        property.setGasCertPdfName(gasCertPdf.getOriginalFilename());
+      } catch (IOException e) {
+        throw new RuntimeException("Failed to read uploaded gas cert PDF", e);
+      }
+    }
+    property.setUpdatedAt(java.time.OffsetDateTime.now());
+    propertyRepository.save(property);
+    log.info("Gas certificate updated for property {}", id);
+  }
+
+  /**
+   * Updates the EICR certificate status, expiry date, and optionally replaces the PDF for an
+   * existing property.
+   */
+  @Transactional
+  public void updateEicrCertificate(
+      final UUID id,
+      final Boolean hasEicr,
+      final java.time.LocalDate eicrExpiryDate,
+      final MultipartFile eicrCertPdf) {
+    final Property property = propertyRepository.findById(id).orElseThrow(NotFoundException::new);
+    property.setHasEicr(hasEicr);
+    property.setEicrExpiryDate(eicrExpiryDate);
+    if (eicrCertPdf != null && !eicrCertPdf.isEmpty()) {
+      try {
+        property.setEicrCertPdf(eicrCertPdf.getBytes());
+        property.setEicrCertPdfName(eicrCertPdf.getOriginalFilename());
+      } catch (IOException e) {
+        throw new RuntimeException("Failed to read uploaded EICR PDF", e);
+      }
+    }
+    property.setUpdatedAt(java.time.OffsetDateTime.now());
+    propertyRepository.save(property);
+    log.info("EICR certificate updated for property {}", id);
   }
 
   // ── PDF attachment helper ──────────────────────────────────────────────────

@@ -171,6 +171,7 @@ class MatchingServiceTest {
     void happyPath() {
       property.setLocation("POINT(-0.1278 51.5074)");
 
+      when(jobRepository.findByIdWithProperty(jobId)).thenReturn(Optional.of(job));
       when(engineerProfileRepository.findNearbyApproved(51.5074, -0.1278))
           .thenReturn(List.of(engineerProfile));
       when(jobRepository.countEngineerJobsToday(eq(engineerId), any(OffsetDateTime.class)))
@@ -191,6 +192,7 @@ class MatchingServiceTest {
       final EngineerProfile ep2 =
           buildEngineerProfile(buildUser(UUID.randomUUID(), UserRole.ENGINEER));
 
+      when(jobRepository.findByIdWithProperty(jobId)).thenReturn(Optional.of(job));
       when(engineerProfileRepository.findNearbyApproved(51.5074, -0.1278))
           .thenReturn(List.of(engineerProfile, ep2));
       when(jobRepository.countEngineerJobsToday(any(UUID.class), any(OffsetDateTime.class)))
@@ -207,6 +209,7 @@ class MatchingServiceTest {
     void escalatesWhenNoCandidates() {
       property.setLocation("POINT(-0.1278 51.5074)");
 
+      when(jobRepository.findByIdWithProperty(jobId)).thenReturn(Optional.of(job));
       when(engineerProfileRepository.findNearbyApproved(51.5074, -0.1278)).thenReturn(List.of());
       when(jobRepository.save(any(Job.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -220,6 +223,7 @@ class MatchingServiceTest {
     void skipsNonCreatedStatus() {
       job.setStatus("MATCHED");
 
+      when(jobRepository.findByIdWithProperty(jobId)).thenReturn(Optional.of(job));
       matchingService.broadcastToEligible(job);
 
       verify(jobRepository, never()).save(any());
@@ -230,6 +234,7 @@ class MatchingServiceTest {
     void skipsAwaitingAcceptance() {
       job.setStatus("AWAITING_ACCEPTANCE");
 
+      when(jobRepository.findByIdWithProperty(jobId)).thenReturn(Optional.of(job));
       matchingService.broadcastToEligible(job);
 
       verify(jobRepository, never()).save(any());

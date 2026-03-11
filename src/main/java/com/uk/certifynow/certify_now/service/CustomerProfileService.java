@@ -61,7 +61,7 @@ public class CustomerProfileService {
       profile.setTotalProperties(
           (profile.getTotalProperties() == null ? 0 : profile.getTotalProperties()) + 1);
       customerProfileRepository.save(profile);
-      log.info("Incremented property count for user {}", userId);
+      log.debug("Incremented property count for user {}", userId);
     }
   }
 

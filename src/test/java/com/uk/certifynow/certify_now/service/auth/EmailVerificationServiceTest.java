@@ -61,6 +61,92 @@ class EmailVerificationServiceTest {
   }
 
   // ════════════════════════════════════════════════════════════════════════════
+  // verifyEmail(String) — core verification logic
+  // ════════════════════════════════════════════════════════════════════════════
+
+  @Nested
+  @DisplayName("verifyEmail(String) — core verification")
+  class VerifyEmailTests {
+
+    @Test
+    @DisplayName("Activates PENDING_VERIFICATION user and returns the User")
+    void activatesUserAndReturnsUser() {
+      final EmailVerificationToken token = buildToken(unverifiedUser, 0);
+      token.setExpiresAt(OffsetDateTime.now(clock).plusHours(1));
+      // SHA-256 of "123456" is used by the service; stub by hash lookup
+      when(tokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(token));
+      when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+      when(tokenRepository.save(any(EmailVerificationToken.class)))
+          .thenAnswer(inv -> inv.getArgument(0));
+
+      final User result = service.verifyEmail("123456");
+
+      assert Boolean.TRUE.equals(result.getEmailVerified());
+      assert result.getStatus() == UserStatus.ACTIVE;
+      verify(userRepository).save(unverifiedUser);
+    }
+
+    @Test
+    @DisplayName("Throws INVALID_TOKEN when token hash is not found")
+    void throwsOnInvalidToken() {
+      when(tokenRepository.findByTokenHash(anyString())).thenReturn(Optional.empty());
+
+      assertThatThrownBy(() -> service.verifyEmail("000000"))
+          .isInstanceOf(BusinessException.class)
+          .satisfies(
+              ex -> {
+                final BusinessException bex = (BusinessException) ex;
+                assert bex.getStatus() == HttpStatus.BAD_REQUEST;
+                assert "INVALID_TOKEN".equals(bex.getErrorCode());
+              });
+
+      verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Throws INVALID_TOKEN when token has already been used")
+    void throwsOnAlreadyUsedToken() {
+      final EmailVerificationToken usedToken = buildToken(unverifiedUser, 0);
+      usedToken.setExpiresAt(OffsetDateTime.now(clock).plusHours(1));
+      usedToken.markAsUsed(clock);
+
+      when(tokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(usedToken));
+
+      assertThatThrownBy(() -> service.verifyEmail("123456"))
+          .isInstanceOf(BusinessException.class)
+          .satisfies(
+              ex -> {
+                final BusinessException bex = (BusinessException) ex;
+                assert bex.getStatus() == HttpStatus.BAD_REQUEST;
+                assert "INVALID_TOKEN".equals(bex.getErrorCode());
+              });
+
+      verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Throws INVALID_TOKEN when token is expired")
+    void throwsOnExpiredToken() {
+      final EmailVerificationToken expiredToken = buildToken(unverifiedUser, 0);
+      // Set expiry in the past — service throws before reaching tokenRepository.save
+      expiredToken.setExpiresAt(OffsetDateTime.now(clock).minusHours(1));
+
+      when(tokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(expiredToken));
+
+      assertThatThrownBy(() -> service.verifyEmail("123456"))
+          .isInstanceOf(BusinessException.class)
+          .satisfies(
+              ex -> {
+                final BusinessException bex = (BusinessException) ex;
+                assert bex.getStatus() == HttpStatus.BAD_REQUEST;
+                assert "INVALID_TOKEN".equals(bex.getErrorCode());
+              });
+
+      verify(userRepository, never()).save(any());
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
   // resendVerificationEmail(UUID) — cooldown tests
   // ════════════════════════════════════════════════════════════════════════════
 

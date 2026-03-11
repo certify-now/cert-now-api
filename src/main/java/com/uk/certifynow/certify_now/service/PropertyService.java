@@ -95,6 +95,7 @@ public class PropertyService {
                 .findById(propertyDTO.getOwner())
                 .orElseThrow(() -> new NotFoundException("owner not found"));
     property.setOwner(owner);
+    property.setIsActive(true);
     if (property.getId() == null) {
       final java.time.OffsetDateTime now = java.time.OffsetDateTime.now();
       property.setCreatedAt(now);

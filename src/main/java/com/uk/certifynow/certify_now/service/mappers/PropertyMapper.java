@@ -45,6 +45,11 @@ public interface PropertyMapper {
   @Mapping(target = "id", ignore = true)
   @Mapping(target = "gasCertPdfBytes", ignore = true)
   @Mapping(target = "eicrCertPdfBytes", ignore = true)
+  // Server-managed fields — must not be overwritten by incoming DTO
+  @Mapping(target = "isActive", ignore = true)
+  @Mapping(target = "complianceStatus", ignore = true)
+  @Mapping(target = "gasCertPdfName", ignore = true)
+  @Mapping(target = "eicrCertPdfName", ignore = true)
   void updateEntity(PropertyDTO dto, @MappingTarget Property property);
 
   @AfterMapping

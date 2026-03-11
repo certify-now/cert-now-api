@@ -1,5 +1,6 @@
 package com.uk.certifynow.certify_now.domain;
 
+import jakarta.persistence.Basic;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
@@ -10,6 +11,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.HashSet;
 import java.util.Set;
@@ -89,6 +91,32 @@ public class Property {
   private String complianceStatus;
 
   @Column private String location;
+
+  // ── Gas Safety certificate fields ──────────────────────────────────────────
+
+  @Column private Boolean hasGasCertificate;
+
+  @Column private LocalDate gasExpiryDate;
+
+  @Basic(fetch = FetchType.LAZY)
+  @Column(columnDefinition = "bytea")
+  private byte[] gasCertPdf;
+
+  @Column(length = 255)
+  private String gasCertPdfName;
+
+  // ── EICR certificate fields ───────────────────────────────────────────────
+
+  @Column private Boolean hasEicr;
+
+  @Column private LocalDate eicrExpiryDate;
+
+  @Basic(fetch = FetchType.LAZY)
+  @Column(columnDefinition = "bytea")
+  private byte[] eicrCertPdf;
+
+  @Column(length = 255)
+  private String eicrCertPdfName;
 
   @OneToMany(mappedBy = "property")
   private Set<Certificate> propertyCertificates = new HashSet<>();

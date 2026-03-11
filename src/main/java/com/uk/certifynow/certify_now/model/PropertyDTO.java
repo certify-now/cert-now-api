@@ -8,6 +8,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 import lombok.Getter;
@@ -83,6 +84,30 @@ public class PropertyDTO {
 
   @Size(max = 255)
   private String location;
+
+  // ── Gas Safety certificate fields ──────────────────────────────────────────
+
+  private Boolean hasGasCertificate;
+
+  @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
+  private LocalDate gasExpiryDate;
+
+  /** true when a Gas Safety PDF has been uploaded (read-only). */
+  private Boolean hasGasCertPdf;
+
+  private String gasCertPdfName;
+
+  // ── EICR certificate fields ───────────────────────────────────────────────
+
+  private Boolean hasEicr;
+
+  @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
+  private LocalDate eicrExpiryDate;
+
+  /** true when an EICR PDF has been uploaded (read-only). */
+  private Boolean hasEicrCertPdf;
+
+  private String eicrCertPdfName;
 
   private UUID owner;
 }

@@ -2,11 +2,19 @@ package com.uk.certifynow.certify_now.service;
 
 import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.events.BeforeDeleteUser;
+import com.uk.certifynow.certify_now.events.UserRestoredEvent;
+import com.uk.certifynow.certify_now.events.UserSoftDeletedEvent;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.model.UpdateMeRequest;
 import com.uk.certifynow.certify_now.model.UserDTO;
 import com.uk.certifynow.certify_now.model.UserMeDTO;
+import com.uk.certifynow.certify_now.repos.CustomerProfileRepository;
+import com.uk.certifynow.certify_now.repos.EngineerProfileRepository;
+import com.uk.certifynow.certify_now.repos.JobRepository;
+import com.uk.certifynow.certify_now.repos.RefreshTokenRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
+import com.uk.certifynow.certify_now.service.auth.UserRole;
+import com.uk.certifynow.certify_now.service.auth.UserStatus;
 import com.uk.certifynow.certify_now.service.mappers.UserMapper;
 import com.uk.certifynow.certify_now.util.NotFoundException;
 import java.time.OffsetDateTime;
@@ -25,15 +33,30 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class UserService {
 
+  private static final List<String> TERMINAL_STATUSES =
+      List.of("COMPLETED", "CERTIFIED", "CANCELLED", "FAILED");
+
   private final UserRepository userRepository;
+  private final JobRepository jobRepository;
+  private final CustomerProfileRepository customerProfileRepository;
+  private final EngineerProfileRepository engineerProfileRepository;
+  private final RefreshTokenRepository refreshTokenRepository;
   private final ApplicationEventPublisher publisher;
   private final UserMapper userMapper;
 
   public UserService(
       final UserRepository userRepository,
+      final JobRepository jobRepository,
+      final CustomerProfileRepository customerProfileRepository,
+      final EngineerProfileRepository engineerProfileRepository,
+      final RefreshTokenRepository refreshTokenRepository,
       final ApplicationEventPublisher publisher,
       final UserMapper userMapper) {
     this.userRepository = userRepository;
+    this.jobRepository = jobRepository;
+    this.customerProfileRepository = customerProfileRepository;
+    this.engineerProfileRepository = engineerProfileRepository;
+    this.refreshTokenRepository = refreshTokenRepository;
     this.publisher = publisher;
     this.userMapper = userMapper;
   }
@@ -133,5 +156,128 @@ public class UserService {
     publisher.publishEvent(new BeforeDeleteUser(id));
     userRepository.delete(user);
     log.info("User {} deleted", id);
+  }
+
+  // ── Soft-delete operations ──────────────────────────────────────────────────
+
+  /**
+   * Soft-deletes a user by setting deletedAt/deletedBy. Validates there are no active
+   * (non-terminal) jobs. Cascades soft-delete to associated profile, invalidates refresh tokens,
+   * and publishes a domain event.
+   */
+  @Transactional
+  @CacheEvict(
+      value = {"users", "users_all", "users_email", "users_me"},
+      allEntries = true)
+  public void softDelete(final UUID userId, final UUID deletedByUserId) {
+    final User user =
+        userRepository.findByIdIncludingDeleted(userId).orElseThrow(NotFoundException::new);
+
+    if (user.isDeleted()) {
+      throw new BusinessException(
+          HttpStatus.CONFLICT, "ALREADY_DELETED", "User is already soft-deleted");
+    }
+
+    // Validate: no active (non-terminal) jobs
+    final boolean hasActiveCustomerJobs =
+        jobRepository.existsActiveJobsByCustomerId(userId, TERMINAL_STATUSES);
+    final boolean hasActiveEngineerJobs =
+        jobRepository.existsActiveJobsByEngineerId(userId, TERMINAL_STATUSES);
+    if (hasActiveCustomerJobs || hasActiveEngineerJobs) {
+      throw new BusinessException(
+          HttpStatus.CONFLICT, "ACTIVE_JOBS_EXIST", "Cannot soft-delete user with active jobs");
+    }
+
+    final OffsetDateTime now = OffsetDateTime.now();
+    user.setDeletedAt(now);
+    user.setDeletedBy(deletedByUserId);
+    user.setStatus(UserStatus.DEACTIVATED);
+    user.setUpdatedAt(now);
+    userRepository.save(user);
+
+    // Cascade soft-delete to profile
+    cascadeSoftDeleteProfile(user, now, deletedByUserId);
+
+    // Invalidate all refresh tokens
+    refreshTokenRepository.deleteAllByUserId(userId);
+
+    log.info("User {} soft-deleted by {}", userId, deletedByUserId);
+    publisher.publishEvent(new UserSoftDeletedEvent(userId, deletedByUserId));
+  }
+
+  /**
+   * Restores a soft-deleted user by clearing deletedAt/deletedBy and setting status to ACTIVE.
+   * Cascades restore to associated profile.
+   */
+  @Transactional
+  @CacheEvict(
+      value = {"users", "users_all", "users_email", "users_me"},
+      allEntries = true)
+  public void restore(final UUID userId, final UUID restoredByUserId) {
+    final User user =
+        userRepository.findByIdIncludingDeleted(userId).orElseThrow(NotFoundException::new);
+
+    if (!user.isDeleted()) {
+      throw new BusinessException(HttpStatus.CONFLICT, "NOT_DELETED", "User is not soft-deleted");
+    }
+
+    final OffsetDateTime now = OffsetDateTime.now();
+    user.setDeletedAt(null);
+    user.setDeletedBy(null);
+    user.setStatus(UserStatus.ACTIVE);
+    user.setUpdatedAt(now);
+    userRepository.save(user);
+
+    // Cascade restore to profile
+    cascadeRestoreProfile(user, now);
+
+    log.info("User {} restored by {}", userId, restoredByUserId);
+    publisher.publishEvent(new UserRestoredEvent(userId, restoredByUserId));
+  }
+
+  private void cascadeSoftDeleteProfile(
+      final User user, final OffsetDateTime now, final UUID deletedBy) {
+    if (user.getRole() == UserRole.CUSTOMER) {
+      customerProfileRepository
+          .findByUserIdIncludingDeleted(user.getId())
+          .ifPresent(
+              profile -> {
+                profile.setDeletedAt(now);
+                profile.setDeletedBy(deletedBy);
+                customerProfileRepository.save(profile);
+              });
+    } else if (user.getRole() == UserRole.ENGINEER) {
+      engineerProfileRepository
+          .findByUserIdIncludingDeleted(user.getId())
+          .ifPresent(
+              profile -> {
+                profile.setDeletedAt(now);
+                profile.setDeletedBy(deletedBy);
+                profile.setIsOnline(false);
+                engineerProfileRepository.save(profile);
+              });
+    }
+  }
+
+  private void cascadeRestoreProfile(final User user, final OffsetDateTime now) {
+    if (user.getRole() == UserRole.CUSTOMER) {
+      customerProfileRepository
+          .findByUserIdIncludingDeleted(user.getId())
+          .ifPresent(
+              profile -> {
+                profile.setDeletedAt(null);
+                profile.setDeletedBy(null);
+                customerProfileRepository.save(profile);
+              });
+    } else if (user.getRole() == UserRole.ENGINEER) {
+      engineerProfileRepository
+          .findByUserIdIncludingDeleted(user.getId())
+          .ifPresent(
+              profile -> {
+                profile.setDeletedAt(null);
+                profile.setDeletedBy(null);
+                engineerProfileRepository.save(profile);
+              });
+    }
   }
 }

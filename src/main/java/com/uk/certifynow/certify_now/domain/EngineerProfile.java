@@ -19,16 +19,18 @@ import java.util.Set;
 import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.annotations.UuidGenerator;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
+@SQLRestriction("deleted_at IS NULL")
 @EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter
-public class EngineerProfile {
+public class EngineerProfile implements SoftDeletable {
 
   @Id
   @Column(nullable = false, updatable = false)
@@ -120,6 +122,14 @@ public class EngineerProfile {
 
   @OneToMany(mappedBy = "engineerProfile")
   private Set<EngineerQualification> engineerProfileEngineerQualifications = new HashSet<>();
+
+  // ── Soft-delete fields ──────────────────────────────────────────────────
+
+  @Column(name = "deleted_at")
+  private OffsetDateTime deletedAt;
+
+  @Column(name = "deleted_by")
+  private UUID deletedBy;
 
   @CreatedDate
   @Column(nullable = false, updatable = false)

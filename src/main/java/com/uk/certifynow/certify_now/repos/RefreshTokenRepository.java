@@ -18,4 +18,9 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
 
   /** Fix 5: Find all tokens belonging to a token family (for theft detection revocation). */
   List<RefreshToken> findAllByFamilyId(UUID familyId);
+
+  /**
+   * Delete all refresh tokens for a given user (used during soft-delete to invalidate sessions).
+   */
+  void deleteAllByUserId(UUID userId);
 }

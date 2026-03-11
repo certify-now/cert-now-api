@@ -68,6 +68,20 @@ public interface JobRepository extends JpaRepository<Job, UUID> {
       @Param("propertyId") UUID propertyId,
       @Param("terminalStatuses") List<String> terminalStatuses);
 
+  // ── Soft-delete validation: check for active (non-terminal) jobs ───────────
+
+  @Query(
+      "SELECT CASE WHEN COUNT(j) > 0 THEN true ELSE false END FROM Job j "
+          + "WHERE j.customer.id = :userId AND j.status NOT IN :terminalStatuses")
+  boolean existsActiveJobsByCustomerId(
+      @Param("userId") UUID userId, @Param("terminalStatuses") List<String> terminalStatuses);
+
+  @Query(
+      "SELECT CASE WHEN COUNT(j) > 0 THEN true ELSE false END FROM Job j "
+          + "WHERE j.engineer.id = :userId AND j.status NOT IN :terminalStatuses")
+  boolean existsActiveJobsByEngineerId(
+      @Param("userId") UUID userId, @Param("terminalStatuses") List<String> terminalStatuses);
+
   // ── Matching Engine queries ─────────────────────────────────────────────
 
   /**

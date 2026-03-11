@@ -38,4 +38,18 @@ public interface EngineerProfileRepository extends JpaRepository<EngineerProfile
       """,
       nativeQuery = true)
   List<EngineerProfile> findNearbyApproved(@Param("lat") double lat, @Param("lng") double lng);
+
+  // ── Soft-delete admin queries (bypass @SQLRestriction via native SQL) ────
+
+  @Query(value = "SELECT * FROM engineer_profile WHERE id = :id", nativeQuery = true)
+  Optional<EngineerProfile> findByIdIncludingDeleted(@Param("id") UUID id);
+
+  @Query(value = "SELECT * FROM engineer_profile WHERE deleted_at IS NOT NULL", nativeQuery = true)
+  List<EngineerProfile> findAllDeleted();
+
+  @Query(value = "SELECT * FROM engineer_profile", nativeQuery = true)
+  List<EngineerProfile> findAllIncludingDeleted();
+
+  @Query(value = "SELECT * FROM engineer_profile WHERE user_id = :userId", nativeQuery = true)
+  Optional<EngineerProfile> findByUserIdIncludingDeleted(@Param("userId") UUID userId);
 }

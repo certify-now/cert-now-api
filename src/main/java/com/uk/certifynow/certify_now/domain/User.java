@@ -11,7 +11,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.HashSet;
@@ -19,22 +18,19 @@ import java.util.Set;
 import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.annotations.UuidGenerator;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
-@Table(
-    name = "\"user\"",
-    uniqueConstraints = {
-      @UniqueConstraint(name = "uq_user_email", columnNames = "email"),
-      @UniqueConstraint(name = "uq_user_phone", columnNames = "phone")
-    })
+@Table(name = "\"user\"")
+@SQLRestriction("deleted_at IS NULL")
 @EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter
-public class User {
+public class User implements SoftDeletable {
 
   @Id
   @Column(nullable = false, updatable = false)
@@ -139,6 +135,14 @@ public class User {
   @OneToMany(mappedBy = "user")
   private Set<UserConsent> userUserConsents = new HashSet<>();
 
+  // ── Soft-delete fields ──────────────────────────────────────────────────
+
+  @Column(name = "deleted_at")
+  private OffsetDateTime deletedAt;
+
+  @Column(name = "deleted_by")
+  private UUID deletedBy;
+
   @CreatedDate
   @Column(nullable = false, updatable = false)
   private OffsetDateTime dateCreated;
@@ -155,6 +159,9 @@ public class User {
    * @return true if user can login, false otherwise
    */
   public boolean canAuthenticate() {
+    if (deletedAt != null) {
+      return false;
+    }
     return status != null && status.canAuthenticate();
   }
 

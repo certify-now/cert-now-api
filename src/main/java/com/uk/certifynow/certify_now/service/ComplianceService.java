@@ -18,7 +18,7 @@ import org.springframework.stereotype.Service;
 public class ComplianceService {
 
   /** Certs expiring within this many days are flagged EXPIRING_SOON. */
-  private static final int EXPIRY_WARNING_DAYS = 30;
+  private static final int EXPIRY_WARNING_DAYS = 60;
 
   // ── Per-certificate status ─────────────────────────────────────────────────
 

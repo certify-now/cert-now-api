@@ -1,9 +1,9 @@
 package com.uk.certifynow.certify_now.rest;
 
 import com.uk.certifynow.certify_now.config.RequestIdFilter;
+import com.uk.certifynow.certify_now.model.MyPropertiesResponse;
 import com.uk.certifynow.certify_now.model.PropertyDTO;
 import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
-import com.uk.certifynow.certify_now.rest.dto.property.MyPropertiesResponse;
 import com.uk.certifynow.certify_now.service.PropertyService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -209,7 +209,7 @@ public class PropertyController {
         responseCode = "404",
         description = "Property not found")
   })
-  public ApiResponse<Void> updateProperty(
+  public ApiResponse<PropertyDTO> updateProperty(
       @Parameter(description = "Property ID") @PathVariable final UUID id,
       @Valid @RequestPart("property") final PropertyDTO propertyDTO,
       @RequestPart(value = "gasCertPdf", required = false) final MultipartFile gasCertPdf,
@@ -262,8 +262,7 @@ public class PropertyController {
     }
     propertyDTO.setId(id);
     propertyDTO.setOwner(userId);
-    propertyService.update(id, propertyDTO, null, null);
-    return ApiResponse.of(null, requestId(request));
+    return ApiResponse.of(propertyService.update(id, propertyDTO), requestId(request));
   }
 
   @GetMapping("/{id}/gas-cert-pdf")
@@ -308,84 +307,6 @@ public class PropertyController {
         .body(pdf);
   }
 
-  @PostMapping(value = "/{id}/gas-certificate", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-  @Operation(
-      summary = "Upload Gas Safety certificate",
-      description =
-          "Uploads or replaces the Gas Safety certificate for an existing property."
-              + " Pass hasGasCertificate=true/false, an optional expiry date, and an optional PDF.")
-  @ApiResponses({
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(
-        responseCode = "200",
-        description = "Gas certificate updated successfully"),
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(
-        responseCode = "401",
-        description = "Not authenticated"),
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(
-        responseCode = "403",
-        description = "Not the owner of this property"),
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(
-        responseCode = "404",
-        description = "Property not found")
-  })
-  public ApiResponse<Void> uploadGasCertificate(
-      @Parameter(description = "Property ID") @PathVariable final UUID id,
-      @RequestParam("hasGasCertificate") final Boolean hasGasCertificate,
-      @RequestParam(value = "gasExpiryDate", required = false)
-          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-          final LocalDate gasExpiryDate,
-      @RequestPart(value = "gasCertPdf", required = false) final MultipartFile gasCertPdf,
-      final Authentication authentication,
-      final HttpServletRequest request) {
-    ensureCustomer(authentication);
-    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
-    final PropertyDTO existingProperty = propertyService.get(id);
-    if (existingProperty.getOwner() == null || !existingProperty.getOwner().equals(userId)) {
-      throw new AccessDeniedException("You do not own this property");
-    }
-    propertyService.updateGasCertificate(id, hasGasCertificate, gasExpiryDate, gasCertPdf);
-    return ApiResponse.of(null, requestId(request));
-  }
-
-  @PostMapping(value = "/{id}/eicr-certificate", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-  @Operation(
-      summary = "Upload EICR certificate",
-      description =
-          "Uploads or replaces the EICR certificate for an existing property."
-              + " Pass hasEicr=true/false, an optional expiry date, and an optional PDF.")
-  @ApiResponses({
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(
-        responseCode = "200",
-        description = "EICR certificate updated successfully"),
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(
-        responseCode = "401",
-        description = "Not authenticated"),
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(
-        responseCode = "403",
-        description = "Not the owner of this property"),
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(
-        responseCode = "404",
-        description = "Property not found")
-  })
-  public ApiResponse<Void> uploadEicrCertificate(
-      @Parameter(description = "Property ID") @PathVariable final UUID id,
-      @RequestParam("hasEicr") final Boolean hasEicr,
-      @RequestParam(value = "eicrExpiryDate", required = false)
-          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-          final LocalDate eicrExpiryDate,
-      @RequestPart(value = "eicrCertPdf", required = false) final MultipartFile eicrCertPdf,
-      final Authentication authentication,
-      final HttpServletRequest request) {
-    ensureCustomer(authentication);
-    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
-    final PropertyDTO existingProperty = propertyService.get(id);
-    if (existingProperty.getOwner() == null || !existingProperty.getOwner().equals(userId)) {
-      throw new AccessDeniedException("You do not own this property");
-    }
-    propertyService.updateEicrCertificate(id, hasEicr, eicrExpiryDate, eicrCertPdf);
-    return ApiResponse.of(null, requestId(request));
-  }
-
   @DeleteMapping("/{id}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   @Operation(
@@ -417,6 +338,58 @@ public class PropertyController {
       throw new AccessDeniedException("You do not own this property");
     }
     propertyService.deactivate(id);
+  }
+
+  @PostMapping("/{id}/gas-certificate")
+  @Operation(
+      summary = "Upload / update Gas Safety Certificate",
+      description =
+          "Stores the Gas Safety Certificate PDF and/or updates expiry metadata for a property."
+              + " Useful when the landlord declared cert details during registration but hasn't"
+              + " uploaded the PDF yet.")
+  public ApiResponse<PropertyDTO> uploadGasCertificate(
+      @Parameter(description = "Property ID") @PathVariable final UUID id,
+      @RequestParam(required = false) final Boolean hasGasCertificate,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+          final LocalDate gasExpiryDate,
+      @RequestParam(required = false) final MultipartFile gasCertPdf,
+      final Authentication authentication,
+      final HttpServletRequest request) {
+    ensureCustomer(authentication);
+    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
+    final PropertyDTO existing = propertyService.get(id);
+    if (!userId.equals(existing.getOwner())) {
+      throw new AccessDeniedException("You do not own this property");
+    }
+    return ApiResponse.of(
+        propertyService.uploadGasCertificate(id, hasGasCertificate, gasExpiryDate, gasCertPdf),
+        requestId(request));
+  }
+
+  @PostMapping("/{id}/eicr-certificate")
+  @Operation(
+      summary = "Upload / update EICR Certificate",
+      description =
+          "Stores the EICR PDF and/or updates expiry metadata for a property."
+              + " Useful when the landlord declared cert details during registration but hasn't"
+              + " uploaded the PDF yet.")
+  public ApiResponse<PropertyDTO> uploadEicrCertificate(
+      @Parameter(description = "Property ID") @PathVariable final UUID id,
+      @RequestParam(required = false) final Boolean hasEicr,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+          final LocalDate eicrExpiryDate,
+      @RequestParam(required = false) final MultipartFile eicrCertPdf,
+      final Authentication authentication,
+      final HttpServletRequest request) {
+    ensureCustomer(authentication);
+    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
+    final PropertyDTO existing = propertyService.get(id);
+    if (!userId.equals(existing.getOwner())) {
+      throw new AccessDeniedException("You do not own this property");
+    }
+    return ApiResponse.of(
+        propertyService.uploadEicrCertificate(id, hasEicr, eicrExpiryDate, eicrCertPdf),
+        requestId(request));
   }
 
   private String requestId(final HttpServletRequest request) {

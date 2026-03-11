@@ -20,6 +20,14 @@ public interface PropertyMapper {
       target = "hasEicrCertPdf",
       expression =
           "java(property.getEicrCertPdf() != null && property.getEicrCertPdf().length > 0)")
+  // Computed compliance fields are populated by ComplianceService, not here
+  @Mapping(target = "gasStatus", ignore = true)
+  @Mapping(target = "eicrStatus", ignore = true)
+  @Mapping(target = "gasDaysUntilExpiry", ignore = true)
+  @Mapping(target = "eicrDaysUntilExpiry", ignore = true)
+  @Mapping(target = "nextActions", ignore = true)
+  @Mapping(target = "gasCertPdfBytes", ignore = true)
+  @Mapping(target = "eicrCertPdfBytes", ignore = true)
   PropertyDTO toDTO(Property property);
 
   @Mapping(target = "owner", ignore = true)
@@ -42,6 +50,11 @@ public interface PropertyMapper {
   @Mapping(target = "id", ignore = true)
   @Mapping(target = "gasCertPdf", ignore = true)
   @Mapping(target = "eicrCertPdf", ignore = true)
+  // Server-managed fields — must not be overwritten by incoming DTO
+  @Mapping(target = "isActive", ignore = true)
+  @Mapping(target = "complianceStatus", ignore = true)
+  @Mapping(target = "gasCertPdfName", ignore = true)
+  @Mapping(target = "eicrCertPdfName", ignore = true)
   void updateEntity(PropertyDTO dto, @MappingTarget Property property);
 
   @AfterMapping

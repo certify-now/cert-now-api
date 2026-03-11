@@ -70,6 +70,13 @@ public interface JobRepository extends JpaRepository<Job, UUID> {
 
   // ── Matching Engine queries ─────────────────────────────────────────────
 
+  /**
+   * Loads a job with its {@code property} association eagerly joined so that the property can be
+   * accessed after the loading transaction has closed (e.g. in the matching scheduler).
+   */
+  @Query("SELECT j FROM Job j JOIN FETCH j.property WHERE j.id = :id")
+  Optional<Job> findByIdWithProperty(@Param("id") UUID id);
+
   /** Jobs in CREATED status that have not been broadcast yet (safety net for missed events). */
   List<Job> findByStatusAndBroadcastAtIsNull(String status);
 

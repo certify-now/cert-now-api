@@ -122,9 +122,22 @@ public class MatchingService {
   /**
    * Broadcasts a job to all eligible engineers. Updates job status to AWAITING_ACCEPTANCE and
    * creates match log entries for each notified engineer.
+   *
+   * <p>The {@code jobRef} parameter may come from a detached / proxy-only entity (e.g. loaded by
+   * the scheduler outside a transaction). We therefore re-load the job with its {@code property}
+   * eagerly joined so that {@link #findCandidates} can access {@code property.location} safely
+   * within this transaction.
    */
   @Transactional
-  public void broadcastToEligible(final Job job) {
+  public void broadcastToEligible(final Job jobRef) {
+    final Job job =
+        jobRepository
+            .findByIdWithProperty(jobRef.getId())
+            .orElseThrow(
+                () ->
+                    new EntityNotFoundException(
+                        "Job not found during broadcast: " + jobRef.getId()));
+
     final JobStatus current = JobStatus.fromString(job.getStatus());
     if (current != JobStatus.CREATED) {
       log.warn(

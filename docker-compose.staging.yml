@@ -25,9 +25,6 @@ services:
       - staging_logs:/app/logs
     environment:
       JAVA_OPTS: "-Xms256m -Xmx512m -XX:MaxMetaspaceSize=128m"
-    mem_limit: 900m
-    mem_reservation: 512m
-    environment:
       SPRING_PROFILES_ACTIVE: staging
       JDBC_DATABASE_URL: jdbc:postgresql://postgres:5432/cert-now-staging
       JDBC_DATABASE_USERNAME: ${JDBC_DATABASE_USERNAME}
@@ -40,6 +37,8 @@ services:
       APP_EMAIL_FROM: ${APP_EMAIL_FROM}
       APP_EMAIL_REPLY_TO: ${APP_EMAIL_REPLY_TO}
       APP_EMAIL_SUPPORT: ${APP_EMAIL_SUPPORT}
+    mem_limit: 900m
+    mem_reservation: 512m
     depends_on:
       postgres:
         condition: service_healthy

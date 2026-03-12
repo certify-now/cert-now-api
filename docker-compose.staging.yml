@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: cert-now-staging
+      POSTGRES_USER: ${JDBC_DATABASE_USERNAME}
+      POSTGRES_PASSWORD: ${JDBC_DATABASE_PASSWORD}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_staging:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${JDBC_DATABASE_USERNAME} -d cert-now-staging"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    image: ghcr.io/certify-now/cert-now-api:staging
+    ports:
+      - "8443:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: staging
+      JDBC_DATABASE_URL: jdbc:postgresql://postgres:5432/cert-now-staging
+      JDBC_DATABASE_USERNAME: ${JDBC_DATABASE_USERNAME}
+      JDBC_DATABASE_PASSWORD: ${JDBC_DATABASE_PASSWORD}
+      APP_BASE_URL: ${APP_BASE_URL}
+      CORS_ALLOWED_ORIGIN_PATTERNS: ${CORS_ALLOWED_ORIGIN_PATTERNS}
+      JWT_SECRET: ${JWT_SECRET}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      APP_EMAIL_FROM: ${APP_EMAIL_FROM}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_staging:

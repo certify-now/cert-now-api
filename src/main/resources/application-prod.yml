@@ -1,0 +1,35 @@
+spring:
+  datasource:
+    url: ${JDBC_DATABASE_URL}
+    username: ${JDBC_DATABASE_USERNAME}
+    password: ${JDBC_DATABASE_PASSWORD}
+    hikari:
+      connection-timeout: 5000
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      max-lifetime: 1800000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+app:
+  base-url: ${APP_BASE_URL}
+  cors:
+    allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS}
+  email:
+    provider: ${APP_EMAIL_PROVIDER:smtp}
+    from: ${APP_EMAIL_FROM}
+  jwt:
+    secret: ${JWT_SECRET}

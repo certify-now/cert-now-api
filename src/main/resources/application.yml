@@ -1,0 +1,53 @@
+logging:
+  level:
+    org.hibernate.orm.jdbc.warn: ERROR
+
+spring:
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 25
+  mail:
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+    doc-expansion: none
+
+error:
+  handling:
+    http-status-in-json-response: true
+    full-stacktrace-http-statuses: 5xx
+    log-levels:
+      5xx: ERROR
+    exception-logging: NO_LOGGING
+
+certifynow:
+  matching:
+    broadcast-expiry-minutes: 15
+    unmatched-job-check-interval-ms: 30000
+    expired-broadcast-check-interval-ms: 30000
+
+app:
+  pricing:
+    commission-rate: 0.15
+  jwt:
+    access-token-expiry-ms: 900000
+    refresh-token-expiry-days: 30
+  security:
+    max-refresh-tokens-per-user: 5
+  email-verification:
+    token-expiry-hours: 24

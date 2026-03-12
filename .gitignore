@@ -42,3 +42,6 @@ bin/
 ## Environment files (never commit secrets)
 .env.dev
 .env.prod
+
+## Server documentation (local reference only)
+SERVER.md

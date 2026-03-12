@@ -6,13 +6,13 @@ scrape_configs:
   - job_name: 'cert-now-staging'
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['localhost:8443']
+      - targets: ['host.docker.internal:8443']
         labels:
           environment: 'staging'
 
   - job_name: 'cert-now-prod'
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['localhost:8447']
+      - targets: ['host.docker.internal:8447']
         labels:
           environment: 'prod'

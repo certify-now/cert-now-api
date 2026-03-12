@@ -114,10 +114,12 @@ public class SecurityConfig {
                     .permitAll()
 
                     // ═══════════════════════════════════════════════════════
-                    // HEALTH CHECK
+                    // ACTUATOR — health public, metrics require auth
                     // ═══════════════════════════════════════════════════════
                     .requestMatchers(HttpMethod.GET, "/actuator/health")
                     .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/actuator/metrics/**", "/actuator/info")
+                    .hasRole("ADMIN")
 
                     // ═══════════════════════════════════════════════════════
                     // ADMIN-ONLY ENDPOINTS

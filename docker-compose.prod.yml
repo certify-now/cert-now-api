@@ -14,11 +14,19 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    mem_limit: 512m
+    mem_reservation: 256m
 
   app:
     image: ghcr.io/certify-now/cert-now-api:latest
     ports:
       - "8447:8080"
+    volumes:
+      - prod_logs:/app/logs
+    environment:
+      JAVA_OPTS: "-Xms256m -Xmx768m -XX:MaxMetaspaceSize=128m"
+    mem_limit: 1200m
+    mem_reservation: 768m
     environment:
       SPRING_PROFILES_ACTIVE: prod
       JDBC_DATABASE_URL: jdbc:postgresql://postgres:5432/cert-now-prod
@@ -39,3 +47,4 @@ services:
 
 volumes:
   postgres_prod:
+  prod_logs:

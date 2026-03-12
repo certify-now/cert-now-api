@@ -14,11 +14,19 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    mem_limit: 256m
+    mem_reservation: 128m
 
   app:
     image: ghcr.io/certify-now/cert-now-api:staging
     ports:
       - "8443:8080"
+    volumes:
+      - staging_logs:/app/logs
+    environment:
+      JAVA_OPTS: "-Xms256m -Xmx512m -XX:MaxMetaspaceSize=128m"
+    mem_limit: 900m
+    mem_reservation: 512m
     environment:
       SPRING_PROFILES_ACTIVE: staging
       JDBC_DATABASE_URL: jdbc:postgresql://postgres:5432/cert-now-staging
@@ -39,3 +47,4 @@ services:
 
 volumes:
   postgres_staging:
+  staging_logs:

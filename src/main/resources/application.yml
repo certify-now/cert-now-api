@@ -1,6 +1,14 @@
 logging:
   level:
     org.hibernate.orm.jdbc.warn: ERROR
+  file:
+    name: /app/logs/app.log
+  logback:
+    rollingpolicy:
+      file-name-pattern: /app/logs/app.%d{yyyy-MM-dd}.%i.log.gz
+      max-file-size: 50MB
+      max-history: 30
+      clean-history-on-start: false
 
 spring:
   jpa:
@@ -18,6 +26,19 @@ spring:
           auth: true
           starttls:
             enable: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,info
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
 
 springdoc:
   api-docs:

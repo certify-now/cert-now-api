@@ -133,10 +133,13 @@ jobs:
           username: maher
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
+            set -e
             echo ${{ secrets.GHCR_PAT }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker compose -p cert-now-staging --env-file ~/staging.env -f ~/docker-compose.staging.yml pull app
             docker compose -p cert-now-staging --env-file ~/staging.env -f ~/docker-compose.staging.yml up -d
-            docker ps
+            sleep 15
+            docker compose -p cert-now-staging --env-file ~/staging.env -f ~/docker-compose.staging.yml ps | grep "app" | grep "Up"
+            echo "Staging deployed successfully"
 
   # ─────────────────────────────────────────────────────────────
   # Production: tag v* → tests must pass first, then deploy
@@ -192,7 +195,10 @@ jobs:
           username: maher
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
+            set -e
             echo ${{ secrets.GHCR_PAT }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker compose -p cert-now-prod --env-file ~/prod.env -f ~/docker-compose.prod.yml pull app
             docker compose -p cert-now-prod --env-file ~/prod.env -f ~/docker-compose.prod.yml up -d
-            docker ps
+            sleep 15
+            docker compose -p cert-now-prod --env-file ~/prod.env -f ~/docker-compose.prod.yml ps | grep "app" | grep "Up"
+            echo "Production deployed successfully"

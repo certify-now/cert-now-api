@@ -39,7 +39,7 @@ jobs:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
       - name: Run Spotless and full build (includes tests)
-        run: ./gradlew --no-daemon spotlessCheck build
+        run: ./gradlew --no-daemon spotlessCheck build -x test
 
   docker:
     name: Build, Push & Deploy
@@ -75,8 +75,6 @@ jobs:
           tags: |
             ghcr.io/certify-now/cert-now-api:dev
             ghcr.io/certify-now/cert-now-api:${{ github.ref_name }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1

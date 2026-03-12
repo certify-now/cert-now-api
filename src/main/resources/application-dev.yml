@@ -67,7 +67,7 @@ certifynow:
 app:
   base-url: ${APP_BASE_URL:http://localhost:8080}
   cors:
-    allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*}
+    allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://82.165.193.244:*,http://localhost:*}
   pricing:
     commission-rate: 0.15
   email:

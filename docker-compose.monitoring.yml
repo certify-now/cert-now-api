@@ -1,7 +1,8 @@
 services:
   prometheus:
     image: prom/prometheus:latest
-    network_mode: host
+    ports:
+      - "127.0.0.1:9090:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
@@ -9,10 +10,9 @@ services:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--storage.tsdb.retention.time=30d'
-      - '--web.listen-address=127.0.0.1:9090'
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
-    mem_limit: 256m
-    mem_reservation: 128m
 
   grafana:
     image: grafana/grafana:latest

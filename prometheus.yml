@@ -7,12 +7,12 @@ scrape_configs:
     metrics_path: '/actuator/prometheus'
     static_configs:
       - targets: ['localhost:8443']
-    labels:
-      environment: 'staging'
+        labels:
+          environment: 'staging'
 
   - job_name: 'cert-now-prod'
     metrics_path: '/actuator/prometheus'
     static_configs:
       - targets: ['localhost:8447']
-    labels:
-      environment: 'prod'
+        labels:
+          environment: 'prod'

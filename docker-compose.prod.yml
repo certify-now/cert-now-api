@@ -30,6 +30,8 @@ services:
       MAIL_USERNAME: ${MAIL_USERNAME}
       MAIL_PASSWORD: ${MAIL_PASSWORD}
       APP_EMAIL_FROM: ${APP_EMAIL_FROM}
+      APP_EMAIL_REPLY_TO: ${APP_EMAIL_REPLY_TO}
+      APP_EMAIL_SUPPORT: ${APP_EMAIL_SUPPORT}
     depends_on:
       postgres:
         condition: service_healthy

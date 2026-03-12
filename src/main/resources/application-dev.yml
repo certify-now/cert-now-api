@@ -20,9 +20,7 @@ spring:
     hibernate:
       ddl-auto: update
   mail:
-    host: ${MAIL_HOST:smtp.gmail.com}
-    port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME:dev.maherk@gmail.com}
+    username: ${MAIL_USERNAME:hello@certnow.co.uk}
     password: ${MAIL_PASSWORD:}
 
 springdoc:
@@ -37,6 +35,8 @@ app:
     allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*}
   email:
     provider: ${APP_EMAIL_PROVIDER:smtp}
-    from: ${APP_EMAIL_FROM:dev.maherk@gmail.com}
+    from: ${APP_EMAIL_FROM:hello@certnow.co.uk}
+    reply-to: ${APP_EMAIL_REPLY_TO:admin@certnow.co.uk}
+    support: ${APP_EMAIL_SUPPORT:admin@certnow.co.uk}
   jwt:
     secret: ${JWT_SECRET:dev-secret-key-that-is-at-least-64-bytes-long-for-hs512-algorithm-padding}

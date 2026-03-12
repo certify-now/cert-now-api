@@ -10,6 +10,8 @@ spring:
         jdbc:
           batch_size: 25
   mail:
+    host: smtp.ionos.co.uk
+    port: 587
     properties:
       mail:
         smtp:

@@ -114,9 +114,9 @@ public class SecurityConfig {
                     .permitAll()
 
                     // ═══════════════════════════════════════════════════════
-                    // ACTUATOR — health public, metrics require auth
+                    // ACTUATOR — health + prometheus public, metrics require auth
                     // ═══════════════════════════════════════════════════════
-                    .requestMatchers(HttpMethod.GET, "/actuator/health")
+                    .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/prometheus")
                     .permitAll()
                     .requestMatchers(HttpMethod.GET, "/actuator/metrics/**", "/actuator/info")
                     .hasRole("ADMIN")

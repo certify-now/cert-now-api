@@ -117,13 +117,13 @@ jobs:
           push: true
           tags: ghcr.io/certify-now/cert-now-api:staging
 
-      - name: Copy compose file to server
+      - name: Copy compose files to server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: maher
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: docker-compose.staging.yml
+          source: "docker-compose.staging.yml,docker-compose.monitoring.yml,prometheus.yml"
           target: "~/"
 
       - name: Deploy to staging

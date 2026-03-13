@@ -24,7 +24,7 @@ services:
     volumes:
       - prod_logs:/app/logs
     environment:
-      JAVA_OPTS: "-Xms256m -Xmx768m -XX:MaxMetaspaceSize=128m"
+      JAVA_OPTS: "-Xms256m -Xmx768m -XX:MaxMetaspaceSize=256m"
       SPRING_PROFILES_ACTIVE: prod
       JDBC_DATABASE_URL: jdbc:postgresql://postgres:5432/cert-now-prod
       JDBC_DATABASE_USERNAME: ${JDBC_DATABASE_USERNAME}

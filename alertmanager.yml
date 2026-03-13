@@ -1,0 +1,59 @@
+global:
+  resolve_timeout: 5m
+  # Email (SMTP) — reuses your existing app mail credentials
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: '${MAIL_USERNAME}'
+  smtp_auth_username: '${MAIL_USERNAME}'
+  smtp_auth_password: '${MAIL_PASSWORD}'
+  smtp_require_tls: true
+
+route:
+  receiver: 'cert-now-alerts'
+  group_by: ['alertname', 'environment']
+  group_wait: 30s       # wait 30s before sending first notification (batches quick bursts)
+  group_interval: 5m    # how long to wait before sending an update for ongoing alerts
+  repeat_interval: 4h   # re-notify every 4h if still firing
+
+  routes:
+    # Critical alerts (AppDown, MetaspaceNearLimit) fire immediately with no repeat delay
+    - matchers:
+        - severity = "critical"
+      receiver: 'cert-now-alerts'
+      repeat_interval: 1h
+
+receivers:
+  - name: 'cert-now-alerts'
+    email_configs:
+      - to: '${ALERT_EMAIL_TO}'
+        send_resolved: true
+        headers:
+          subject: '[{{ .Status | toUpper }}] {{ .GroupLabels.alertname }} — {{ .GroupLabels.environment }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Details: {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          Environment: {{ .Labels.environment }}
+          Started: {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+          {{ end }}
+
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '${SLACK_ALERT_CHANNEL}'
+        send_resolved: true
+        title: '{{ if eq .Status "firing" }}🔴{{ else }}✅{{ end }} {{ .GroupLabels.alertname }} — {{ .GroupLabels.environment }}'
+        text: |
+          {{ range .Alerts }}
+          *{{ .Annotations.summary }}*
+          {{ .Annotations.description }}
+          Severity: `{{ .Labels.severity }}`
+          {{ end }}
+
+inhibit_rules:
+  # If AppDown fires, suppress the other alerts for that environment
+  # (no point getting heap/GC alerts when the whole app is down)
+  - source_matchers:
+      - alertname = "AppDown"
+    target_matchers:
+      - alertname =~ "HighHeapUsage|MetaspaceNearLimit|HighErrorRate|SlowResponseTime|HighGCOverhead"
+    equal: ['environment']

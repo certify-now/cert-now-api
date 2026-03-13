@@ -1,0 +1,92 @@
+groups:
+  - name: cert-now.app
+    interval: 30s
+    rules:
+
+      # App is completely unreachable (Prometheus can't scrape it)
+      - alert: AppDown
+        expr: up{job=~"cert-now-.*"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "cert-now {{ $labels.environment }} is DOWN"
+          description: "The {{ $labels.environment }} instance has been unreachable for more than 1 minute."
+
+      # Heap usage above 85% of the configured -Xmx
+      # Staging Xmx=512m, Prod Xmx=768m
+      - alert: HighHeapUsage
+        expr: |
+          (
+            jvm_memory_used_bytes{area="heap", job=~"cert-now-.*"}
+            /
+            jvm_memory_max_bytes{area="heap", job=~"cert-now-.*"}
+          ) > 0.85
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High JVM heap usage on {{ $labels.environment }}"
+          description: "Heap is at {{ $value | humanizePercentage }} for more than 3 minutes on {{ $labels.environment }}."
+
+      # Metaspace above 80% of the configured -XX:MaxMetaspaceSize (now 256m)
+      - alert: MetaspaceNearLimit
+        expr: |
+          (
+            jvm_memory_used_bytes{id="Metaspace", job=~"cert-now-.*"}
+            /
+            jvm_memory_max_bytes{id="Metaspace", job=~"cert-now-.*"}
+          ) > 0.80
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Metaspace near limit on {{ $labels.environment }}"
+          description: "Metaspace is at {{ $value | humanizePercentage }} of max on {{ $labels.environment }}. OOM crash is imminent."
+
+      # HTTP 5xx error rate above 5% over a 5-minute window
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum by (job, environment) (
+              rate(http_server_requests_seconds_count{status=~"5..", job=~"cert-now-.*"}[5m])
+            )
+            /
+            sum by (job, environment) (
+              rate(http_server_requests_seconds_count{job=~"cert-now-.*"}[5m])
+            )
+          ) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High HTTP 5xx error rate on {{ $labels.environment }}"
+          description: "{{ $value | humanizePercentage }} of requests are returning 5xx errors on {{ $labels.environment }}."
+
+      # P95 response time above 2 seconds
+      - alert: SlowResponseTime
+        expr: |
+          histogram_quantile(0.95,
+            sum by (job, environment, le) (
+              rate(http_server_requests_seconds_bucket{job=~"cert-now-.*"}[5m])
+            )
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow P95 response time on {{ $labels.environment }}"
+          description: "P95 latency is {{ $value | humanizeDuration }} on {{ $labels.environment }}."
+
+      # GC overhead — too much time spent in GC (>20% of CPU time)
+      - alert: HighGCOverhead
+        expr: |
+          sum by (job, environment) (
+            rate(jvm_gc_pause_seconds_sum{job=~"cert-now-.*"}[5m])
+          ) > 0.20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High GC overhead on {{ $labels.environment }}"
+          description: "JVM is spending more than 20% of time in garbage collection on {{ $labels.environment }}."

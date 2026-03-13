@@ -20,15 +20,11 @@ services:
     ports:
       - "127.0.0.1:9093:9093"
     volumes:
-      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml.tmpl:ro
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
       - alertmanager_data:/alertmanager
-    # Install gettext (provides envsubst) then substitute ${VAR} placeholders before starting
-    entrypoint: >
-      sh -c "apk add --no-cache gettext --quiet
-      && envsubst < /etc/alertmanager/alertmanager.yml.tmpl > /tmp/alertmanager.yml
-      && /bin/alertmanager
-      --config.file=/tmp/alertmanager.yml
-      --storage.path=/alertmanager"
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
     environment:
       MAIL_USERNAME: ${MAIL_USERNAME}
       MAIL_PASSWORD: ${MAIL_PASSWORD}

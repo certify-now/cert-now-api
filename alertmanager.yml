@@ -1,7 +1,6 @@
 global:
   resolve_timeout: 5m
-  # Email (SMTP) — reuses your existing app mail credentials
-  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_smarthost: 'smtp.ionos.co.uk:587'
   smtp_from: '${MAIL_USERNAME}'
   smtp_auth_username: '${MAIL_USERNAME}'
   smtp_auth_password: '${MAIL_PASSWORD}'
@@ -38,10 +37,10 @@ route:
 receivers:
   - name: 'staging-alerts'
     email_configs:
-      - to: '${ALERT_EMAIL_TO}'
+      - to: '${MAIL_USERNAME}'
         send_resolved: true
         headers:
-          subject: '[{{ .Status | toUpper }}][STAGING] {{ .GroupLabels.alertname }}'
+          subject: '[cert-now-api][{{ .Status | toUpper }}][STAGING] {{ .GroupLabels.alertname }}'
         body: |
           {{ range .Alerts }}
           Alert: {{ .Annotations.summary }}
@@ -52,9 +51,9 @@ receivers:
           {{ end }}
     slack_configs:
       - api_url: '${SLACK_WEBHOOK_URL_STAGING}'
-        channel: '${SLACK_ALERT_CHANNEL_STAGING}'
+        channel: '#staging-alerts'
         send_resolved: true
-        title: '{{ if eq .Status "firing" }}🔴{{ else }}✅{{ end }} [STAGING] {{ .GroupLabels.alertname }}'
+        title: '{{ if eq .Status "firing" }}🔴{{ else }}✅{{ end }} [cert-now-api][STAGING] {{ .GroupLabels.alertname }}'
         text: |
           {{ range .Alerts }}
           *{{ .Annotations.summary }}*
@@ -64,10 +63,10 @@ receivers:
 
   - name: 'prod-alerts'
     email_configs:
-      - to: '${ALERT_EMAIL_TO}'
+      - to: '${MAIL_USERNAME}'
         send_resolved: true
         headers:
-          subject: '[{{ .Status | toUpper }}][PROD] {{ .GroupLabels.alertname }}'
+          subject: '[cert-now-api][{{ .Status | toUpper }}][PROD] {{ .GroupLabels.alertname }}'
         body: |
           {{ range .Alerts }}
           Alert: {{ .Annotations.summary }}
@@ -78,9 +77,9 @@ receivers:
           {{ end }}
     slack_configs:
       - api_url: '${SLACK_WEBHOOK_URL_PROD}'
-        channel: '${SLACK_ALERT_CHANNEL_PROD}'
+        channel: '#production-alerts'
         send_resolved: true
-        title: '{{ if eq .Status "firing" }}🔴{{ else }}✅{{ end }} [PROD] {{ .GroupLabels.alertname }}'
+        title: '{{ if eq .Status "firing" }}🔴{{ else }}✅{{ end }} [cert-now-api][PROD] {{ .GroupLabels.alertname }}'
         text: |
           {{ range .Alerts }}
           *{{ .Annotations.summary }}*

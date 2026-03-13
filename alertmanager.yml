@@ -41,12 +41,12 @@ receivers:
         send_resolved: true
         headers:
           subject: '[cert-now-api][{{ .Status | toUpper }}][STAGING] {{ .GroupLabels.alertname }}'
-        body: |
+        html: |
           {{ range .Alerts }}
-          Alert: {{ .Annotations.summary }}
-          Details: {{ .Annotations.description }}
-          Severity: {{ .Labels.severity }}
-          Environment: staging
+          Alert: {{ .Annotations.summary }}<br>
+          Details: {{ .Annotations.description }}<br>
+          Severity: {{ .Labels.severity }}<br>
+          Environment: staging<br>
           Started: {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
           {{ end }}
     slack_configs:
@@ -67,12 +67,12 @@ receivers:
         send_resolved: true
         headers:
           subject: '[cert-now-api][{{ .Status | toUpper }}][PROD] {{ .GroupLabels.alertname }}'
-        body: |
+        html: |
           {{ range .Alerts }}
-          Alert: {{ .Annotations.summary }}
-          Details: {{ .Annotations.description }}
-          Severity: {{ .Labels.severity }}
-          Environment: prod
+          Alert: {{ .Annotations.summary }}<br>
+          Details: {{ .Annotations.description }}<br>
+          Severity: {{ .Labels.severity }}<br>
+          Environment: prod<br>
           Started: {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
           {{ end }}
     slack_configs:

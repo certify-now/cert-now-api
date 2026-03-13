@@ -20,11 +20,15 @@ services:
     ports:
       - "127.0.0.1:9093:9093"
     volumes:
-      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml.tmpl:ro
       - alertmanager_data:/alertmanager
-    command:
-      - '--config.file=/etc/alertmanager/alertmanager.yml'
-      - '--storage.path=/alertmanager'
+    # envsubst replaces ${VAR} placeholders in the config template before Alertmanager starts
+    entrypoint: >
+      sh -c "envsubst < /etc/alertmanager/alertmanager.yml.tmpl
+      > /tmp/alertmanager.yml
+      && alertmanager
+      --config.file=/tmp/alertmanager.yml
+      --storage.path=/alertmanager"
     environment:
       MAIL_USERNAME: ${MAIL_USERNAME}
       MAIL_PASSWORD: ${MAIL_PASSWORD}

@@ -16,6 +16,7 @@ services:
       retries: 10
     mem_limit: 512m
     mem_reservation: 256m
+    restart: unless-stopped
 
   app:
     image: ghcr.io/certify-now/cert-now-api:latest

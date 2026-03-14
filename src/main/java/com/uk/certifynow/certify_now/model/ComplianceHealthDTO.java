@@ -15,8 +15,8 @@ public class ComplianceHealthDTO {
   private int overallScore;
   private int totalProperties;
   private int compliantCount;
-  private int actionRequiredCount;
-  private int expiredCount;
+  private int expiringSoonCount;
+  private int nonCompliantCount;
   private String summary;
   private List<PropertyComplianceItemDTO> items;
 }

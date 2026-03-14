@@ -18,7 +18,7 @@ import org.springframework.stereotype.Service;
 public class ComplianceService {
 
   /** Certs expiring within this many days are flagged EXPIRING_SOON. */
-  private static final int EXPIRY_WARNING_DAYS = 60;
+  private static final int EXPIRY_WARNING_DAYS = 30;
 
   // ── Per-certificate status ─────────────────────────────────────────────────
 
@@ -76,10 +76,7 @@ public class ComplianceService {
 
   private int scoreForStatus(String status) {
     return switch (status) {
-      case "COMPLIANT" -> 100;
-      case "EXPIRING_SOON" -> 60;
-      case "MISSING" -> 20;
-      case "EXPIRED" -> 0;
+      case "COMPLIANT", "EXPIRING_SOON" -> 100;
       default -> 0;
     };
   }
@@ -175,12 +172,16 @@ public class ComplianceService {
   /**
    * Computes the aggregate ComplianceHealthDTO from an already-enriched list of properties. Expects
    * enrich() to have been called on each DTO first.
+   *
+   * <p>overallScore = average of all property cert scores (COMPLIANT/EXPIRING_SOON = 100,
+   * EXPIRED/MISSING = 0, NOT_APPLICABLE excluded). This answers "what % of my certificate
+   * obligations are legally valid right now?"
    */
   public ComplianceHealthDTO computeHealth(List<PropertyDTO> properties) {
     int total = properties.size();
     int compliantCount = 0;
-    int actionRequiredCount = 0;
-    int expiredCount = 0;
+    int expiringSoonCount = 0;
+    int nonCompliantCount = 0;
     int totalScore = 0;
     List<PropertyComplianceItemDTO> items = new ArrayList<>();
 
@@ -191,14 +192,10 @@ public class ComplianceService {
       String status = p.getComplianceStatus();
       if ("COMPLIANT".equals(status)) {
         compliantCount++;
-      } else if ("EXPIRED".equals(status)) {
-        // Expired is its own bucket — do NOT also count in actionRequired.
-        // The three buckets are mutually exclusive: compliant + attentionNeeded + nonCompliant
-        // must always sum to totalProperties so the ring arcs add up to exactly 100%.
-        expiredCount++;
-      } else if (!"NOT_APPLICABLE".equals(status)) {
-        // EXPIRING_SOON and MISSING — still valid / recoverable, needs attention
-        actionRequiredCount++;
+      } else if ("EXPIRING_SOON".equals(status)) {
+        expiringSoonCount++;
+      } else if ("EXPIRED".equals(status) || "MISSING".equals(status)) {
+        nonCompliantCount++;
       }
 
       items.add(
@@ -211,26 +208,20 @@ public class ComplianceService {
               score));
     }
 
-    // overallScore = % of fully compliant properties so the ring matches "X of Y properties
-    // compliant".
-    // The weighted certificate-health average (totalScore/total) is intentionally not used here
-    // because it produces numbers that contradict the displayed property count (e.g. 71% with 3/7
-    // compliant).
-    int overallScore = total > 0 ? (compliantCount * 100) / total : 100;
+    int overallScore = total > 0 ? totalScore / total : 100;
     return new ComplianceHealthDTO(
         overallScore,
         total,
         compliantCount,
-        actionRequiredCount,
-        expiredCount,
-        computeSummaryLabel(overallScore),
+        expiringSoonCount,
+        nonCompliantCount,
+        computeSummaryLabel(nonCompliantCount, expiringSoonCount),
         items);
   }
 
-  private String computeSummaryLabel(int score) {
-    if (score == 100) return "Fully Compliant";
-    if (score >= 75) return "Good";
-    if (score >= 50) return "Action Required";
-    return "Critical";
+  private String computeSummaryLabel(int nonCompliantCount, int expiringSoonCount) {
+    if (nonCompliantCount > 0) return "AT_RISK";
+    if (expiringSoonCount > 0) return "ATTENTION_NEEDED";
+    return "ON_TRACK";
   }
 }

@@ -227,7 +227,7 @@ public class PricingService {
         .toList();
   }
 
-  @Cacheable(value = "certificate-types")
+  @Cacheable(value = "certificate-types", key = "T(java.time.LocalDate).now().toString()")
   public CertificateTypesResponse getCertificateTypes() {
     final List<PricingRule> activeRules = pricingRuleRepository.findAllActiveNationalForToday();
 
@@ -267,10 +267,7 @@ public class PricingService {
             .stream()
             .mapToInt(
                 modifiers ->
-                    modifiers.stream()
-                        .mapToInt(PricingModifier::getModifierPence)
-                        .max()
-                        .orElse(0))
+                    modifiers.stream().mapToInt(PricingModifier::getModifierPence).max().orElse(0))
             .sum();
 
     final int subtotal = basePricePence + maxModifierSum;
@@ -285,7 +282,8 @@ public class PricingService {
     final String description = meta != null ? meta.description() : "";
     final String priceUnit = "PAT".equals(type) ? "PER_ITEM" : "FLAT";
 
-    return new CertificateTypeItem(type, name, description, basePricePence, priceToPence, priceUnit);
+    return new CertificateTypeItem(
+        type, name, description, basePricePence, priceToPence, priceUnit);
   }
 
   // Canonical display order and static metadata for certificate types

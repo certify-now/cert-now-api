@@ -248,9 +248,8 @@ public class PricingService {
   private CertificateTypeItem toCertificateTypeItem(final String type, final PricingRule rule) {
     final CertificateTypeMeta meta = CERTIFICATE_TYPE_META.get(type);
     final String name = meta != null ? meta.name() : type;
-    final String description = meta != null ? meta.description() : "";
     final String priceUnit = "PAT".equals(type) ? "PER_ITEM" : "FLAT";
-    return new CertificateTypeItem(type, name, description, rule.getBasePricePence(), priceUnit);
+    return new CertificateTypeItem(type, name, rule.getBasePricePence(), priceUnit, 0, 0);
   }
 
   // Canonical display order and static metadata for certificate types

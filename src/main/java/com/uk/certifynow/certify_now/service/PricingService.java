@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
@@ -237,53 +236,21 @@ public class PricingService {
       ruleByType.putIfAbsent(rule.getCertificateType(), rule);
     }
 
-    // Highest active urgency multiplier — used for the price ceiling
-    final BigDecimal highestMultiplier =
-        urgencyMultiplierRepository.findAllActiveOrderByMultiplierDesc().stream()
-            .map(UrgencyMultiplier::getMultiplier)
-            .filter(m -> m.compareTo(BigDecimal.ONE) > 0)
-            .findFirst()
-            .orElse(BigDecimal.ONE);
-
     final List<CertificateTypeItem> items =
         CERTIFICATE_TYPE_ORDER.stream()
             .filter(ruleByType::containsKey)
-            .map(type -> toCertificateTypeItem(type, ruleByType.get(type), highestMultiplier))
+            .map(type -> toCertificateTypeItem(type, ruleByType.get(type)))
             .toList();
 
     return new CertificateTypesResponse(items);
   }
 
-  private CertificateTypeItem toCertificateTypeItem(
-      final String type, final PricingRule rule, final BigDecimal highestMultiplier) {
-
-    final int basePricePence = rule.getBasePricePence();
-
-    // Sum the maximum modifier pence per modifier type to get the widest possible price adder
-    final int maxModifierSum =
-        rule.getPricingRulePricingModifiers().stream()
-            .collect(Collectors.groupingBy(PricingModifier::getModifierType))
-            .values()
-            .stream()
-            .mapToInt(
-                modifiers ->
-                    modifiers.stream().mapToInt(PricingModifier::getModifierPence).max().orElse(0))
-            .sum();
-
-    final int subtotal = basePricePence + maxModifierSum;
-    final int priceToPence =
-        new BigDecimal(subtotal)
-            .multiply(highestMultiplier)
-            .setScale(0, RoundingMode.HALF_UP)
-            .intValue();
-
+  private CertificateTypeItem toCertificateTypeItem(final String type, final PricingRule rule) {
     final CertificateTypeMeta meta = CERTIFICATE_TYPE_META.get(type);
     final String name = meta != null ? meta.name() : type;
     final String description = meta != null ? meta.description() : "";
     final String priceUnit = "PAT".equals(type) ? "PER_ITEM" : "FLAT";
-
-    return new CertificateTypeItem(
-        type, name, description, basePricePence, priceToPence, priceUnit);
+    return new CertificateTypeItem(type, name, description, rule.getBasePricePence(), priceUnit);
   }
 
   // Canonical display order and static metadata for certificate types

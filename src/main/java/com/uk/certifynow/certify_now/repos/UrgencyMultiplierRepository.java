@@ -18,4 +18,10 @@ public interface UrgencyMultiplierRepository extends JpaRepository<UrgencyMultip
   Optional<UrgencyMultiplier> findActiveByUrgency(@Param("urgency") String urgency);
 
   List<UrgencyMultiplier> findByIsActiveTrue();
+
+  @Query(
+      "SELECT m FROM UrgencyMultiplier m WHERE m.isActive = true "
+          + "AND m.effectiveFrom <= CURRENT_DATE "
+          + "ORDER BY m.multiplier DESC")
+  List<UrgencyMultiplier> findAllActiveOrderByMultiplierDesc();
 }

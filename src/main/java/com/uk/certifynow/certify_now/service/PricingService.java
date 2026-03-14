@@ -10,6 +10,8 @@ import com.uk.certifynow.certify_now.repos.PricingModifierRepository;
 import com.uk.certifynow.certify_now.repos.PricingRuleRepository;
 import com.uk.certifynow.certify_now.repos.PropertyRepository;
 import com.uk.certifynow.certify_now.repos.UrgencyMultiplierRepository;
+import com.uk.certifynow.certify_now.rest.dto.booking.CertificateTypeItem;
+import com.uk.certifynow.certify_now.rest.dto.booking.CertificateTypesResponse;
 import com.uk.certifynow.certify_now.rest.dto.pricing.CreatePricingModifierRequest;
 import com.uk.certifynow.certify_now.rest.dto.pricing.CreatePricingRuleRequest;
 import com.uk.certifynow.certify_now.rest.dto.pricing.PriceBreakdown;
@@ -23,9 +25,12 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
@@ -222,13 +227,87 @@ public class PricingService {
         .toList();
   }
 
+  @Cacheable(value = "certificate-types")
+  public CertificateTypesResponse getCertificateTypes() {
+    final List<PricingRule> activeRules = pricingRuleRepository.findAllActiveNationalForToday();
+
+    // Deduplicate: keep the most recent rule per certificate type
+    final Map<String, PricingRule> ruleByType = new LinkedHashMap<>();
+    for (final PricingRule rule : activeRules) {
+      ruleByType.putIfAbsent(rule.getCertificateType(), rule);
+    }
+
+    // Highest active urgency multiplier — used for the price ceiling
+    final BigDecimal highestMultiplier =
+        urgencyMultiplierRepository.findAllActiveOrderByMultiplierDesc().stream()
+            .map(UrgencyMultiplier::getMultiplier)
+            .filter(m -> m.compareTo(BigDecimal.ONE) > 0)
+            .findFirst()
+            .orElse(BigDecimal.ONE);
+
+    final List<CertificateTypeItem> items =
+        CERTIFICATE_TYPE_ORDER.stream()
+            .filter(ruleByType::containsKey)
+            .map(type -> toCertificateTypeItem(type, ruleByType.get(type), highestMultiplier))
+            .toList();
+
+    return new CertificateTypesResponse(items);
+  }
+
+  private CertificateTypeItem toCertificateTypeItem(
+      final String type, final PricingRule rule, final BigDecimal highestMultiplier) {
+
+    final int basePricePence = rule.getBasePricePence();
+
+    // Sum the maximum modifier pence per modifier type to get the widest possible price adder
+    final int maxModifierSum =
+        rule.getPricingRulePricingModifiers().stream()
+            .collect(Collectors.groupingBy(PricingModifier::getModifierType))
+            .values()
+            .stream()
+            .mapToInt(
+                modifiers ->
+                    modifiers.stream()
+                        .mapToInt(PricingModifier::getModifierPence)
+                        .max()
+                        .orElse(0))
+            .sum();
+
+    final int subtotal = basePricePence + maxModifierSum;
+    final int priceToPence =
+        new BigDecimal(subtotal)
+            .multiply(highestMultiplier)
+            .setScale(0, RoundingMode.HALF_UP)
+            .intValue();
+
+    final CertificateTypeMeta meta = CERTIFICATE_TYPE_META.get(type);
+    final String name = meta != null ? meta.name() : type;
+    final String description = meta != null ? meta.description() : "";
+    final String priceUnit = "PAT".equals(type) ? "PER_ITEM" : "FLAT";
+
+    return new CertificateTypeItem(type, name, description, basePricePence, priceToPence, priceUnit);
+  }
+
+  // Canonical display order and static metadata for certificate types
+  private static final List<String> CERTIFICATE_TYPE_ORDER =
+      List.of("GAS_SAFETY", "EICR", "EPC", "PAT");
+
+  private record CertificateTypeMeta(String name, String description) {}
+
+  private static final Map<String, CertificateTypeMeta> CERTIFICATE_TYPE_META =
+      Map.of(
+          "GAS_SAFETY", new CertificateTypeMeta("Gas Safety", "Annual gas safety inspection"),
+          "EICR", new CertificateTypeMeta("EICR", "Electrical safety inspection"),
+          "EPC", new CertificateTypeMeta("EPC", "Energy performance certificate"),
+          "PAT", new CertificateTypeMeta("PAT", "Portable appliance testing"));
+
   // ═══════════════════════════════════════════════════════
   // ADMIN — WRITE (all evict caches)
   // ═══════════════════════════════════════════════════════
 
   @Transactional
   @CacheEvict(
-      value = {"pricing-rules", "pricing-calc", "urgency-multipliers"},
+      value = {"pricing-rules", "pricing-calc", "urgency-multipliers", "certificate-types"},
       allEntries = true)
   public PricingRuleResponse createPricingRule(final CreatePricingRuleRequest request) {
     final LocalDate newFrom = request.effectiveFrom();
@@ -287,7 +366,7 @@ public class PricingService {
 
   @Transactional
   @CacheEvict(
-      value = {"pricing-rules", "pricing-calc", "urgency-multipliers"},
+      value = {"pricing-rules", "pricing-calc", "urgency-multipliers", "certificate-types"},
       allEntries = true)
   public PricingRuleResponse updatePricingRule(
       final UUID id, final UpdatePricingRuleRequest request) {
@@ -312,7 +391,7 @@ public class PricingService {
 
   @Transactional
   @CacheEvict(
-      value = {"pricing-rules", "pricing-calc", "urgency-multipliers"},
+      value = {"pricing-rules", "pricing-calc", "urgency-multipliers", "certificate-types"},
       allEntries = true)
   public PricingRuleResponse addModifier(
       final UUID ruleId, final CreatePricingModifierRequest request) {
@@ -384,7 +463,7 @@ public class PricingService {
 
   @Transactional
   @CacheEvict(
-      value = {"pricing-rules", "pricing-calc", "urgency-multipliers"},
+      value = {"pricing-rules", "pricing-calc", "urgency-multipliers", "certificate-types"},
       allEntries = true)
   public void removeModifier(final UUID ruleId, final UUID modifierId) {
     final PricingModifier modifier =
@@ -404,7 +483,7 @@ public class PricingService {
 
   @Transactional
   @CacheEvict(
-      value = {"pricing-rules", "pricing-calc", "urgency-multipliers"},
+      value = {"pricing-rules", "pricing-calc", "urgency-multipliers", "certificate-types"},
       allEntries = true)
   public UrgencyMultiplierResponse updateUrgencyMultiplier(
       final UUID id, final UpdateUrgencyMultiplierRequest request) {

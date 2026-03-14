@@ -30,4 +30,12 @@ public interface PricingRuleRepository extends JpaRepository<PricingRule, UUID> 
   Optional<PricingRule> findNationalDefault(@Param("type") String type);
 
   List<PricingRule> findByIsActiveTrue();
+
+  @Query(
+      "SELECT r FROM PricingRule r WHERE r.isActive = true "
+          + "AND r.region IS NULL "
+          + "AND r.effectiveFrom <= CURRENT_DATE "
+          + "AND (r.effectiveTo IS NULL OR r.effectiveTo > CURRENT_DATE) "
+          + "ORDER BY r.certificateType ASC, r.effectiveFrom DESC")
+  List<PricingRule> findAllActiveNationalForToday();
 }

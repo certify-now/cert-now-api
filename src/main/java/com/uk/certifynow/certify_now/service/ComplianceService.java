@@ -192,9 +192,12 @@ public class ComplianceService {
       if ("COMPLIANT".equals(status)) {
         compliantCount++;
       } else if ("EXPIRED".equals(status)) {
+        // Expired is its own bucket — do NOT also count in actionRequired.
+        // The three buckets are mutually exclusive: compliant + attentionNeeded + nonCompliant
+        // must always sum to totalProperties so the ring arcs add up to exactly 100%.
         expiredCount++;
-        actionRequiredCount++;
       } else if (!"NOT_APPLICABLE".equals(status)) {
+        // EXPIRING_SOON and MISSING — still valid / recoverable, needs attention
         actionRequiredCount++;
       }
 

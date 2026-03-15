@@ -2,6 +2,7 @@ package com.uk.certifynow.certify_now.rest.dto.job;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -25,6 +26,8 @@ public record JobResponse(
     Integer matchAttempts,
     String accessInstructions,
     String customerNotes,
+    List<String> preferredDays,
+    List<String> preferredTimeSlots,
     String cancelledBy,
     String cancellationReason,
     Pricing pricing,

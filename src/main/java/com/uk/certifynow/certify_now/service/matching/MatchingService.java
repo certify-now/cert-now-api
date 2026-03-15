@@ -363,6 +363,10 @@ public class MatchingService {
         job.getMatchAttempts(),
         job.getAccessInstructions(),
         job.getCustomerNotes(),
+        job.getPreferredDays() == null ? List.of() : List.of(job.getPreferredDays().split(",")),
+        job.getPreferredTimeSlots() == null
+            ? List.of()
+            : List.of(job.getPreferredTimeSlots().split(",")),
         job.getCancelledBy(),
         job.getCancellationReason(),
         pricing,

@@ -10,6 +10,7 @@ import com.uk.certifynow.certify_now.rest.dto.job.JobResponse;
 import com.uk.certifynow.certify_now.rest.dto.job.JobStatusHistoryResponse;
 import com.uk.certifynow.certify_now.rest.dto.job.JobSummaryResponse;
 import com.uk.certifynow.certify_now.rest.dto.job.MatchJobRequest;
+import com.uk.certifynow.certify_now.rest.dto.job.ProposeScheduleRequest;
 import com.uk.certifynow.certify_now.rest.dto.job.StartJobRequest;
 import com.uk.certifynow.certify_now.service.auth.UserRole;
 import com.uk.certifynow.certify_now.service.job.JobService;
@@ -225,6 +226,44 @@ public class JobController {
       final HttpServletRequest httpRequest) {
     final UUID engineerId = extractUserId(authentication);
     return ApiResponse.of(jobService.acceptJob(id, engineerId, request), requestId(httpRequest));
+  }
+
+  // ── PUT /api/v1/jobs/{id}/propose-schedule — ENGINEER only ───────────────
+
+  @PutMapping("/{id}/propose-schedule")
+  @Operation(
+      summary = "Propose a schedule for a job",
+      description =
+          "The assigned engineer proposes a date and time slot for the job."
+              + " Can only be called when the job is in ACCEPTED status.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Schedule proposed successfully"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "Validation error in request body"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Not authenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Forbidden — engineer access required or not assigned to this job"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "Job not found"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "409",
+        description = "Invalid state transition — job not in ACCEPTED status")
+  })
+  public ApiResponse<JobResponse> proposeSchedule(
+      @Parameter(description = "Job ID") @PathVariable final UUID id,
+      @Valid @RequestBody final ProposeScheduleRequest request,
+      final Authentication authentication,
+      final HttpServletRequest httpRequest) {
+    final UUID engineerId = extractUserId(authentication);
+    return ApiResponse.of(
+        jobService.proposeSchedule(id, engineerId, request), requestId(httpRequest));
   }
 
   // ── PUT /api/v1/jobs/{id}/decline — ENGINEER only ────────────────────────

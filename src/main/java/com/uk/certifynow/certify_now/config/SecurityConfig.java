@@ -142,6 +142,8 @@ public class SecurityConfig {
                     .hasRole("ENGINEER")
                     .requestMatchers(HttpMethod.PUT, "/api/v1/jobs/*/complete")
                     .hasRole("ENGINEER")
+                    .requestMatchers(HttpMethod.PUT, "/api/v1/jobs/*/propose-schedule")
+                    .hasRole("ENGINEER")
 
                     // ═══════════════════════════════════════════════════════
                     // INSPECTION ENDPOINTS

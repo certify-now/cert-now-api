@@ -36,12 +36,14 @@ import com.uk.certifynow.certify_now.rest.dto.job.StartJobRequest;
 import com.uk.certifynow.certify_now.rest.dto.pricing.PriceBreakdown;
 import com.uk.certifynow.certify_now.service.auth.UserRole;
 import com.uk.certifynow.certify_now.util.ReferencedException;
+import com.uk.certifynow.certify_now.rest.dto.job.ProposeScheduleRequest;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -134,6 +136,32 @@ public class JobService {
           "Property does not have a gas supply; cannot book a gas safety certificate");
     }
 
+    // Validate preferred days if provided
+    if (request.preferredDays() != null && !request.preferredDays().isEmpty()) {
+      final Set<String> validDays = Set.of("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN");
+      for (final String day : request.preferredDays()) {
+        if (!validDays.contains(day.toUpperCase())) {
+          throw new BusinessException(
+              HttpStatus.BAD_REQUEST,
+              "INVALID_PREFERRED_DAY",
+              "Invalid preferred day: " + day + ". Must be MON-SUN.");
+        }
+      }
+    }
+
+    // Validate preferred time slots if provided
+    if (request.preferredTimeSlots() != null && !request.preferredTimeSlots().isEmpty()) {
+      final Set<String> validSlots = Set.of("MORNING", "AFTERNOON", "EVENING");
+      for (final String slot : request.preferredTimeSlots()) {
+        if (!validSlots.contains(slot.toUpperCase())) {
+          throw new BusinessException(
+              HttpStatus.BAD_REQUEST,
+              "INVALID_PREFERRED_TIME_SLOT",
+              "Invalid preferred time slot: " + slot + ". Must be MORNING, AFTERNOON, or EVENING.");
+        }
+      }
+    }
+
     // 4. Calculate pricing
     final String urgency = request.urgencyOrDefault();
     final PriceBreakdown price = pricingCalculator.calculate(certType, property.getId(), urgency);
@@ -182,6 +210,8 @@ public class JobService {
     job.setMatchAttempts(0);
     job.setAccessInstructions(request.accessInstructions());
     job.setCustomerNotes(request.customerNotes());
+    job.setPreferredDays(request.preferredDaysJoined());
+    job.setPreferredTimeSlots(request.preferredTimeSlotsJoined());
     // Pricing — copied from breakdown at creation time
     job.setBasePricePence(price.basePricePence());
     job.setPropertyModifierPence(price.propertyModifierPence());
@@ -812,6 +842,10 @@ public class JobService {
         job.getMatchAttempts(),
         job.getAccessInstructions(),
         job.getCustomerNotes(),
+        job.getPreferredDays() == null ? List.of() : List.of(job.getPreferredDays().split(",")),
+        job.getPreferredTimeSlots() == null
+            ? List.of()
+            : List.of(job.getPreferredTimeSlots().split(",")),
         job.getCancelledBy(),
         job.getCancellationReason(),
         pricing,
@@ -837,6 +871,42 @@ public class JobService {
         job.getScheduledTimeSlot(),
         propSummary,
         eng == null ? null : eng.getFullName(),
-        job.getCreatedAt());
+        job.getCreatedAt(),
+        job.getPreferredDays() == null ? List.of() : List.of(job.getPreferredDays().split(",")),
+        job.getPreferredTimeSlots() == null
+            ? List.of()
+            : List.of(job.getPreferredTimeSlots().split(",")));
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // PROPOSE SCHEDULE
+  // ────────────────────────────────────────────────────────────────────────────
+
+  @CacheEvict(value = "jobs", key = "#jobId")
+  @Transactional
+  public JobResponse proposeSchedule(
+      final UUID jobId, final UUID engineerId, final ProposeScheduleRequest request) {
+    final Job job =
+        jobRepository
+            .findById(jobId)
+            .orElseThrow(() -> new EntityNotFoundException("Job not found: " + jobId));
+
+    if (job.getEngineer() == null || !job.getEngineer().getId().equals(engineerId)) {
+      throw new AccessDeniedException("You are not assigned to this job");
+    }
+
+    final JobStatus current = JobStatus.fromString(job.getStatus());
+    if (current != JobStatus.ACCEPTED) {
+      throw new InvalidStateTransitionException(
+          "Cannot propose schedule for job in status: " + current);
+    }
+
+    job.setScheduledDate(request.scheduledDate());
+    job.setScheduledTimeSlot(request.scheduledTimeSlot());
+    job.setScheduledAt(OffsetDateTime.now());
+    job.setUpdatedAt(OffsetDateTime.now());
+    jobRepository.save(job);
+
+    return toJobResponse(job, null);
   }
 }

@@ -120,6 +120,12 @@ public class Job {
   @Column(columnDefinition = "text")
   private String customerNotes;
 
+  @Column(length = 100)
+  private String preferredDays;
+
+  @Column(length = 100)
+  private String preferredTimeSlots;
+
   @Column(nullable = false)
   private String status;
 

@@ -22,6 +22,9 @@ public interface PropertyRepository extends JpaRepository<Property, UUID> {
   boolean existsByOwnerIdAndAddressLine1IgnoreCaseAndPostcodeIgnoreCase(
       UUID ownerId, String addressLine1, String postcode);
 
+  boolean existsByOwnerIdAndAddressLine1IgnoreCaseAndPostcodeIgnoreCaseAndIdNot(
+      UUID ownerId, String addressLine1, String postcode, UUID excludeId);
+
   // ── Soft-delete admin queries (bypass @SQLRestriction via native SQL) ────
 
   @Query(value = "SELECT * FROM property WHERE id = :id", nativeQuery = true)

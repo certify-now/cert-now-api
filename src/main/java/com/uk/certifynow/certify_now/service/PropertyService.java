@@ -142,14 +142,31 @@ public class PropertyService {
   public PropertyDTO update(final UUID id, final PropertyDTO propertyDTO) {
     final Property property = propertyRepository.findById(id).orElseThrow(NotFoundException::new);
     final java.time.OffsetDateTime createdAt = property.getCreatedAt();
-    propertyMapper.updateEntity(propertyDTO, property);
-    // Resolve owner reference from UUID
+
+    // Resolve owner reference from UUID before the duplicate check
     final User owner =
         propertyDTO.getOwner() == null
             ? null
             : userRepository
                 .findById(propertyDTO.getOwner())
                 .orElseThrow(() -> new NotFoundException("owner not found"));
+
+    if (owner != null
+        && propertyDTO.getAddressLine1() != null
+        && propertyDTO.getPostcode() != null
+        && propertyRepository
+            .existsByOwnerIdAndAddressLine1IgnoreCaseAndPostcodeIgnoreCaseAndIdNot(
+                owner.getId(),
+                propertyDTO.getAddressLine1().trim(),
+                propertyDTO.getPostcode().trim(),
+                id)) {
+      throw new BusinessException(
+          org.springframework.http.HttpStatus.CONFLICT,
+          "DUPLICATE_PROPERTY",
+          "A property at this address is already registered to your account.");
+    }
+
+    propertyMapper.updateEntity(propertyDTO, property);
     property.setOwner(owner);
     property.setCreatedAt(createdAt);
     property.setUpdatedAt(java.time.OffsetDateTime.now());

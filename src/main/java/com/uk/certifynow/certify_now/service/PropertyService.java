@@ -97,15 +97,29 @@ public class PropertyService {
       final PropertyDTO propertyDTO,
       final MultipartFile gasCertPdf,
       final MultipartFile eicrCertPdf) {
-    final Property property = new Property();
-    propertyMapper.updateEntity(propertyDTO, property);
-    // Resolve owner reference from UUID
+    // Resolve owner first so we can check for duplicates before creating the entity
     final User owner =
         propertyDTO.getOwner() == null
             ? null
             : userRepository
                 .findById(propertyDTO.getOwner())
                 .orElseThrow(() -> new NotFoundException("owner not found"));
+
+    if (owner != null
+        && propertyDTO.getAddressLine1() != null
+        && propertyDTO.getPostcode() != null
+        && propertyRepository.existsByOwnerIdAndAddressLine1IgnoreCaseAndPostcodeIgnoreCase(
+            owner.getId(),
+            propertyDTO.getAddressLine1().trim(),
+            propertyDTO.getPostcode().trim())) {
+      throw new BusinessException(
+          org.springframework.http.HttpStatus.CONFLICT,
+          "DUPLICATE_PROPERTY",
+          "A property at this address is already registered to your account.");
+    }
+
+    final Property property = new Property();
+    propertyMapper.updateEntity(propertyDTO, property);
     property.setOwner(owner);
     property.setIsActive(true);
     if (property.getId() == null) {

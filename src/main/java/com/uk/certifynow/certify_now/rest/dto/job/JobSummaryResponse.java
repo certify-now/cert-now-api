@@ -18,5 +18,4 @@ public record JobSummaryResponse(
     String propertyAddressSummary,
     String engineerName,
     OffsetDateTime createdAt,
-    List<String> preferredDays,
-    List<String> preferredTimeSlots) {}
+    List<DayAvailability> preferredAvailability) {}

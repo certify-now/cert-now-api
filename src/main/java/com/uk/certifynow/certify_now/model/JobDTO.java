@@ -99,11 +99,7 @@ public class JobDTO {
 
   private String customerNotes;
 
-  @Size(max = 100)
-  private String preferredDays;
-
-  @Size(max = 100)
-  private String preferredTimeSlots;
+  private String preferredAvailability;
 
   @NotNull
   @Size(max = 255)

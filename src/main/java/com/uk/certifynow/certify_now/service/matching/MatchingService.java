@@ -1,5 +1,8 @@
 package com.uk.certifynow.certify_now.service.matching;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.uk.certifynow.certify_now.domain.EngineerProfile;
 import com.uk.certifynow.certify_now.domain.Job;
 import com.uk.certifynow.certify_now.domain.JobMatchLog;
@@ -12,6 +15,7 @@ import com.uk.certifynow.certify_now.repos.EngineerProfileRepository;
 import com.uk.certifynow.certify_now.repos.JobMatchLogRepository;
 import com.uk.certifynow.certify_now.repos.JobRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
+import com.uk.certifynow.certify_now.rest.dto.job.DayAvailability;
 import com.uk.certifynow.certify_now.rest.dto.job.JobResponse;
 import com.uk.certifynow.certify_now.service.job.JobStatus;
 import java.time.LocalDate;
@@ -41,6 +45,7 @@ public class MatchingService {
   private final JobMatchLogRepository matchLogRepository;
   private final UserRepository userRepository;
   private final ApplicationEventPublisher publisher;
+  private final ObjectMapper objectMapper;
 
   @Value("${certifynow.matching.broadcast-expiry-minutes:15}")
   private int broadcastExpiryMinutes;
@@ -50,12 +55,14 @@ public class MatchingService {
       final EngineerProfileRepository engineerProfileRepository,
       final JobMatchLogRepository matchLogRepository,
       final UserRepository userRepository,
-      final ApplicationEventPublisher publisher) {
+      final ApplicationEventPublisher publisher,
+      final ObjectMapper objectMapper) {
     this.jobRepository = jobRepository;
     this.engineerProfileRepository = engineerProfileRepository;
     this.matchLogRepository = matchLogRepository;
     this.userRepository = userRepository;
     this.publisher = publisher;
+    this.objectMapper = objectMapper;
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -363,14 +370,20 @@ public class MatchingService {
         job.getMatchAttempts(),
         job.getAccessInstructions(),
         job.getCustomerNotes(),
-        job.getPreferredDays() == null ? List.of() : List.of(job.getPreferredDays().split(",")),
-        job.getPreferredTimeSlots() == null
-            ? List.of()
-            : List.of(job.getPreferredTimeSlots().split(",")),
+        parseAvailability(job.getPreferredAvailability()),
         job.getCancelledBy(),
         job.getCancellationReason(),
         pricing,
         null, // payment not needed in claim response
         timestamps);
+  }
+
+  private List<DayAvailability> parseAvailability(final String json) {
+    if (json == null || json.isBlank()) return List.of();
+    try {
+      return objectMapper.readValue(json, new TypeReference<List<DayAvailability>>() {});
+    } catch (final JsonProcessingException e) {
+      return List.of();
+    }
   }
 }

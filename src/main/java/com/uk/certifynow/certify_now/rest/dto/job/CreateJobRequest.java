@@ -1,5 +1,6 @@
 package com.uk.certifynow.certify_now.rest.dto.job;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.util.List;
 import java.util.UUID;
@@ -11,23 +12,10 @@ public record CreateJobRequest(
     String urgency,
     String accessInstructions,
     String customerNotes,
-    List<String> preferredDays,
-    List<String> preferredTimeSlots) {
+    @Valid List<DayAvailability> preferredAvailability) {
 
   /** Default urgency to STANDARD if not provided. */
   public String urgencyOrDefault() {
     return urgency == null ? "STANDARD" : urgency;
-  }
-
-  public String preferredDaysJoined() {
-    return preferredDays == null || preferredDays.isEmpty()
-        ? null
-        : String.join(",", preferredDays);
-  }
-
-  public String preferredTimeSlotsJoined() {
-    return preferredTimeSlots == null || preferredTimeSlots.isEmpty()
-        ? null
-        : String.join(",", preferredTimeSlots);
   }
 }

@@ -1,8 +1,5 @@
 package com.uk.certifynow.certify_now.service.job;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.uk.certifynow.certify_now.domain.Job;
 import com.uk.certifynow.certify_now.domain.JobMatchLog;
 import com.uk.certifynow.certify_now.domain.JobStatusHistory;
@@ -60,6 +57,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 @Service
 public class JobService {
@@ -219,7 +219,7 @@ public class JobService {
       try {
         job.setPreferredAvailability(
             objectMapper.writeValueAsString(request.preferredAvailability()));
-      } catch (final JsonProcessingException e) {
+      } catch (final JacksonException e) {
         throw new BusinessException(
             HttpStatus.BAD_REQUEST,
             "INVALID_AVAILABILITY",
@@ -890,7 +890,7 @@ public class JobService {
     if (json == null || json.isBlank()) return List.of();
     try {
       return objectMapper.readValue(json, new TypeReference<List<DayAvailability>>() {});
-    } catch (final JsonProcessingException e) {
+    } catch (final JacksonException e) {
       return List.of();
     }
   }

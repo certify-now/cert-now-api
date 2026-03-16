@@ -1,8 +1,5 @@
 package com.uk.certifynow.certify_now.service.matching;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.uk.certifynow.certify_now.domain.EngineerProfile;
 import com.uk.certifynow.certify_now.domain.Job;
 import com.uk.certifynow.certify_now.domain.JobMatchLog;
@@ -30,6 +27,9 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Matching engine implementing the broadcast model. When a job is created, all eligible engineers
@@ -382,7 +382,7 @@ public class MatchingService {
     if (json == null || json.isBlank()) return List.of();
     try {
       return objectMapper.readValue(json, new TypeReference<List<DayAvailability>>() {});
-    } catch (final JsonProcessingException e) {
+    } catch (final JacksonException e) {
       return List.of();
     }
   }

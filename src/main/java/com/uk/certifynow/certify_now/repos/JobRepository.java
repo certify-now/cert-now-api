@@ -25,35 +25,35 @@ public interface JobRepository extends JpaRepository<Job, UUID> {
   // ── Customer list queries ──────────────────────────────────────────────────
   Page<Job> findByCustomerIdOrderByCreatedAtDesc(UUID customerId, Pageable pageable);
 
-  Page<Job> findByCustomerIdAndStatusOrderByCreatedAtDesc(
-      UUID customerId, String status, Pageable pageable);
+  Page<Job> findByCustomerIdAndStatusInOrderByCreatedAtDesc(
+      UUID customerId, List<String> statuses, Pageable pageable);
 
   Page<Job> findByCustomerIdAndCertificateTypeOrderByCreatedAtDesc(
       UUID customerId, String certificateType, Pageable pageable);
 
-  Page<Job> findByCustomerIdAndStatusAndCertificateTypeOrderByCreatedAtDesc(
-      UUID customerId, String status, String certificateType, Pageable pageable);
+  Page<Job> findByCustomerIdAndStatusInAndCertificateTypeOrderByCreatedAtDesc(
+      UUID customerId, List<String> statuses, String certificateType, Pageable pageable);
 
   // ── Engineer list queries ──────────────────────────────────────────────────
   Page<Job> findByEngineerIdOrderByCreatedAtDesc(UUID engineerId, Pageable pageable);
 
-  Page<Job> findByEngineerIdAndStatusOrderByCreatedAtDesc(
-      UUID engineerId, String status, Pageable pageable);
+  Page<Job> findByEngineerIdAndStatusInOrderByCreatedAtDesc(
+      UUID engineerId, List<String> statuses, Pageable pageable);
 
   Page<Job> findByEngineerIdAndCertificateTypeOrderByCreatedAtDesc(
       UUID engineerId, String certificateType, Pageable pageable);
 
-  Page<Job> findByEngineerIdAndStatusAndCertificateTypeOrderByCreatedAtDesc(
-      UUID engineerId, String status, String certificateType, Pageable pageable);
+  Page<Job> findByEngineerIdAndStatusInAndCertificateTypeOrderByCreatedAtDesc(
+      UUID engineerId, List<String> statuses, String certificateType, Pageable pageable);
 
   // ── Admin list queries (all jobs with optional filters) ───────────────────
   @Query(
       "SELECT j FROM Job j WHERE "
-          + "(:status IS NULL OR j.status = :status) AND "
+          + "(:statuses IS NULL OR j.status IN :statuses) AND "
           + "(:certificateType IS NULL OR j.certificateType = :certificateType) "
           + "ORDER BY j.createdAt DESC")
   Page<Job> findAllWithFilters(
-      @Param("status") String status,
+      @Param("statuses") List<String> statuses,
       @Param("certificateType") String certificateType,
       Pageable pageable);
 

@@ -43,6 +43,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -281,18 +282,20 @@ public class JobService {
       final String certTypeFilter,
       final Pageable pageable) {
 
+    final List<String> statuses = parseStatuses(statusFilter);
+
     final Page<Job> page;
     if (actorRole == UserRole.ADMIN) {
-      page = jobRepository.findAllWithFilters(statusFilter, certTypeFilter, pageable);
+      page = jobRepository.findAllWithFilters(statuses, certTypeFilter, pageable);
     } else if (actorRole == UserRole.ENGINEER) {
-      if (statusFilter != null && certTypeFilter != null) {
+      if (statuses != null && certTypeFilter != null) {
         page =
-            jobRepository.findByEngineerIdAndStatusAndCertificateTypeOrderByCreatedAtDesc(
-                actorId, statusFilter, certTypeFilter, pageable);
-      } else if (statusFilter != null) {
+            jobRepository.findByEngineerIdAndStatusInAndCertificateTypeOrderByCreatedAtDesc(
+                actorId, statuses, certTypeFilter, pageable);
+      } else if (statuses != null) {
         page =
-            jobRepository.findByEngineerIdAndStatusOrderByCreatedAtDesc(
-                actorId, statusFilter, pageable);
+            jobRepository.findByEngineerIdAndStatusInOrderByCreatedAtDesc(
+                actorId, statuses, pageable);
       } else if (certTypeFilter != null) {
         page =
             jobRepository.findByEngineerIdAndCertificateTypeOrderByCreatedAtDesc(
@@ -302,14 +305,14 @@ public class JobService {
       }
     } else {
       // CUSTOMER
-      if (statusFilter != null && certTypeFilter != null) {
+      if (statuses != null && certTypeFilter != null) {
         page =
-            jobRepository.findByCustomerIdAndStatusAndCertificateTypeOrderByCreatedAtDesc(
-                actorId, statusFilter, certTypeFilter, pageable);
-      } else if (statusFilter != null) {
+            jobRepository.findByCustomerIdAndStatusInAndCertificateTypeOrderByCreatedAtDesc(
+                actorId, statuses, certTypeFilter, pageable);
+      } else if (statuses != null) {
         page =
-            jobRepository.findByCustomerIdAndStatusOrderByCreatedAtDesc(
-                actorId, statusFilter, pageable);
+            jobRepository.findByCustomerIdAndStatusInOrderByCreatedAtDesc(
+                actorId, statuses, pageable);
       } else if (certTypeFilter != null) {
         page =
             jobRepository.findByCustomerIdAndCertificateTypeOrderByCreatedAtDesc(
@@ -319,6 +322,14 @@ public class JobService {
       }
     }
     return page.map(this::toJobSummary);
+  }
+
+  private static List<String> parseStatuses(final String statusFilter) {
+    if (statusFilter == null || statusFilter.isBlank()) return null;
+    return Arrays.stream(statusFilter.split(","))
+        .map(String::trim)
+        .filter(s -> !s.isEmpty())
+        .toList();
   }
 
   // ────────────────────────────────────────────────────────────────────────────

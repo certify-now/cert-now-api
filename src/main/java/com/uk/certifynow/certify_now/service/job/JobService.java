@@ -719,7 +719,8 @@ public class JobService {
       final CancellationActor actor, final JobStatus status) {
     final boolean allowed =
         switch (status) {
-          case CREATED -> actor == CancellationActor.CUSTOMER || actor == CancellationActor.ADMIN;
+          case CREATED, AWAITING_ACCEPTANCE, ESCALATED ->
+              actor == CancellationActor.CUSTOMER || actor == CancellationActor.ADMIN;
           case MATCHED -> true; // customer, engineer (handled as decline above), admin
           case ACCEPTED ->
               actor == CancellationActor.CUSTOMER
@@ -738,7 +739,7 @@ public class JobService {
       final Job job, final CancellationActor actor, final JobStatus status) {
     final int total = job.getTotalPricePence();
     return switch (status) {
-      case CREATED, MATCHED -> total; // 100% refund
+      case CREATED, AWAITING_ACCEPTANCE, MATCHED, ESCALATED -> total; // 100% refund
       case ACCEPTED -> {
         // >24h before scheduled start: 100%, <24h: 80%
         final OffsetDateTime scheduledStart = scheduledStart(job);

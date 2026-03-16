@@ -1,5 +1,8 @@
 package com.uk.certifynow.certify_now.service.job;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.uk.certifynow.certify_now.domain.Job;
 import com.uk.certifynow.certify_now.domain.JobMatchLog;
 import com.uk.certifynow.certify_now.domain.JobStatusHistory;
@@ -24,9 +27,6 @@ import com.uk.certifynow.certify_now.repos.JobStatusHistoryRepository;
 import com.uk.certifynow.certify_now.repos.PaymentRepository;
 import com.uk.certifynow.certify_now.repos.PropertyRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.uk.certifynow.certify_now.rest.dto.job.AcceptJobRequest;
 import com.uk.certifynow.certify_now.rest.dto.job.CancelJobRequest;
 import com.uk.certifynow.certify_now.rest.dto.job.CreateJobRequest;
@@ -159,7 +159,9 @@ public class JobService {
             throw new BusinessException(
                 HttpStatus.BAD_REQUEST,
                 "INVALID_PREFERRED_TIME_SLOT",
-                "Invalid preferred time slot: " + slot + ". Must be MORNING, AFTERNOON, or EVENING.");
+                "Invalid preferred time slot: "
+                    + slot
+                    + ". Must be MORNING, AFTERNOON, or EVENING.");
           }
         }
       }

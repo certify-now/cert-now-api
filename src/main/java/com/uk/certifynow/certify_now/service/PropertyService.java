@@ -154,12 +154,11 @@ public class PropertyService {
     if (owner != null
         && propertyDTO.getAddressLine1() != null
         && propertyDTO.getPostcode() != null
-        && propertyRepository
-            .existsByOwnerIdAndAddressLine1IgnoreCaseAndPostcodeIgnoreCaseAndIdNot(
-                owner.getId(),
-                propertyDTO.getAddressLine1().trim(),
-                propertyDTO.getPostcode().trim(),
-                id)) {
+        && propertyRepository.existsByOwnerIdAndAddressLine1IgnoreCaseAndPostcodeIgnoreCaseAndIdNot(
+            owner.getId(),
+            propertyDTO.getAddressLine1().trim(),
+            propertyDTO.getPostcode().trim(),
+            id)) {
       throw new BusinessException(
           org.springframework.http.HttpStatus.CONFLICT,
           "DUPLICATE_PROPERTY",

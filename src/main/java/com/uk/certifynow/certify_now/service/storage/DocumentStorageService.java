@@ -14,4 +14,12 @@ public interface DocumentStorageService {
    * @return a publicly accessible URL for the stored document
    */
   String store(UUID certificateId, String certificateType, byte[] content);
+
+  /**
+   * Retrieves the PDF bytes for the given certificate.
+   *
+   * @param certificateId the certificate to retrieve
+   * @return the PDF bytes, or {@code null} if no document exists for this certificate
+   */
+  byte[] retrieve(UUID certificateId);
 }

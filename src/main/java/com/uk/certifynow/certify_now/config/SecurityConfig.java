@@ -108,6 +108,23 @@ public class SecurityConfig {
                     .permitAll()
 
                     // ═══════════════════════════════════════════════════════
+                    // CUSTOMER CERTIFICATE ENDPOINTS
+                    // ═══════════════════════════════════════════════════════
+                    .requestMatchers(HttpMethod.GET, "/api/v1/certificates/my-certificates")
+                    .hasRole("CUSTOMER")
+                    .requestMatchers(HttpMethod.GET, "/api/v1/certificates/missing")
+                    .hasRole("CUSTOMER")
+                    .requestMatchers(
+                        HttpMethod.GET,
+                        "/api/v1/certificates/{id}",
+                        "/api/v1/certificates/{id}/download")
+                    .authenticated()
+                    .requestMatchers(HttpMethod.POST, "/api/v1/certificates/{id}/share")
+                    .authenticated()
+                    .requestMatchers(HttpMethod.DELETE, "/api/v1/certificates/{id}/share")
+                    .authenticated()
+
+                    // ═══════════════════════════════════════════════════════
                     // STRIPE WEBHOOK (uses signature verification, not JWT)
                     // ═══════════════════════════════════════════════════════
                     .requestMatchers(HttpMethod.POST, "/api/v1/webhooks/stripe")

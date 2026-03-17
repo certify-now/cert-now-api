@@ -59,14 +59,4 @@ public class UserLoggedInEvent extends DomainEvent {
   public Long getDaysSinceLastLogin() {
     return daysSinceLastLogin;
   }
-
-  /** Not yet tracked — reserved for future device fingerprinting. */
-  public boolean isNewDevice() {
-    return false;
-  }
-
-  /** Not yet tracked — reserved for future brute-force detection. */
-  public Integer getFailedAttempts() {
-    return null;
-  }
 }

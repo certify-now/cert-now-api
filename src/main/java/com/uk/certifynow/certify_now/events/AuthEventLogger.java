@@ -17,9 +17,7 @@ public class AuthEventLogger {
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
   public void onUserRegistered(final UserRegisteredEvent event) {
     try {
-      // Set MDC for structured logging
       MDC.put("userId", event.getUserId().toString());
-      MDC.put("email", event.getEmail());
       MDC.put("eventType", "USER_REGISTERED");
 
       log.info(
@@ -30,19 +28,7 @@ public class AuthEventLogger {
           event.getAuthProvider() != null ? event.getAuthProvider() : "EMAIL",
           !event.isEmailVerified());
 
-      // Business metrics logging (for analytics/monitoring)
-      if ("CUSTOMER".equals(event.getRole())) {
-        log.info(
-            "New customer acquisition | userId={} | source={}",
-            event.getUserId(),
-            event.getAuthProvider() != null ? event.getAuthProvider() : "EMAIL");
-      } else if ("ENGINEER".equals(event.getRole())) {
-        log.info(
-            "New engineer registration | userId={} | requiresApproval=true", event.getUserId());
-      }
-
     } catch (Exception e) {
-      // Never let logging break the flow
       log.error("Failed to log USER_REGISTERED event for userId={}", event.getUserId(), e);
     } finally {
       MDC.clear();
@@ -54,7 +40,6 @@ public class AuthEventLogger {
   public void onUserLoggedIn(final UserLoggedInEvent event) {
     try {
       MDC.put("userId", event.getUserId().toString());
-      MDC.put("email", event.getEmail());
       MDC.put("eventType", "USER_LOGGED_IN");
 
       log.info(
@@ -65,32 +50,6 @@ public class AuthEventLogger {
           event.getDeviceInfo() != null ? event.getDeviceInfo() : "UNKNOWN",
           event.getIpAddress() != null ? maskIpAddress(event.getIpAddress()) : "UNKNOWN",
           calculateTimeSinceLastLogin(event.getLastLoginAt()));
-
-      // Security monitoring
-      if (event.isNewDevice()) {
-        log.warn(
-            "Login from new device detected | userId={} | deviceInfo={} | ipAddress={}",
-            event.getUserId(),
-            event.getDeviceInfo(),
-            maskIpAddress(event.getIpAddress()));
-      }
-
-      // Unusual activity detection
-      if (event.getFailedAttempts() != null && event.getFailedAttempts() > 0) {
-        log.warn(
-            "Login after {} failed attempts | userId={} | ipAddress={}",
-            event.getFailedAttempts(),
-            event.getUserId(),
-            maskIpAddress(event.getIpAddress()));
-      }
-
-      // User engagement metrics
-      if (event.getDaysSinceLastLogin() != null && event.getDaysSinceLastLogin() > 30) {
-        log.info(
-            "Returning user after long absence | userId={} | daysSinceLastLogin={}",
-            event.getUserId(),
-            event.getDaysSinceLastLogin());
-      }
 
     } catch (Exception e) {
       log.error("Failed to log USER_LOGGED_IN event for userId={}", event.getUserId(), e);
@@ -120,86 +79,19 @@ public class AuthEventLogger {
   }
 
   @Async("authEventsExecutor")
-  @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+  @TransactionalEventListener(phase = TransactionPhase.AFTER_COMPLETION)
   public void onLoginFailed(final LoginFailedEvent event) {
     try {
-      MDC.put("email", event.getEmail());
       MDC.put("eventType", "LOGIN_FAILED");
 
       log.warn(
-          "Login attempt failed | email={} | reason={} | attemptCount={} | ipAddress={} | userAgent={}",
+          "Login attempt failed | email={} | reason={} | ipAddress={}",
           maskEmail(event.getEmail()),
           event.getReason(),
-          event.getAttemptCount(),
-          maskIpAddress(event.getIpAddress()),
-          truncate(event.getUserAgent(), 100));
-
-      // Security alerts
-      if (event.getAttemptCount() >= 3) {
-        log.error(
-            "SECURITY_ALERT: Multiple failed login attempts | email={} | attempts={} | ipAddress={}",
-            maskEmail(event.getEmail()),
-            event.getAttemptCount(),
-            maskIpAddress(event.getIpAddress()));
-      }
-
-      if ("ACCOUNT_SUSPENDED".equals(event.getReason())) {
-        log.warn(
-            "Login attempt on suspended account | email={} | suspensionReason={}",
-            maskEmail(event.getEmail()),
-            event.getSuspensionReason());
-      }
+          maskIpAddress(event.getIpAddress()));
 
     } catch (Exception e) {
       log.error("Failed to log LOGIN_FAILED event", e);
-    } finally {
-      MDC.clear();
-    }
-  }
-
-  @Async("authEventsExecutor")
-  @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-  public void onPasswordResetRequested(final PasswordResetRequestedEvent event) {
-    try {
-      MDC.put("userId", event.getUserId().toString());
-      MDC.put("eventType", "PASSWORD_RESET_REQUESTED");
-
-      log.info(
-          "Password reset requested | userId={} | email={} | ipAddress={}",
-          event.getUserId(),
-          maskEmail(event.getEmail()),
-          maskIpAddress(event.getIpAddress()));
-
-    } catch (Exception e) {
-      log.error("Failed to log PASSWORD_RESET_REQUESTED event", e);
-    } finally {
-      MDC.clear();
-    }
-  }
-
-  @Async("authEventsExecutor")
-  @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-  public void onPasswordChanged(final PasswordChangedEvent event) {
-    try {
-      MDC.put("userId", event.getUserId().toString());
-      MDC.put("eventType", "PASSWORD_CHANGED");
-
-      log.info(
-          "Password changed | userId={} | method={} | ipAddress={}",
-          event.getUserId(),
-          event.isPasswordReset() ? "RESET_TOKEN" : "AUTHENTICATED_CHANGE",
-          maskIpAddress(event.getIpAddress()));
-
-      // Security alert if not initiated by user
-      if (!event.isUserInitiated()) {
-        log.warn(
-            "SECURITY_ALERT: Password changed without user initiation | userId={} | method={}",
-            event.getUserId(),
-            event.getMethod());
-      }
-
-    } catch (Exception e) {
-      log.error("Failed to log PASSWORD_CHANGED event", e);
     } finally {
       MDC.clear();
     }
@@ -217,42 +109,10 @@ public class AuthEventLogger {
           event.getUserId(),
           maskEmail(event.getEmail()),
           event.getReason(),
-          event.getInitiatedBy() // USER or ADMIN
-          );
-
-      // Churn tracking
-      if ("USER".equals(event.getInitiatedBy())) {
-        log.info(
-            "User-initiated churn | userId={} | accountAge={} | totalJobsCompleted={}",
-            event.getUserId(),
-            event.getAccountAgeInDays(),
-            event.getTotalJobsCompleted());
-      }
+          event.getInitiatedBy());
 
     } catch (Exception e) {
       log.error("Failed to log ACCOUNT_DEACTIVATED event", e);
-    } finally {
-      MDC.clear();
-    }
-  }
-
-  @Async("authEventsExecutor")
-  @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-  public void onAccountSuspended(final AccountSuspendedEvent event) {
-    try {
-      MDC.put("userId", event.getUserId().toString());
-      MDC.put("eventType", "ACCOUNT_SUSPENDED");
-
-      log.warn(
-          "ADMIN_ACTION: Account suspended | userId={} | email={} | reason={} | suspendedBy={} | duration={}",
-          event.getUserId(),
-          maskEmail(event.getEmail()),
-          event.getReason(),
-          event.getSuspendedByAdminId(),
-          event.getSuspensionDuration() != null ? event.getSuspensionDuration() : "INDEFINITE");
-
-    } catch (Exception e) {
-      log.error("Failed to log ACCOUNT_SUSPENDED event", e);
     } finally {
       MDC.clear();
     }
@@ -270,15 +130,6 @@ public class AuthEventLogger {
           event.getUserId(),
           maskEmail(event.getEmail()),
           formatDuration(event.getSecondsSinceRegistration()));
-
-      // Activation funnel tracking
-      if (event.getSecondsSinceRegistration() != null
-          && event.getSecondsSinceRegistration() < 300) {
-        log.info("Fast email verification (< 5 min) | userId={}", event.getUserId());
-      } else if (event.getSecondsSinceRegistration() != null
-          && event.getSecondsSinceRegistration() > 86400) {
-        log.info("Delayed email verification (> 24 hours) | userId={}", event.getUserId());
-      }
 
     } catch (Exception e) {
       log.error("Failed to log EMAIL_VERIFIED event", e);
@@ -328,7 +179,7 @@ public class AuthEventLogger {
     if (ipAddress.contains(".")) {
       final String[] parts = ipAddress.split("\\.");
       if (parts.length == 4) {
-        return parts[0] + "." + parts[1] + ".***. ***";
+        return parts[0] + "." + parts[1] + ".***.***";
       }
     }
 
@@ -369,13 +220,5 @@ public class AuthEventLogger {
     } else {
       return (seconds / 86400) + "d";
     }
-  }
-
-  /** Truncate long strings to prevent log pollution. */
-  private String truncate(final String str, final int maxLength) {
-    if (str == null) {
-      return null;
-    }
-    return str.length() <= maxLength ? str : str.substring(0, maxLength) + "...";
   }
 }

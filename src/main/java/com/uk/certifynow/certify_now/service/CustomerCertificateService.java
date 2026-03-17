@@ -88,7 +88,7 @@ public class CustomerCertificateService {
     // Compute dynamic status and build list items
     final List<CertificateListItemResponse> items = new ArrayList<>();
     for (final Certificate cert : rawCerts) {
-      final String dynamicStatus = calculateStatus(cert.getExpiryAt(), cert.getStatus());
+      final String dynamicStatus = calculateStatus(cert.getExpiryAt(), cert.getStatus(), today);
 
       // Apply status filter after dynamic calculation
       if (filters.status() != null && !filters.status().equalsIgnoreCase(dynamicStatus)) {
@@ -100,9 +100,6 @@ public class CustomerCertificateService {
 
     // Append MISSING entries (only when no status filter, or when filter is MISSING)
     if (filters.status() == null || "MISSING".equalsIgnoreCase(filters.status())) {
-      if (filters.type() == null || !filters.type().equalsIgnoreCase("EPC")) {
-        // EPC missing detection only if EPC type is not filtered out
-      }
       final List<Property> properties =
           propertyRepository.findByOwnerIdAndIsActiveTrue(customerId, Sort.by("addressLine1"));
       for (final Property property : properties) {
@@ -140,7 +137,7 @@ public class CustomerCertificateService {
     verifyAccess(cert, requestingUserId, role);
 
     final LocalDate today = LocalDate.now();
-    final String dynamicStatus = calculateStatus(cert.getExpiryAt(), cert.getStatus());
+    final String dynamicStatus = calculateStatus(cert.getExpiryAt(), cert.getStatus(), today);
 
     // Load inspection data
     GasInspectionSummary gasInspection = null;
@@ -448,14 +445,15 @@ public class CustomerCertificateService {
     return entries;
   }
 
-  static String calculateStatus(final LocalDate expiryAt, final String entityStatus) {
+  static String calculateStatus(
+      final LocalDate expiryAt, final String entityStatus, final LocalDate today) {
     if ("SUPERSEDED".equals(entityStatus)) {
       return "SUPERSEDED";
     }
     if (expiryAt == null) {
       return "VALID";
     }
-    final long days = ChronoUnit.DAYS.between(LocalDate.now(), expiryAt);
+    final long days = ChronoUnit.DAYS.between(today, expiryAt);
     if (days < 0) return "EXPIRED";
     if (days <= EXPIRING_SOON_DAYS) return "EXPIRING_SOON";
     return "VALID";
@@ -577,7 +575,7 @@ public class CustomerCertificateService {
   private static String buildFilename(final Certificate cert) {
     final String type =
         cert.getCertificateType() != null
-            ? cert.getCertificateType().replace("_", "_")
+            ? cert.getCertificateType().replace("_", "-")
             : "Certificate";
     final String address =
         cert.getProperty() != null

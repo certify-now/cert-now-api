@@ -97,7 +97,7 @@ public class AuthFacade {
     // event)
     final User user =
         authenticationService.authenticate(
-            request.email(), request.password(), request.deviceInfo());
+            request.email(), request.password(), request.deviceInfo(), ipAddress);
 
     if (!Boolean.TRUE.equals(user.getEmailVerified())) {
       throw new EmailNotVerifiedException("Please verify your email address before logging in.");

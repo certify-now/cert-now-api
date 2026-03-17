@@ -1,10 +1,12 @@
 package com.uk.certifynow.certify_now.service.auth;
 
 import com.uk.certifynow.certify_now.domain.User;
+import com.uk.certifynow.certify_now.events.LoginFailedEvent;
 import com.uk.certifynow.certify_now.events.UserLoggedInEvent;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.repos.UserRepository;
 import java.time.Clock;
+import java.time.OffsetDateTime;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -48,37 +50,50 @@ public class AuthenticationService {
    * @param email user's email address
    * @param password user's plaintext password
    * @param deviceInfo device information for audit trail
+   * @param ipAddress IP address for audit trail
    * @return authenticated User entity
    * @throws BusinessException if credentials are invalid or account is not in good standing
    */
   @Transactional
-  public User authenticate(final String email, final String password, final String deviceInfo) {
-    final User user =
-        userRepository
-            .findByEmailIgnoreCase(email)
-            .orElseThrow(
-                () ->
-                    new BusinessException(
-                        HttpStatus.UNAUTHORIZED,
-                        "INVALID_CREDENTIALS",
-                        "Invalid email or password"));
+  public User authenticate(
+      final String email, final String password, final String deviceInfo, final String ipAddress) {
+    final User user = userRepository.findByEmailIgnoreCase(email).orElse(null);
 
-    // Validate password
-    if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+    if (user == null) {
+      eventPublisher.publishEvent(
+          new LoginFailedEvent(email, "INVALID_CREDENTIALS", 1, ipAddress, null, null));
       throw new BusinessException(
           HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", "Invalid email or password");
     }
 
-    // Validate account status
-    validateAccountStatus(user);
+    if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+      eventPublisher.publishEvent(
+          new LoginFailedEvent(email, "INVALID_CREDENTIALS", 1, ipAddress, null, null));
+      throw new BusinessException(
+          HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", "Invalid email or password");
+    }
 
-    // Update last login timestamp using Clock for testability
+    try {
+      validateAccountStatus(user);
+    } catch (BusinessException ex) {
+      eventPublisher.publishEvent(
+          new LoginFailedEvent(email, ex.getErrorCode(), 1, ipAddress, null, null));
+      throw ex;
+    }
+
+    final OffsetDateTime previousLoginAt = user.getLastLoginAt();
+
     user.updateLastLogin(clock);
     userRepository.save(user);
 
-    // Publish domain event for downstream processing (e.g., fraud detection,
-    // analytics)
-    eventPublisher.publishEvent(new UserLoggedInEvent(user.getId(), user.getEmail(), deviceInfo));
+    eventPublisher.publishEvent(
+        new UserLoggedInEvent(
+            user.getId(),
+            user.getEmail(),
+            user.getRole().name(),
+            deviceInfo,
+            ipAddress,
+            previousLoginAt));
 
     return user;
   }

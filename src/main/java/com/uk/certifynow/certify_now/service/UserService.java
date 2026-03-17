@@ -1,6 +1,7 @@
 package com.uk.certifynow.certify_now.service;
 
 import com.uk.certifynow.certify_now.domain.User;
+import com.uk.certifynow.certify_now.events.AccountDeactivatedEvent;
 import com.uk.certifynow.certify_now.events.BeforeDeleteUser;
 import com.uk.certifynow.certify_now.events.UserRestoredEvent;
 import com.uk.certifynow.certify_now.events.UserSoftDeletedEvent;
@@ -18,6 +19,7 @@ import com.uk.certifynow.certify_now.service.auth.UserStatus;
 import com.uk.certifynow.certify_now.service.mappers.UserMapper;
 import com.uk.certifynow.certify_now.util.NotFoundException;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
@@ -203,6 +205,13 @@ public class UserService {
 
     log.info("User {} soft-deleted by {}", userId, deletedByUserId);
     publisher.publishEvent(new UserSoftDeletedEvent(userId, deletedByUserId));
+
+    final String initiatedBy = userId.equals(deletedByUserId) ? "USER" : "ADMIN";
+    final Long accountAgeInDays =
+        user.getCreatedAt() != null ? ChronoUnit.DAYS.between(user.getCreatedAt(), now) : null;
+    publisher.publishEvent(
+        new AccountDeactivatedEvent(
+            userId, user.getEmail(), "ACCOUNT_DEACTIVATED", initiatedBy, accountAgeInDays, null));
   }
 
   /**

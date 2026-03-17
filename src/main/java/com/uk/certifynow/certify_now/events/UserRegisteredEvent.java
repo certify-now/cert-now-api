@@ -7,12 +7,21 @@ public class UserRegisteredEvent extends DomainEvent {
   private final UUID userId;
   private final String email;
   private final String role;
+  private final String authProvider;
+  private final boolean emailVerified;
 
-  public UserRegisteredEvent(final UUID userId, final String email, final String role) {
+  public UserRegisteredEvent(
+      final UUID userId,
+      final String email,
+      final String role,
+      final String authProvider,
+      final boolean emailVerified) {
     super(userId, "USER");
     this.userId = userId;
     this.email = email;
     this.role = role;
+    this.authProvider = authProvider;
+    this.emailVerified = emailVerified;
   }
 
   public UUID getUserId() {
@@ -25,5 +34,13 @@ public class UserRegisteredEvent extends DomainEvent {
 
   public String getRole() {
     return role;
+  }
+
+  public String getAuthProvider() {
+    return authProvider;
+  }
+
+  public boolean isEmailVerified() {
+    return emailVerified;
   }
 }

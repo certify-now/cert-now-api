@@ -17,6 +17,8 @@ public interface PropertyRepository extends JpaRepository<Property, UUID> {
 
   Page<Property> findByOwnerId(UUID ownerId, Pageable pageable);
 
+  Page<Property> findByOwnerIdAndIsActiveTrue(UUID ownerId, Pageable pageable);
+
   List<Property> findByOwnerIdAndIsActiveTrue(UUID ownerId, Sort sort);
 
   boolean existsByOwnerIdAndAddressLine1IgnoreCaseAndPostcodeIgnoreCase(

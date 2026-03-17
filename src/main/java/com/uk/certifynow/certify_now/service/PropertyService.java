@@ -73,7 +73,7 @@ public class PropertyService {
   public org.springframework.data.domain.Page<PropertyDTO> getByOwner(
       final UUID ownerId, final org.springframework.data.domain.Pageable pageable) {
     return propertyRepository
-        .findByOwnerId(ownerId, pageable)
+        .findByOwnerIdAndIsActiveTrue(ownerId, pageable)
         .map(p -> enriched(propertyMapper.toDTO(p)));
   }
 

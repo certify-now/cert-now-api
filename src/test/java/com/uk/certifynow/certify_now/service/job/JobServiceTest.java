@@ -187,7 +187,7 @@ class JobServiceTest {
 
     assertThatThrownBy(() -> jobService.createJob(customer.getId(), req))
         .isInstanceOf(BusinessException.class)
-        .hasMessageContaining("INVALID_PREFERRED_DAY");
+        .satisfies(e -> assertThat(((BusinessException) e).getErrorCode()).isEqualTo("INVALID_PREFERRED_DAY"));
   }
 
   @Test
@@ -205,7 +205,7 @@ class JobServiceTest {
 
     assertThatThrownBy(() -> jobService.createJob(customer.getId(), req))
         .isInstanceOf(BusinessException.class)
-        .hasMessageContaining("INVALID_PREFERRED_TIME_SLOT");
+        .satisfies(e -> assertThat(((BusinessException) e).getErrorCode()).isEqualTo("INVALID_PREFERRED_TIME_SLOT"));
   }
 
   @Test
@@ -309,7 +309,7 @@ class JobServiceTest {
 
     assertThatThrownBy(() -> jobService.acceptJob(job.getId(), engineer.getId(), req))
         .isInstanceOf(BusinessException.class)
-        .hasMessageContaining("INVALID_SCHEDULE_DATE");
+        .satisfies(e -> assertThat(((BusinessException) e).getErrorCode()).isEqualTo("INVALID_SCHEDULE_DATE"));
   }
 
   @Test
@@ -325,7 +325,7 @@ class JobServiceTest {
 
     assertThatThrownBy(() -> jobService.acceptJob(job.getId(), engineer.getId(), req))
         .isInstanceOf(BusinessException.class)
-        .hasMessageContaining("INVALID_SCHEDULE_DATE");
+        .satisfies(e -> assertThat(((BusinessException) e).getErrorCode()).isEqualTo("INVALID_SCHEDULE_DATE"));
   }
 
   @Test
@@ -392,7 +392,7 @@ class JobServiceTest {
     jobService.certifyJob(job.getId());
 
     verify(jobRepository).save(any());
-    verify(publisher).publishEvent(any());
+    verify(publisher).publishEvent(any(Object.class));
   }
 
   // ─── INVALID TRANSITIONS ──────────────────────────────────────────────────────
@@ -499,7 +499,7 @@ class JobServiceTest {
     final Page<Job> page = new PageImpl<>(List.of(job));
 
     when(jobRepository.findByCustomerWithFilters(
-            eq(customer.getId()), anyList(), isNull(), any(Pageable.class)))
+            eq(customer.getId()), isNull(), isNull(), any(Pageable.class)))
         .thenReturn(page);
 
     final var result =
@@ -517,7 +517,7 @@ class JobServiceTest {
     final Page<Job> page = new PageImpl<>(List.of(job));
 
     when(jobRepository.findByEngineerWithFilters(
-            eq(engineer.getId()), anyList(), isNull(), any(Pageable.class)))
+            eq(engineer.getId()), isNull(), isNull(), any(Pageable.class)))
         .thenReturn(page);
 
     final var result =
@@ -533,7 +533,7 @@ class JobServiceTest {
     final Job job = TestJobBuilder.buildCreated(customer, property);
     final Page<Job> page = new PageImpl<>(List.of(job));
 
-    when(jobRepository.findAllWithFilters(anyList(), isNull(), any(Pageable.class)))
+    when(jobRepository.findAllWithFilters(isNull(), isNull(), any(Pageable.class)))
         .thenReturn(page);
 
     final var result =

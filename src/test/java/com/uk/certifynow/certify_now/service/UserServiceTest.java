@@ -184,6 +184,6 @@ class UserServiceTest {
 
     assertThat(user.getDeletedAt()).isNull();
     assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
-    verify(publisher).publishEvent(any());
+    verify(publisher).publishEvent(any(Object.class));
   }
 }

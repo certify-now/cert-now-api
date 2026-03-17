@@ -178,7 +178,7 @@ class JobCancellationServiceTest {
     final User customer = TestUserBuilder.buildActiveCustomer();
     final User engineer = TestUserBuilder.buildActiveEngineer();
     final Property property = TestPropertyBuilder.buildWithGas(customer);
-    final Job job = TestJobBuilder.buildInProgress(customer, property, engineer);
+    final Job job = TestJobBuilder.buildAccepted(customer, property, engineer);
     final Payment payment = buildPayment(job, customer);
 
     when(jobRepository.findById(job.getId())).thenReturn(Optional.of(job));

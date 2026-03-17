@@ -60,7 +60,6 @@ class RegistrationServiceTest {
     user.setEmailVerified(false);
 
     when(userRepository.findByEmailIgnoreCase("new@example.com")).thenReturn(Optional.empty());
-    when(userRepository.findByPhone(any())).thenReturn(Optional.empty());
     when(userFactory.createEmailUser(any(), any(), any(), any(), any())).thenReturn(user);
     when(userRepository.saveAndFlush(user)).thenReturn(user);
     when(userConsentRepository.saveAll(any())).thenReturn(null);

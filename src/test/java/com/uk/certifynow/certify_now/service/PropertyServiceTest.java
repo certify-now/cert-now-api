@@ -137,7 +137,7 @@ class PropertyServiceTest {
 
     assertThat(property.getDeletedAt()).isNull();
     assertThat(property.getDeletedBy()).isNull();
-    verify(publisher).publishEvent(any());
+    verify(publisher).publishEvent(any(Object.class));
   }
 
   @Test

@@ -23,6 +23,7 @@ import org.springframework.test.context.jdbc.Sql.ExecutionPhase;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 
 /**
  * Shared base class for all integration tests.
@@ -40,9 +41,12 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Sql(scripts = "/reset.sql", executionPhase = ExecutionPhase.BEFORE_TEST_METHOD)
 public abstract class BaseIntegrationTest {
 
+  private static final DockerImageName POSTGIS_IMAGE =
+      DockerImageName.parse("postgis/postgis:16-3.4-alpine").asCompatibleSubstituteFor("postgres");
+
   @Container
   static PostgreSQLContainer<?> postgres =
-      new PostgreSQLContainer<>("postgis/postgis:16-3.4-alpine")
+      new PostgreSQLContainer<>(POSTGIS_IMAGE)
           .withDatabaseName("certify-now")
           .withUsername("test")
           .withPassword("test");

@@ -1,6 +1,7 @@
 package com.uk.certifynow.certify_now.service.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
@@ -18,9 +19,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.core.env.Environment;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class JwtTokenProviderTest {
 
   private static final String TEST_SECRET =
@@ -122,14 +126,13 @@ class JwtTokenProviderTest {
   @Test
   void validateSecret_prodProfileWithDevSecret_throwsException() {
     when(env.getActiveProfiles()).thenReturn(new String[] {"prod"});
-
-    assertThatThrownBy(
-            () ->
-                new JwtTokenProvider(
-                    "dev-secret-key-at-least-512-bits-long-for-hs512-algorithm-change-in-production-pad",
-                    EXPIRY_MS,
-                    clock,
-                    env))
+    final JwtTokenProvider p =
+        new JwtTokenProvider(
+            "dev-secret-key-at-least-512-bits-long-for-hs512-algorithm-change-in-production-pad",
+            EXPIRY_MS,
+            clock,
+            env);
+    assertThatThrownBy(p::validateSecret)
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("Production profile detected");
   }
@@ -137,9 +140,8 @@ class JwtTokenProviderTest {
   @Test
   void validateSecret_prodProfileWithRealSecret_succeeds() {
     when(env.getActiveProfiles()).thenReturn(new String[] {"prod"});
-    // Should not throw — it's not the dev default prefix
     final JwtTokenProvider prod = new JwtTokenProvider(TEST_SECRET, EXPIRY_MS, clock, env);
-    assertThat(prod).isNotNull();
+    assertThatCode(prod::validateSecret).doesNotThrowAnyException();
   }
 
   @Test

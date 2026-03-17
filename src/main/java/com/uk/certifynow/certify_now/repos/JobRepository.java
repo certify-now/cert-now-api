@@ -32,13 +32,13 @@ public interface JobRepository extends JpaRepository<Job, UUID> {
       value =
           "SELECT j FROM Job j "
               + "WHERE j.customer.id = :customerId "
-              + "AND (:statuses IS EMPTY OR j.status IN :statuses) "
+              + "AND (:statuses IS NULL OR j.status IN :statuses) "
               + "AND (:certificateType IS NULL OR j.certificateType = :certificateType) "
               + "ORDER BY j.createdAt DESC",
       countQuery =
           "SELECT COUNT(j) FROM Job j "
               + "WHERE j.customer.id = :customerId "
-              + "AND (:statuses IS EMPTY OR j.status IN :statuses) "
+              + "AND (:statuses IS NULL OR j.status IN :statuses) "
               + "AND (:certificateType IS NULL OR j.certificateType = :certificateType)")
   Page<Job> findByCustomerWithFilters(
       @Param("customerId") UUID customerId,
@@ -52,13 +52,13 @@ public interface JobRepository extends JpaRepository<Job, UUID> {
       value =
           "SELECT j FROM Job j "
               + "WHERE j.engineer.id = :engineerId "
-              + "AND (:statuses IS EMPTY OR j.status IN :statuses) "
+              + "AND (:statuses IS NULL OR j.status IN :statuses) "
               + "AND (:certificateType IS NULL OR j.certificateType = :certificateType) "
               + "ORDER BY j.createdAt DESC",
       countQuery =
           "SELECT COUNT(j) FROM Job j "
               + "WHERE j.engineer.id = :engineerId "
-              + "AND (:statuses IS EMPTY OR j.status IN :statuses) "
+              + "AND (:statuses IS NULL OR j.status IN :statuses) "
               + "AND (:certificateType IS NULL OR j.certificateType = :certificateType)")
   Page<Job> findByEngineerWithFilters(
       @Param("engineerId") UUID engineerId,
@@ -70,12 +70,12 @@ public interface JobRepository extends JpaRepository<Job, UUID> {
   @Query(
       value =
           "SELECT j FROM Job j WHERE "
-              + "(:statuses IS EMPTY OR j.status IN :statuses) AND "
+              + "(:statuses IS NULL OR j.status IN :statuses) AND "
               + "(:certificateType IS NULL OR j.certificateType = :certificateType) "
               + "ORDER BY j.createdAt DESC",
       countQuery =
           "SELECT COUNT(j) FROM Job j WHERE "
-              + "(:statuses IS EMPTY OR j.status IN :statuses) AND "
+              + "(:statuses IS NULL OR j.status IN :statuses) AND "
               + "(:certificateType IS NULL OR j.certificateType = :certificateType)")
   Page<Job> findAllWithFilters(
       @Param("statuses") List<String> statuses,

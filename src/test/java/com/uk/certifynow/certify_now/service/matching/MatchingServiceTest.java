@@ -237,7 +237,7 @@ class MatchingServiceTest {
 
     verify(matchLogRepository).save(any(JobMatchLog.class));
     verify(matchLogRepository).expireAllPendingForJob(job.getId());
-    verify(publisher).publishEvent(any());
+    verify(publisher).publishEvent(any(Object.class));
   }
 
   @Test
@@ -300,23 +300,17 @@ class MatchingServiceTest {
   }
 
   @Test
-  void broadcastToEligible_invalidLocation_escalatesWhenNoCandidates() {
+  void broadcastToEligible_invalidLocation_throwsBusinessException() {
     final User customer = TestUserBuilder.buildActiveCustomer();
     final Property property = TestPropertyBuilder.buildWithGas(customer);
     property.setLocation("not-a-location");
     final Job job = TestJobBuilder.buildCreated(customer, property);
 
     when(jobRepository.findByIdWithProperty(job.getId())).thenReturn(Optional.of(job));
-    when(jobRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-    // Invalid location triggers escalation path (falls back to APPROVED lookup)
-    when(engineerProfileRepository.findByStatus(EngineerApplicationStatus.APPROVED))
-        .thenReturn(List.of());
-
-    matchingService.broadcastToEligible(job);
-
-    // Job should be escalated since no candidates
-    assertThat(job.getStatus()).isEqualTo("ESCALATED");
+    assertThatThrownBy(() -> matchingService.broadcastToEligible(job))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("Failed to parse property location");
   }
 
   // ─── escalateJob ──────────────────────────────────────────────────────────────

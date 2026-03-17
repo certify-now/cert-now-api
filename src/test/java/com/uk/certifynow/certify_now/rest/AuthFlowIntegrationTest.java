@@ -1,25 +1,17 @@
 package com.uk.certifynow.certify_now.rest;
 
+import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 
-import com.uk.certifynow.certify_now.service.EmailService;
-import io.restassured.RestAssured;
+import com.uk.certifynow.certify_now.BaseIntegrationTest;
 import io.restassured.http.ContentType;
-import org.junit.jupiter.api.BeforeEach;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
  * Integration test for the complete authentication flow.
@@ -27,39 +19,22 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * <p>Boots the full Spring context with Testcontainers PostgreSQL and exercises register →
  * verify-email → login → logout end-to-end via the REST API.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@ActiveProfiles("test")
-@Testcontainers
-class AuthFlowIntegrationTest {
-
-  @Container
-  static PostgreSQLContainer<?> postgres =
-      new PostgreSQLContainer<>("postgres:16-alpine")
-          .withDatabaseName("certify-now")
-          .withUsername("test")
-          .withPassword("test");
-
-  @DynamicPropertySource
-  static void configureProperties(final DynamicPropertyRegistry registry) {
-    registry.add("spring.datasource.url", postgres::getJdbcUrl);
-    registry.add("spring.datasource.username", postgres::getUsername);
-    registry.add("spring.datasource.password", postgres::getPassword);
-  }
-
-  @LocalServerPort private int port;
-
-  @MockitoBean private EmailService emailService;
-
-  @BeforeEach
-  void setUp() {
-    RestAssured.port = port;
-  }
+class AuthFlowIntegrationTest extends BaseIntegrationTest {
 
   @Test
   void fullAuthFlow_registerVerifyLoginLogout() {
     // ── 1. Register ──
+    final AtomicReference<String> codeRef = new AtomicReference<>();
+    doAnswer(
+            inv -> {
+              codeRef.set(inv.getArgument(2));
+              return null;
+            })
+        .when(emailService)
+        .sendVerificationEmail(eq("flow@example.com"), any(), any());
+
     final String accessToken =
-        RestAssured.given()
+        given()
             .contentType(ContentType.JSON)
             .body(
                 """
@@ -79,17 +54,12 @@ class AuthFlowIntegrationTest {
             .extract()
             .path("data.accessToken");
 
-    // Capture verification code from the mocked email service
-    final ArgumentCaptor<String> codeCaptor = ArgumentCaptor.forClass(String.class);
-    Mockito.verify(emailService)
-        .sendVerificationEmail(Mockito.eq("flow@example.com"), Mockito.any(), codeCaptor.capture());
-    final String verificationCode = codeCaptor.getValue();
-    assertThat(verificationCode).isNotBlank();
+    assertThat(codeRef.get()).isNotBlank();
 
     // ── 2. Verify email ──
-    RestAssured.given()
+    given()
         .contentType(ContentType.JSON)
-        .body("{\"code\": \"" + verificationCode + "\"}")
+        .body("{\"code\": \"" + codeRef.get() + "\"}")
         .post("/api/v1/auth/verify-email")
         .then()
         .statusCode(200)
@@ -97,7 +67,7 @@ class AuthFlowIntegrationTest {
 
     // ── 3. Login ──
     final var loginResponse =
-        RestAssured.given()
+        given()
             .contentType(ContentType.JSON)
             .body(
                 """
@@ -118,7 +88,7 @@ class AuthFlowIntegrationTest {
     final String refreshToken = loginResponse.path("data.refreshToken");
 
     // ── 4. Logout ──
-    RestAssured.given()
+    given()
         .contentType(ContentType.JSON)
         .header("Authorization", "Bearer " + loginAccessToken)
         .body("{\"refreshToken\": \"" + refreshToken + "\"}")
@@ -129,32 +99,30 @@ class AuthFlowIntegrationTest {
 
   @Test
   void login_wrongPassword_returns401() {
-    // Register a user
-    RestAssured.given()
+    given()
         .contentType(ContentType.JSON)
         .body(
             """
-        {
-          "email": "wrong-pw@example.com",
-          "password": "Test1234!",
-          "fullName": "Wrong Pw Tester",
-          "role": "CUSTOMER"
-        }
-        """)
+            {
+              "email": "wrong-pw@example.com",
+              "password": "Test1234!",
+              "fullName": "Wrong Pw Tester",
+              "role": "CUSTOMER"
+            }
+            """)
         .post("/api/v1/auth/register")
         .then()
         .statusCode(201);
 
-    // Attempt login with wrong password
-    RestAssured.given()
+    given()
         .contentType(ContentType.JSON)
         .body(
             """
-        {
-          "email": "wrong-pw@example.com",
-          "password": "WrongPass1!"
-        }
-        """)
+            {
+              "email": "wrong-pw@example.com",
+              "password": "WrongPass1!"
+            }
+            """)
         .post("/api/v1/auth/login")
         .then()
         .statusCode(401)
@@ -163,18 +131,254 @@ class AuthFlowIntegrationTest {
 
   @Test
   void login_nonExistentUser_returns401() {
-    RestAssured.given()
+    given()
         .contentType(ContentType.JSON)
         .body(
             """
-        {
-          "email": "ghost@example.com",
-          "password": "Test1234!"
-        }
-        """)
+            {
+              "email": "ghost@example.com",
+              "password": "Test1234!"
+            }
+            """)
         .post("/api/v1/auth/login")
         .then()
         .statusCode(401)
         .body("error", equalTo("INVALID_CREDENTIALS"));
+  }
+
+  @Test
+  void refreshToken_rotation_oldTokenInvalid_newTokenWorks() {
+    final AtomicReference<String> codeRef = new AtomicReference<>();
+    doAnswer(
+            inv -> {
+              codeRef.set(inv.getArgument(2));
+              return null;
+            })
+        .when(emailService)
+        .sendVerificationEmail(eq("rotate@example.com"), any(), any());
+
+    given()
+        .contentType(ContentType.JSON)
+        .body(
+            "{\"email\":\"rotate@example.com\",\"password\":\"Test1234!\",\"fullName\":\"Rotate\",\"role\":\"CUSTOMER\"}")
+        .post("/api/v1/auth/register")
+        .then()
+        .statusCode(201);
+
+    given()
+        .contentType(ContentType.JSON)
+        .body("{\"code\":\"" + codeRef.get() + "\"}")
+        .post("/api/v1/auth/verify-email")
+        .then()
+        .statusCode(200);
+
+    final var loginResp =
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"email\":\"rotate@example.com\",\"password\":\"Test1234!\"}")
+            .post("/api/v1/auth/login")
+            .then()
+            .statusCode(200)
+            .extract();
+
+    final String oldRefreshToken = loginResp.path("data.refreshToken");
+
+    final var rotateResp =
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"refreshToken\":\"" + oldRefreshToken + "\"}")
+            .post("/api/v1/auth/refresh")
+            .then()
+            .statusCode(200)
+            .extract();
+
+    final String newRefreshToken = rotateResp.path("data.refreshToken");
+    assertThat(newRefreshToken).isNotEqualTo(oldRefreshToken);
+
+    given()
+        .contentType(ContentType.JSON)
+        .body("{\"refreshToken\":\"" + oldRefreshToken + "\"}")
+        .post("/api/v1/auth/refresh")
+        .then()
+        .statusCode(403);
+
+    given()
+        .contentType(ContentType.JSON)
+        .body("{\"refreshToken\":\"" + newRefreshToken + "\"}")
+        .post("/api/v1/auth/refresh")
+        .then()
+        .statusCode(200);
+  }
+
+  @Test
+  void refreshToken_reuse_revokesEntireFamily() {
+    final AtomicReference<String> codeRef = new AtomicReference<>();
+    doAnswer(
+            inv -> {
+              codeRef.set(inv.getArgument(2));
+              return null;
+            })
+        .when(emailService)
+        .sendVerificationEmail(eq("reuse@example.com"), any(), any());
+
+    given()
+        .contentType(ContentType.JSON)
+        .body(
+            "{\"email\":\"reuse@example.com\",\"password\":\"Test1234!\",\"fullName\":\"Reuse\",\"role\":\"CUSTOMER\"}")
+        .post("/api/v1/auth/register")
+        .then()
+        .statusCode(201);
+
+    given()
+        .contentType(ContentType.JSON)
+        .body("{\"code\":\"" + codeRef.get() + "\"}")
+        .post("/api/v1/auth/verify-email")
+        .then()
+        .statusCode(200);
+
+    final var loginResp =
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"email\":\"reuse@example.com\",\"password\":\"Test1234!\"}")
+            .post("/api/v1/auth/login")
+            .then()
+            .statusCode(200)
+            .extract();
+
+    final String originalToken = loginResp.path("data.refreshToken");
+
+    final var rotateResp =
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"refreshToken\":\"" + originalToken + "\"}")
+            .post("/api/v1/auth/refresh")
+            .then()
+            .statusCode(200)
+            .extract();
+
+    final String newToken = rotateResp.path("data.refreshToken");
+
+    given()
+        .contentType(ContentType.JSON)
+        .body("{\"refreshToken\":\"" + originalToken + "\"}")
+        .post("/api/v1/auth/refresh")
+        .then()
+        .statusCode(403)
+        .body("error", equalTo("TOKEN_REUSE_DETECTED"));
+
+    given()
+        .contentType(ContentType.JSON)
+        .body("{\"refreshToken\":\"" + newToken + "\"}")
+        .post("/api/v1/auth/refresh")
+        .then()
+        .statusCode(403);
+  }
+
+  @Test
+  void logout_accessTokenDenylisted_subsequentRequestReturns401() {
+    final AtomicReference<String> codeRef = new AtomicReference<>();
+    doAnswer(
+            inv -> {
+              codeRef.set(inv.getArgument(2));
+              return null;
+            })
+        .when(emailService)
+        .sendVerificationEmail(eq("denylist@example.com"), any(), any());
+
+    given()
+        .contentType(ContentType.JSON)
+        .body(
+            "{\"email\":\"denylist@example.com\",\"password\":\"Test1234!\",\"fullName\":\"Denylist\",\"role\":\"CUSTOMER\"}")
+        .post("/api/v1/auth/register")
+        .then()
+        .statusCode(201);
+
+    given()
+        .contentType(ContentType.JSON)
+        .body("{\"code\":\"" + codeRef.get() + "\"}")
+        .post("/api/v1/auth/verify-email")
+        .then()
+        .statusCode(200);
+
+    final var loginResp =
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"email\":\"denylist@example.com\",\"password\":\"Test1234!\"}")
+            .post("/api/v1/auth/login")
+            .then()
+            .statusCode(200)
+            .extract();
+
+    final String accessToken = loginResp.path("data.accessToken");
+    final String refreshToken = loginResp.path("data.refreshToken");
+
+    given()
+        .contentType(ContentType.JSON)
+        .header("Authorization", "Bearer " + accessToken)
+        .body("{\"refreshToken\":\"" + refreshToken + "\"}")
+        .post("/api/v1/auth/logout")
+        .then()
+        .statusCode(204);
+
+    given()
+        .header("Authorization", "Bearer " + accessToken)
+        .get("/api/v1/users/me")
+        .then()
+        .statusCode(401)
+        .body("error", equalTo("TOKEN_REVOKED"));
+  }
+
+  @Test
+  void register_duplicateEmail_returns201_silentlyHandled() {
+    given()
+        .contentType(ContentType.JSON)
+        .body(
+            "{\"email\":\"dup@example.com\",\"password\":\"Test1234!\",\"fullName\":\"Dup\",\"role\":\"CUSTOMER\"}")
+        .post("/api/v1/auth/register")
+        .then()
+        .statusCode(201);
+
+    given()
+        .contentType(ContentType.JSON)
+        .body(
+            "{\"email\":\"dup@example.com\",\"password\":\"Different1!\",\"fullName\":\"Dup2\",\"role\":\"CUSTOMER\"}")
+        .post("/api/v1/auth/register")
+        .then()
+        .statusCode(201);
+  }
+
+  @Test
+  void unverifiedUser_cannotAccessProtectedEndpoints() {
+    given()
+        .contentType(ContentType.JSON)
+        .body(
+            "{\"email\":\"unverified@example.com\",\"password\":\"Test1234!\",\"fullName\":\"Unverified\",\"role\":\"CUSTOMER\"}")
+        .post("/api/v1/auth/register")
+        .then()
+        .statusCode(201);
+
+    final var loginResp =
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"email\":\"unverified@example.com\",\"password\":\"Test1234!\"}")
+            .post("/api/v1/auth/login")
+            .then()
+            .statusCode(200)
+            .extract();
+
+    final String accessToken = loginResp.path("data.accessToken");
+
+    given()
+        .header("Authorization", "Bearer " + accessToken)
+        .get("/api/v1/properties")
+        .then()
+        .statusCode(403)
+        .body("error", equalTo("EMAIL_NOT_VERIFIED"));
+
+    given()
+        .header("Authorization", "Bearer " + accessToken)
+        .get("/api/v1/users/me")
+        .then()
+        .statusCode(200);
   }
 }

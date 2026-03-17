@@ -4,6 +4,7 @@ import com.uk.certifynow.certify_now.domain.Job;
 import com.uk.certifynow.certify_now.domain.Payment;
 import com.uk.certifynow.certify_now.events.job.JobCancelledEvent;
 import com.uk.certifynow.certify_now.exception.EntityNotFoundException;
+import com.uk.certifynow.certify_now.exception.InvalidStateTransitionException;
 import com.uk.certifynow.certify_now.repos.JobMatchLogRepository;
 import com.uk.certifynow.certify_now.repos.JobRepository;
 import com.uk.certifynow.certify_now.repos.PaymentRepository;

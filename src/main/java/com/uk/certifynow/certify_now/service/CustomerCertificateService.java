@@ -101,6 +101,9 @@ public class CustomerCertificateService {
       final List<Property> properties =
           propertyRepository.findByOwnerIdAndIsActiveTrue(customerId, Sort.by("addressLine1"));
       for (final Property property : properties) {
+        if (filters.propertyId() != null && !filters.propertyId().equals(property.getId())) {
+          continue;
+        }
         final List<MissingEntry> missing = detectMissingForProperty(property, today);
         for (final MissingEntry entry : missing) {
           if (filters.type() != null && !filters.type().equalsIgnoreCase(entry.certificateType())) {

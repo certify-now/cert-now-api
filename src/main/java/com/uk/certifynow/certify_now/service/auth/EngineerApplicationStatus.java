@@ -9,36 +9,13 @@ import java.util.Set;
  * engineer onboarding workflow state machine.
  */
 public enum EngineerApplicationStatus {
-  APPLICATION_SUBMITTED("APPLICATION_SUBMITTED"),
-  ID_VERIFICATION_PENDING("ID_VERIFICATION_PENDING"),
-  DBS_CHECK_PENDING("DBS_CHECK_PENDING"),
-  INSURANCE_VERIFICATION_PENDING("INSURANCE_VERIFICATION_PENDING"),
-  TRAINING_REQUIRED("TRAINING_REQUIRED"),
-  APPROVED("APPROVED"),
-  REJECTED("REJECTED");
-
-  private final String databaseValue;
-
-  EngineerApplicationStatus(final String databaseValue) {
-    this.databaseValue = databaseValue;
-  }
-
-  public String getDatabaseValue() {
-    return databaseValue;
-  }
-
-  public static EngineerApplicationStatus fromDatabaseValue(final String value) {
-    if (value == null) {
-      return null;
-    }
-    for (final EngineerApplicationStatus status : values()) {
-      if (status.databaseValue.equals(value)) {
-        return status;
-      }
-    }
-    throw new IllegalArgumentException(
-        "Unknown EngineerApplicationStatus database value: " + value);
-  }
+  APPLICATION_SUBMITTED,
+  ID_VERIFICATION_PENDING,
+  DBS_CHECK_PENDING,
+  INSURANCE_VERIFICATION_PENDING,
+  TRAINING_REQUIRED,
+  APPROVED,
+  REJECTED;
 
   /**
    * Returns the set of statuses that this status can transition to.
@@ -94,15 +71,6 @@ public enum EngineerApplicationStatus {
   }
 
   /**
-   * Determines if the engineer can accept jobs (must be approved).
-   *
-   * @return true if approved, false otherwise
-   */
-  public boolean canAcceptJobs() {
-    return this == APPROVED;
-  }
-
-  /**
    * JPA AttributeConverter for automatic conversion between EngineerApplicationStatus enum and
    * String database column.
    */
@@ -112,15 +80,12 @@ public enum EngineerApplicationStatus {
 
     @Override
     public String convertToDatabaseColumn(final EngineerApplicationStatus attribute) {
-      if (attribute == null) {
-        return null;
-      }
-      return attribute.getDatabaseValue();
+      return attribute == null ? null : attribute.name();
     }
 
     @Override
     public EngineerApplicationStatus convertToEntityAttribute(final String dbData) {
-      return EngineerApplicationStatus.fromDatabaseValue(dbData);
+      return dbData == null ? null : EngineerApplicationStatus.valueOf(dbData);
     }
   }
 }

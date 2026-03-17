@@ -5,9 +5,9 @@ import java.util.UUID;
 /**
  * Published when a registration attempt is made for an email or phone that already exists.
  *
- * <p>Fix 3: Instead of throwing a 409 CONFLICT (which would let attackers enumerate registered
- * emails), RegistrationService publishes this event and returns a silent 201 success. An async
- * listener sends a "someone tried to register with your account" notification to the existing user.
+ * <p>Instead of throwing a 409 CONFLICT (which would let attackers enumerate registered emails),
+ * RegistrationService publishes this event and returns a silent 201 success. An async listener
+ * sends a "someone tried to register with your account" notification to the existing user.
  */
 public class DuplicateRegistrationAttemptEvent extends DomainEvent {
 

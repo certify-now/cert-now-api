@@ -36,7 +36,8 @@ public interface EmailService {
 
   /**
    * Send a security notification when someone tries to register with an already-registered email or
-   * phone (Fix 3: prevents email enumeration by silently handling duplicates).
+   * phone. Registration silently succeeds (no 409) to prevent email enumeration — this notification
+   * lets the real account holder know a registration attempt occurred.
    *
    * @param toEmail the existing user's email address
    * @param ipAddress the IP address of the duplicate attempt (for the recipient's awareness)

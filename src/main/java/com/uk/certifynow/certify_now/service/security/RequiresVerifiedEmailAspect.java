@@ -14,9 +14,9 @@ import org.springframework.stereotype.Component;
 /**
  * AOP aspect enforcing {@link RequiresVerifiedEmail}.
  *
- * <p>Fix 8: Checks the annotated method's caller has a verified email by reading the current value
- * from the database — this is intentionally NOT delegated to the JWT status claim, which can be up
- * to 15 minutes stale. Privileged actions must use the live DB value.
+ * <p>Checks the annotated method's caller has a verified email by reading the current value from
+ * the database — this is intentionally NOT delegated to the JWT status claim, which can be up to 15
+ * minutes stale. Privileged actions must use the live DB value.
  *
  * <p>Requires the {@code spring-boot-starter-aop} dependency (included transitively via {@code
  * spring-boot-starter-web}).

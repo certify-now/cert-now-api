@@ -1,8 +1,6 @@
 package com.uk.certifynow.certify_now.service.auth;
 
 import com.uk.certifynow.certify_now.domain.User;
-import com.uk.certifynow.certify_now.exception.AccountNotActiveException;
-import com.uk.certifynow.certify_now.exception.EmailNotVerifiedException;
 import com.uk.certifynow.certify_now.service.auth.dto.AuthResponse;
 import com.uk.certifynow.certify_now.service.auth.dto.LoginRequest;
 import com.uk.certifynow.certify_now.service.auth.dto.RefreshRequest;
@@ -50,17 +48,14 @@ public class AuthFacade {
   }
 
   /**
-   * Registers a new user.
+   * Registers a new user and immediately issues tokens on success.
    *
-   * <p>Orchestrates: registration only. Token issuance is intentionally deferred until login after
-   * email verification.
-   *
-   * <p>Fix 3: If the email/phone already exists, registration silently succeeds (no 409) — the
-   * existing user receives a "someone tried to register" email notification via an async event
-   * listener. An empty Optional from RegistrationService means a silent duplicate was handled.
+   * <p>If the email/phone already exists, registration silently succeeds (no 409) — the existing
+   * user receives a "someone tried to register" email notification via an async event listener. An
+   * empty Optional from RegistrationService means a silent duplicate was handled.
    *
    * @param request registration details
-   * @param deviceInfo device information for audit (currently unused)
+   * @param deviceInfo device information for audit
    * @param ipAddress IP address for audit
    */
   public AuthResponse register(
@@ -76,7 +71,6 @@ public class AuthFacade {
               })
           .orElseGet(authMapper::toGenericRegistrationResponse);
     } catch (DataIntegrityViolationException | UnexpectedRollbackException ex) {
-      // Handle rare uniqueness races as silent duplicates too.
       registrationService.publishDuplicateAttemptIfPresent(
           request.email(), request.phone(), ipAddress);
       return authMapper.toGenericRegistrationResponse();
@@ -93,26 +87,13 @@ public class AuthFacade {
    * @return authentication response with tokens and user summary
    */
   public AuthResponse login(final LoginRequest request, final String ipAddress) {
-    // Step 1: Authenticate (validates credentials, updates last login, publishes
-    // event)
     final User user =
         authenticationService.authenticate(
             request.email(), request.password(), request.deviceInfo(), ipAddress);
 
-    if (!Boolean.TRUE.equals(user.getEmailVerified())) {
-      throw new EmailNotVerifiedException("Please verify your email address before logging in.");
-    }
-
-    if (user.getStatus() != UserStatus.ACTIVE) {
-      throw new AccountNotActiveException(
-          "Your account is not active. Current status: " + user.getStatus());
-    }
-
-    // Step 2: Issue tokens
     final SessionService.TokenPair tokens =
         sessionService.issueTokens(user, request.deviceInfo(), ipAddress);
 
-    // Step 3: Map to DTO
     return authMapper.toAuthResponse(user, tokens);
   }
 
@@ -146,11 +127,8 @@ public class AuthFacade {
    * @return authentication response with new tokens and user summary
    */
   public AuthResponse refresh(final RefreshRequest request, final String ipAddress) {
-    // Step 1: Rotate tokens (validates, revokes old, issues new)
     final SessionService.TokenPair tokens =
         sessionService.rotateRefreshToken(request.refreshToken(), ipAddress);
-
-    // Step 2: Extract user from new access token and map to DTO
     return authMapper.toAuthResponseFromToken(tokens);
   }
 
@@ -179,7 +157,8 @@ public class AuthFacade {
    *
    * @param userId user requesting logout
    * @param refreshToken token to revoke
-   * @param accessToken current access token (jti will be added to denylist — Fix 1)
+   * @param accessToken current access token (jti will be added to denylist for immediate
+   *     invalidation)
    */
   public void logout(final UUID userId, final String refreshToken, final String accessToken) {
     sessionService.revokeToken(userId, refreshToken, accessToken);

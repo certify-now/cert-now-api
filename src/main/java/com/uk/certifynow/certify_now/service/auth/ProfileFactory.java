@@ -15,6 +15,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class ProfileFactory {
 
+  private static final String DEFAULT_NOTIFICATION_PREFS =
+      "{\"push\": true, \"email\": true, \"sms\": false}";
+
   private final Clock clock;
 
   public ProfileFactory(final Clock clock) {
@@ -38,7 +41,7 @@ public class ProfileFactory {
     // Business defaults
     profile.setIsLettingAgent(false);
     profile.setTotalProperties(0);
-    profile.setNotificationPrefs("{\"push\": true, \"email\": true, \"sms\": false}");
+    profile.setNotificationPrefs(DEFAULT_NOTIFICATION_PREFS);
 
     return profile;
   }

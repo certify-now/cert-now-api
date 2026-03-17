@@ -1,47 +1,40 @@
 package com.uk.certifynow.certify_now.service.auth;
 
+import com.uk.certifynow.certify_now.exception.BusinessException;
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
+import org.springframework.http.HttpStatus;
 
 /**
  * Enum representing user account status in the CertifyNow platform. Encapsulates business rules for
  * account state validation.
  */
 public enum UserStatus {
-  ACTIVE("ACTIVE"),
-  PENDING_VERIFICATION("PENDING_VERIFICATION"),
-  SUSPENDED("SUSPENDED"),
-  DEACTIVATED("DEACTIVATED");
-
-  private final String databaseValue;
-
-  UserStatus(final String databaseValue) {
-    this.databaseValue = databaseValue;
-  }
-
-  public String getDatabaseValue() {
-    return databaseValue;
-  }
-
-  public static UserStatus fromDatabaseValue(final String value) {
-    if (value == null) {
-      return null;
-    }
-    for (final UserStatus status : values()) {
-      if (status.databaseValue.equals(value)) {
-        return status;
-      }
-    }
-    throw new IllegalArgumentException("Unknown UserStatus database value: " + value);
-  }
+  ACTIVE,
+  PENDING_VERIFICATION,
+  SUSPENDED,
+  DEACTIVATED;
 
   /**
-   * Determines if a user with this status can authenticate.
+   * Asserts that a user with this status is permitted to authenticate.
    *
-   * @return true if user can login, false otherwise
+   * <p>Throws a {@link BusinessException} for DEACTIVATED or SUSPENDED accounts so that every
+   * authentication path (login, token refresh) uses a single, consistent set of error codes and
+   * messages instead of duplicating the checks in each service.
    */
-  public boolean canAuthenticate() {
-    return this == ACTIVE || this == PENDING_VERIFICATION;
+  public void assertCanAuthenticate() {
+    if (this == DEACTIVATED) {
+      throw new BusinessException(
+          HttpStatus.UNAUTHORIZED,
+          "ACCOUNT_DEACTIVATED",
+          "Your account has been deactivated. Please contact support.");
+    }
+    if (this == SUSPENDED) {
+      throw new BusinessException(
+          HttpStatus.FORBIDDEN,
+          "ACCOUNT_SUSPENDED",
+          "Your account has been suspended. Please contact support.");
+    }
   }
 
   /**
@@ -80,15 +73,12 @@ public enum UserStatus {
 
     @Override
     public String convertToDatabaseColumn(final UserStatus attribute) {
-      if (attribute == null) {
-        return null;
-      }
-      return attribute.getDatabaseValue();
+      return attribute == null ? null : attribute.name();
     }
 
     @Override
     public UserStatus convertToEntityAttribute(final String dbData) {
-      return UserStatus.fromDatabaseValue(dbData);
+      return dbData == null ? null : UserStatus.valueOf(dbData);
     }
   }
 }

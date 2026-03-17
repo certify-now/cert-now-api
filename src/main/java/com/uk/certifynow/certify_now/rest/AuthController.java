@@ -142,7 +142,6 @@ public class AuthController {
       @Valid @RequestBody final LogoutRequest request,
       final Authentication authentication,
       final HttpServletRequest httpRequest) {
-    // Pass the raw access token so its jti can be added to the denylist (Fix 1)
     final String authHeader = httpRequest.getHeader(HttpHeaders.AUTHORIZATION);
     final String accessToken =
         (authHeader != null && authHeader.startsWith("Bearer ")) ? authHeader.substring(7) : null;

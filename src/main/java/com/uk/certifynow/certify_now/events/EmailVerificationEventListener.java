@@ -14,8 +14,8 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
- * Fix 4: Listens to {@link UserRegisteredEvent} AFTER the registration transaction commits and
- * sends the email verification email.
+ * Listens to {@link UserRegisteredEvent} AFTER the registration transaction commits and sends the
+ * email verification email.
  *
  * <p>By moving this call out of the main {@link
  * com.uk.certifynow.certify_now.service.auth.RegistrationService} transaction, a transient SMTP

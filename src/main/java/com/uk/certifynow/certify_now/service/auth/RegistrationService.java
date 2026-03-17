@@ -1,5 +1,7 @@
 package com.uk.certifynow.certify_now.service.auth;
 
+import static com.uk.certifynow.certify_now.util.AuthUtils.maskEmail;
+
 import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.domain.UserConsent;
 import com.uk.certifynow.certify_now.events.DuplicateRegistrationAttemptEvent;
@@ -23,13 +25,9 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Handles user registration workflow.
  *
- * <p>Responsibilities: - Validate email/phone uniqueness (silently, no 409) to prevent email
- * enumeration - Create User aggregate via UserFactory - Create profile via ProfileFactory - Create
- * user consents - Publish UserRegisteredEvent (email verification triggered AFTER_COMMIT by
- * listener)
- *
- * <p>This service is focused solely on registration logic and delegates entity creation to domain
- * factories, ensuring the application layer doesn't know about business defaults.
+ * <p>Creates user accounts with email/password authentication, sets up role-specific profiles, and
+ * records consent. Prevents email enumeration by silently handling duplicates instead of returning
+ * 409 errors.
  */
 @Service
 public class RegistrationService {
@@ -70,23 +68,25 @@ public class RegistrationService {
   /**
    * Registers a new user with email/password authentication.
    *
-   * <p>Returns an empty Optional on duplicate email/phone rather than throwing 409, to prevent
-   * email enumeration. An async event listener sends a security notification to the existing user.
+   * <p>Returns empty Optional for duplicate email/phone to prevent enumeration attacks. Email
+   * verification is triggered asynchronously by event listener.
    *
-   * <p>Email verification is triggered by {@link
-   * com.uk.certifynow.certify_now.events.EmailVerificationEventListener} after the transaction
-   * commits, so any SMTP failure does NOT roll back user creation.
-   *
-   * @param request registration details including email, password, role
-   * @param ipAddress IP address of the registration request for audit
-   * @return Optional containing the created User, or empty if a silent duplicate was handled
+   * @param request registration details
+   * @param ipAddress requester's IP for audit trail
+   * @return created user, or empty if duplicate was silently handled
    */
   @Transactional(noRollbackFor = DataIntegrityViolationException.class)
   public Optional<User> registerUser(final RegisterRequest request, final String ipAddress) {
+
+    log.debug("Registration attempt for email: {}", maskEmail(request.email()));
+
+    // Silent duplicate detection (prevents enumeration)
     if (handleDuplicateEmail(request.email(), ipAddress)) {
+      log.info("Registration blocked: duplicate email | email={}", maskEmail(request.email()));
       return Optional.empty();
     }
     if (handleDuplicatePhone(request.phone(), ipAddress)) {
+      log.info("Registration blocked: duplicate phone");
       return Optional.empty();
     }
 
@@ -100,16 +100,21 @@ public class RegistrationService {
 
     try {
       userRepository.saveAndFlush(user);
+      log.info("User created successfully | userId={} | role={}", user.getId(), user.getRole());
     } catch (DataIntegrityViolationException ex) {
-      log.warn("Concurrent duplicate registration detected for email={}", request.email(), ex);
+      log.warn("Concurrent duplicate registration | email={}", maskEmail(request.email()));
       handleDuplicateEmail(request.email(), ipAddress);
       handleDuplicatePhone(request.phone(), ipAddress);
       return Optional.empty();
     }
 
-    createProfile(user);
-
-    createConsents(user, ipAddress);
+    try {
+      createProfile(user);
+      createConsents(user, ipAddress);
+    } catch (Exception ex) {
+      log.error("Failed to create profile or consents | userId={}", user.getId(), ex);
+      throw ex; // Transaction will rollback
+    }
 
     eventPublisher.publishEvent(
         new UserRegisteredEvent(
@@ -123,16 +128,16 @@ public class RegistrationService {
   }
 
   /**
-   * Checks for a duplicate email. If found, publishes a silent notification event to the existing
-   * user and returns true. Uses a single DB query instead of exists + find.
+   * Checks for duplicate email and publishes security notification to existing user if found.
    *
-   * @return true if a duplicate was found and silently handled
+   * @return true if duplicate exists
    */
   private boolean handleDuplicateEmail(final String email, final String ipAddress) {
     return userRepository
         .findByEmailIgnoreCase(email)
         .map(
             existingUser -> {
+              log.debug("Duplicate email detected | userId={}", existingUser.getId());
               eventPublisher.publishEvent(
                   new DuplicateRegistrationAttemptEvent(
                       existingUser.getId(), existingUser.getEmail(), "EMAIL", ipAddress));
@@ -142,13 +147,9 @@ public class RegistrationService {
   }
 
   /**
-   * Checks for a duplicate phone only when phone is non-null and non-blank. Uses a single DB query
-   * instead of exists + find.
+   * Checks for duplicate phone and publishes security notification to existing user if found.
    *
-   * <p>The DB unique constraint on phone must be a partial/filtered index that allows multiple NULL
-   * values: {@code CREATE UNIQUE INDEX ... ON users(phone) WHERE phone IS NOT NULL;}
-   *
-   * @return true if a duplicate was found and silently handled
+   * @return true if duplicate exists
    */
   private boolean handleDuplicatePhone(final String phone, final String ipAddress) {
     if (phone == null || phone.isBlank()) {
@@ -158,6 +159,7 @@ public class RegistrationService {
         .findByPhone(phone)
         .map(
             existingUser -> {
+              log.debug("Duplicate phone detected | userId={}", existingUser.getId());
               eventPublisher.publishEvent(
                   new DuplicateRegistrationAttemptEvent(
                       existingUser.getId(), existingUser.getEmail(), "PHONE", ipAddress));
@@ -167,8 +169,8 @@ public class RegistrationService {
   }
 
   /**
-   * Best-effort duplicate event publication used when a uniqueness race is detected outside the
-   * normal duplicate-check flow.
+   * Publishes duplicate attempt events for race condition scenarios where duplicate check was
+   * bypassed.
    */
   public void publishDuplicateAttemptIfPresent(
       final String email, final String phone, final String ipAddress) {
@@ -180,49 +182,41 @@ public class RegistrationService {
     }
   }
 
-  /**
-   * Creates the appropriate role-specific profile for the given user.
-   *
-   * <p>ADMIN users intentionally have no profile. An explicit default branch logs a warning if an
-   * unrecognised role is encountered, making future role additions safer.
-   */
+  /** Creates role-specific profile (Customer or Engineer). ADMIN users have no profile. */
   private void createProfile(final User user) {
     switch (user.getRole()) {
-      case CUSTOMER -> customerProfileRepository.save(profileFactory.createCustomerProfile(user));
-      case ENGINEER -> engineerProfileRepository.save(profileFactory.createEngineerProfile(user));
-      case ADMIN -> log.debug("No profile created for ADMIN user id={}", user.getId());
-      default ->
-          log.warn(
-              "No profile creation logic defined for role={} user id={}",
-              user.getRole(),
-              user.getId());
+      case CUSTOMER -> {
+        customerProfileRepository.save(profileFactory.createCustomerProfile(user));
+        log.debug("Customer profile created | userId={}", user.getId());
+      }
+      case ENGINEER -> {
+        engineerProfileRepository.save(profileFactory.createEngineerProfile(user));
+        log.debug("Engineer profile created | userId={}", user.getId());
+      }
+      case ADMIN -> log.debug("No profile needed for ADMIN | userId={}", user.getId());
+      default -> {
+        log.error("Unknown role type | role={} | userId={}", user.getRole(), user.getId());
+        throw new IllegalStateException("Unsupported role: " + user.getRole());
+      }
     }
   }
 
-  /**
-   * Creates user consent records for Terms of Service and Privacy Policy in a single batch.
-   *
-   * @param user the user who granted consent
-   * @param ipAddress IP address for the audit trail
-   */
+  /** Creates consent records for Terms of Service and Privacy Policy. */
   private void createConsents(final User user, final String ipAddress) {
     final OffsetDateTime now = OffsetDateTime.now(clock);
     userConsentRepository.saveAll(
         List.of(
             buildConsent(user, CONSENT_TERMS_OF_SERVICE, now, ipAddress),
             buildConsent(user, CONSENT_PRIVACY_POLICY, now, ipAddress)));
+
+    log.debug(
+        "Consents recorded | userId={} | types={},{}",
+        user.getId(),
+        CONSENT_TERMS_OF_SERVICE,
+        CONSENT_PRIVACY_POLICY);
   }
 
-  /**
-   * Builds a single {@link UserConsent} record. Centralises field assignment so {@link
-   * #createConsents} doesn't repeat the same block per consent type.
-   *
-   * @param user the consenting user
-   * @param type the consent type identifier (e.g. "TERMS_OF_SERVICE")
-   * @param now the timestamp to record for grantedAt and createdAt
-   * @param ipAddress IP address for the audit trail
-   * @return a populated, unsaved UserConsent
-   */
+  /** Builds a single UserConsent entity. */
   private UserConsent buildConsent(
       final User user, final String type, final OffsetDateTime now, final String ipAddress) {
     final UserConsent consent = new UserConsent();

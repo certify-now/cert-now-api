@@ -8,26 +8,17 @@ import jakarta.persistence.Converter;
  * business rules and default values.
  */
 public enum EngineerTier {
-  BRONZE("BRONZE", 5.0, 6),
-  SILVER("SILVER", 10.0, 8),
-  GOLD("GOLD", 15.0, 10),
-  PLATINUM("PLATINUM", 25.0, 15);
+  BRONZE(5.0, 6),
+  SILVER(10.0, 8),
+  GOLD(15.0, 10),
+  PLATINUM(25.0, 15);
 
-  private final String databaseValue;
   private final double defaultServiceRadiusMiles;
   private final int defaultMaxDailyJobs;
 
-  EngineerTier(
-      final String databaseValue,
-      final double defaultServiceRadiusMiles,
-      final int defaultMaxDailyJobs) {
-    this.databaseValue = databaseValue;
+  EngineerTier(final double defaultServiceRadiusMiles, final int defaultMaxDailyJobs) {
     this.defaultServiceRadiusMiles = defaultServiceRadiusMiles;
     this.defaultMaxDailyJobs = defaultMaxDailyJobs;
-  }
-
-  public String getDatabaseValue() {
-    return databaseValue;
   }
 
   public double getDefaultServiceRadiusMiles() {
@@ -36,18 +27,6 @@ public enum EngineerTier {
 
   public int getDefaultMaxDailyJobs() {
     return defaultMaxDailyJobs;
-  }
-
-  public static EngineerTier fromDatabaseValue(final String value) {
-    if (value == null) {
-      return null;
-    }
-    for (final EngineerTier tier : values()) {
-      if (tier.databaseValue.equals(value)) {
-        return tier;
-      }
-    }
-    throw new IllegalArgumentException("Unknown EngineerTier database value: " + value);
   }
 
   /**
@@ -68,15 +47,12 @@ public enum EngineerTier {
 
     @Override
     public String convertToDatabaseColumn(final EngineerTier attribute) {
-      if (attribute == null) {
-        return null;
-      }
-      return attribute.getDatabaseValue();
+      return attribute == null ? null : attribute.name();
     }
 
     @Override
     public EngineerTier convertToEntityAttribute(final String dbData) {
-      return EngineerTier.fromDatabaseValue(dbData);
+      return dbData == null ? null : EngineerTier.valueOf(dbData);
     }
   }
 }

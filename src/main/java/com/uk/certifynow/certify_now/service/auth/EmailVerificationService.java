@@ -35,6 +35,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class EmailVerificationService {
 
+  private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
   private final UserRepository userRepository;
   private final EmailVerificationTokenRepository tokenRepository;
   private final EmailService emailService;
@@ -270,10 +272,9 @@ public class EmailVerificationService {
             lastToken -> {
               final OffsetDateTime now = OffsetDateTime.now(clock);
               final Duration elapsed = Duration.between(lastToken.getCreatedAt(), now);
-              final long cooldownSeconds = resendCooldownSeconds;
 
-              if (elapsed.getSeconds() < cooldownSeconds) {
-                final long remainingSeconds = cooldownSeconds - elapsed.getSeconds();
+              if (elapsed.getSeconds() < resendCooldownSeconds) {
+                final long remainingSeconds = resendCooldownSeconds - elapsed.getSeconds();
                 throw new BusinessException(
                     HttpStatus.TOO_MANY_REQUESTS,
                     "RESEND_COOLDOWN",
@@ -290,12 +291,7 @@ public class EmailVerificationService {
    * @return zero-padded 6-digit code
    */
   private String generateVerificationCode() {
-    try {
-      final SecureRandom secureRandom = SecureRandom.getInstanceStrong();
-      return String.format("%06d", secureRandom.nextInt(1_000_000));
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to generate verification code", e);
-    }
+    return String.format("%06d", SECURE_RANDOM.nextInt(1_000_000));
   }
 
   /**

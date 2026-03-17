@@ -4,9 +4,6 @@ import com.uk.certifynow.certify_now.domain.RefreshToken;
 import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.repos.RefreshTokenRepository;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.OffsetDateTime;
@@ -14,6 +11,7 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -52,9 +50,9 @@ public class RefreshTokenService {
   /**
    * Issues a new refresh token.
    *
-   * <p>Fix 5: Accepts an optional {@code familyId}. If {@code null}, a new UUID is generated to
-   * start a fresh token family (first login). On rotation, the caller passes the existing {@code
-   * familyId} to keep all tokens in the same session family.
+   * <p>Accepts an optional {@code familyId}. If {@code null}, a new UUID is generated to start a
+   * fresh token family (first login). On rotation, the caller passes the existing {@code familyId}
+   * to keep all tokens in the same session family, enabling theft detection across rotations.
    *
    * @param user the authenticated user
    * @param deviceInfo device information for audit trail
@@ -73,8 +71,6 @@ public class RefreshTokenService {
     refreshToken.setDeviceInfo(deviceInfo);
     refreshToken.setIpAddress(ipAddress);
     refreshToken.setRevoked(false);
-    // Fix 5: Generate a new family if this is a fresh session, otherwise carry the
-    // existing one
     refreshToken.setFamilyId(familyId != null ? familyId : UUID.randomUUID());
     final OffsetDateTime now = OffsetDateTime.now(clock);
     refreshToken.setCreatedAt(now);
@@ -87,9 +83,9 @@ public class RefreshTokenService {
   /**
    * Validates a refresh token.
    *
-   * <p>Fix 5 — Token reuse detection: If the incoming token is found but already revoked, this
-   * indicates a possible token theft scenario (the attacker has a previously rotated token). All
-   * tokens in the same family are immediately revoked and a security audit event is logged.
+   * <p>Token reuse detection: if the incoming token is found but already revoked, this indicates a
+   * possible token theft scenario (an attacker re-presenting a previously rotated token). All
+   * tokens in the same family are immediately revoked to prevent further misuse.
    *
    * <p>Standard checks: token exists, not revoked, not expired.
    *
@@ -108,7 +104,6 @@ public class RefreshTokenService {
 
     final RefreshToken token = tokenOpt.get();
 
-    // Fix 5: Revoked token presented → possible theft — revoke the entire family
     if (Boolean.TRUE.equals(token.getRevoked())) {
       revokeFamilyInNewTransaction(token.getFamilyId());
       log.warn(
@@ -143,13 +138,7 @@ public class RefreshTokenService {
   }
 
   public String hashToken(final String rawToken) {
-    try {
-      final MessageDigest digest = MessageDigest.getInstance("SHA-256");
-      final byte[] hash = digest.digest(rawToken.getBytes(StandardCharsets.UTF_8));
-      return HexFormat.of().formatHex(hash);
-    } catch (final NoSuchAlgorithmException ex) {
-      throw new IllegalStateException("Unable to hash refresh token", ex);
-    }
+    return DigestUtils.sha256Hex(rawToken);
   }
 
   private String generateRawToken() {
@@ -172,7 +161,7 @@ public class RefreshTokenService {
   }
 
   /**
-   * Fix 5: Revokes all tokens in the given family.
+   * Revokes all tokens in the given family.
    *
    * <p>Called when a revoked token is re-presented (token reuse detection). This ensures an
    * attacker who stole a refresh token cannot continue using any token in the stolen session.

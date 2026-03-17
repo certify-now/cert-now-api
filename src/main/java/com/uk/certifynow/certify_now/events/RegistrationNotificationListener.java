@@ -9,7 +9,7 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
- * Async listener for duplicate registration attempts (Fix 3).
+ * Async listener for duplicate registration attempts.
  *
  * <p>Fires AFTER_COMMIT to ensure the existing user record is visible to the email service. SMTP
  * failures here do NOT affect the registration transaction — the user creation has already

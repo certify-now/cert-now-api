@@ -66,7 +66,7 @@ public class AuthMapper {
 
   /**
    * Returns a generic registration response used when a duplicate registration is silently handled
-   * (Fix 3: email enumeration prevention).
+   * to prevent email enumeration.
    *
    * <p>This response is intentionally indistinguishable from a real registration response — no
    * tokens are issued, and the user summary is {@code null}. The client must display a generic

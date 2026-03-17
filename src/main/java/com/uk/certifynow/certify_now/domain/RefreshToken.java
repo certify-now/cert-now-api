@@ -48,7 +48,7 @@ public class RefreshToken {
   private String tokenHash;
 
   /**
-   * Fix 5: Token family ID — all tokens in the same login session share a familyId.
+   * Token family ID — all tokens in the same login session share a familyId.
    *
    * <p>When a refresh token is rotated, the new token inherits the same familyId. If a revoked
    * token in a family is presented, ALL tokens in that family are immediately revoked to mitigate

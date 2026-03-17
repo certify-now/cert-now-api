@@ -75,7 +75,7 @@ public class UserFactory {
       final UserRole role) {
     final User user = new User();
     user.setEmail(email.toLowerCase(Locale.ROOT));
-    user.setPasswordHash(""); // OAuth users don't have passwords
+    user.setPasswordHash(null); // OAuth users don't have passwords
     user.setFullName(fullName);
     user.setExternalAuthId(externalAuthId);
     user.setRole(role);

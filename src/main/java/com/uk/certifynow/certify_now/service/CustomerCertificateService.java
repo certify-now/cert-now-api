@@ -81,9 +81,7 @@ public class CustomerCertificateService {
     final LocalDate today = LocalDate.now();
     final List<Certificate> rawCerts =
         certificateRepository.findByPropertyOwnerIdWithFilters(
-            customerId,
-            filters.type(),
-            filters.propertyId());
+            customerId, filters.type(), filters.propertyId());
 
     // Compute dynamic status and build list items
     final List<CertificateListItemResponse> items = new ArrayList<>();
@@ -105,8 +103,7 @@ public class CustomerCertificateService {
       for (final Property property : properties) {
         final List<MissingEntry> missing = detectMissingForProperty(property, today);
         for (final MissingEntry entry : missing) {
-          if (filters.type() != null
-              && !filters.type().equalsIgnoreCase(entry.certificateType())) {
+          if (filters.type() != null && !filters.type().equalsIgnoreCase(entry.certificateType())) {
             continue;
           }
           items.add(toMissingListItem(property, entry.certificateType()));
@@ -190,8 +187,7 @@ public class CustomerCertificateService {
         }
       }
     } else if ("EPC".equals(cert.getCertificateType())) {
-      epcAssessment =
-          new EpcAssessmentSummary(cert.getEpcRating(), cert.getEpcScore(), null, null);
+      epcAssessment = new EpcAssessmentSummary(cert.getEpcRating(), cert.getEpcScore(), null, null);
     }
 
     final boolean canDownload = canDownload(cert, requestingUserId, role);
@@ -260,8 +256,7 @@ public class CustomerCertificateService {
   // ── POST /{id}/share ──────────────────────────────────────────────────────
 
   @Transactional
-  public ShareCertificateResponse shareCertificate(
-      final UUID certId, final UUID requestingUserId) {
+  public ShareCertificateResponse shareCertificate(final UUID certId, final UUID requestingUserId) {
 
     final Certificate cert =
         certificateRepository
@@ -284,8 +279,7 @@ public class CustomerCertificateService {
     }
 
     return new ShareCertificateResponse(
-        "/api/v1/certificates/shared/" + cert.getShareToken(),
-        cert.getShareTokenCreated());
+        "/api/v1/certificates/shared/" + cert.getShareToken(), cert.getShareTokenCreated());
   }
 
   // ── DELETE /{id}/share ────────────────────────────────────────────────────
@@ -375,9 +369,7 @@ public class CustomerCertificateService {
               property.getId(), "EPC", today);
       final boolean hasValidEpc =
           epcCerts.stream()
-              .anyMatch(
-                  c ->
-                      c.getIssuedAt() != null && c.getIssuedAt().isAfter(epcCutoff));
+              .anyMatch(c -> c.getIssuedAt() != null && c.getIssuedAt().isAfter(epcCutoff));
       if (!hasValidEpc) {
         entries.add(
             new MissingEntry(
@@ -397,9 +389,7 @@ public class CustomerCertificateService {
               property.getId(), "EICR", today);
       final boolean hasValidEicr =
           eicrCerts.stream()
-              .anyMatch(
-                  c ->
-                      c.getIssuedAt() != null && c.getIssuedAt().isAfter(eicrCutoff));
+              .anyMatch(c -> c.getIssuedAt() != null && c.getIssuedAt().isAfter(eicrCutoff));
       if (!hasValidEicr) {
         entries.add(
             new MissingEntry(
@@ -419,9 +409,7 @@ public class CustomerCertificateService {
               property.getId(), "PAT", today);
       final boolean hasValidPat =
           patCerts.stream()
-              .anyMatch(
-                  c ->
-                      c.getIssuedAt() != null && c.getIssuedAt().isAfter(patCutoff));
+              .anyMatch(c -> c.getIssuedAt() != null && c.getIssuedAt().isAfter(patCutoff));
       if (!hasValidPat) {
         entries.add(
             new MissingEntry(
@@ -459,7 +447,9 @@ public class CustomerCertificateService {
       final Certificate cert, final UUID requestingUserId, final UserRole role) {
     if ("EPC".equals(cert.getCertificateType())) return false;
     if (cert.getDocumentUrl() == null) return false;
-    return isOwner(cert, requestingUserId) || role.isAdmin() || isIssuingEngineer(cert, requestingUserId);
+    return isOwner(cert, requestingUserId)
+        || role.isAdmin()
+        || isIssuingEngineer(cert, requestingUserId);
   }
 
   private boolean canShare(
@@ -480,8 +470,7 @@ public class CustomerCertificateService {
   }
 
   private boolean isIssuingEngineer(final Certificate cert, final UUID userId) {
-    return cert.getIssuedByEngineer() != null
-        && userId.equals(cert.getIssuedByEngineer().getId());
+    return cert.getIssuedByEngineer() != null && userId.equals(cert.getIssuedByEngineer().getId());
   }
 
   private void verifyAccess(
@@ -561,10 +550,7 @@ public class CustomerCertificateService {
     if (cert.getIssuedByEngineer() == null) return null;
     final var engineer = cert.getIssuedByEngineer();
     // Gas safe number is on the GasSafetyRecord (engineerGasSafeNumber); fall back to null
-    return new EngineerSummaryResponse(
-        engineer.getId(),
-        engineer.getFullName(),
-        null);
+    return new EngineerSummaryResponse(engineer.getId(), engineer.getFullName(), null);
   }
 
   private static String buildShareUrl(final String shareToken) {
@@ -580,8 +566,7 @@ public class CustomerCertificateService {
         cert.getProperty() != null
             ? cert.getProperty().getAddressLine1().replaceAll("[^a-zA-Z0-9 ]", "").replace(" ", "_")
             : "Property";
-    final String date =
-        cert.getIssuedAt() != null ? cert.getIssuedAt().toString() : "Unknown";
+    final String date = cert.getIssuedAt() != null ? cert.getIssuedAt().toString() : "Unknown";
     return type + "_" + address + "_" + date + ".pdf";
   }
 
@@ -610,8 +595,7 @@ public class CustomerCertificateService {
 
     // Smart sort: EXPIRED (most overdue first) → EXPIRING_SOON (soonest first) → VALID → MISSING
     items.sort(
-        Comparator.comparingInt(
-                (CertificateListItemResponse r) -> statusSortOrder(r.status()))
+        Comparator.comparingInt((CertificateListItemResponse r) -> statusSortOrder(r.status()))
             .thenComparing(
                 CertificateListItemResponse::expiresAt,
                 Comparator.nullsLast(Comparator.naturalOrder())));
@@ -636,7 +620,9 @@ public class CustomerCertificateService {
         case "EXPIRED" -> expired++;
         case "EXPIRING_SOON" -> expiringSoon++;
         case "MISSING" -> missing++;
-        default -> { /* SUPERSEDED etc */ }
+        default -> {
+          /* SUPERSEDED etc */
+        }
       }
       if (item.certificateType() != null) {
         byType.merge(item.certificateType(), 1, Integer::sum);

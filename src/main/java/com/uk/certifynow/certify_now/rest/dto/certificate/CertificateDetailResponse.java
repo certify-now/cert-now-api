@@ -24,21 +24,12 @@ public record CertificateDetailResponse(
     UUID jobId,
     GasInspectionSummary gasInspection,
     EicrInspectionSummary eicrInspection,
-    EpcAssessmentSummary epcAssessment
-) {
+    EpcAssessmentSummary epcAssessment) {
 
-  public record GasInspectionSummary(
-      int applianceCount,
-      List<ApplianceSummary> appliances
-  ) {}
+  public record GasInspectionSummary(int applianceCount, List<ApplianceSummary> appliances) {}
 
   public record ApplianceSummary(
-      String applianceType,
-      String location,
-      String make,
-      String model,
-      String safetyStatus
-  ) {}
+      String applianceType, String location, String make, String model, String safetyStatus) {}
 
   public record EicrInspectionSummary(
       int c1Count,
@@ -47,13 +38,8 @@ public record CertificateDetailResponse(
       int fiCount,
       LocalDate inspectionDate,
       LocalDate nextInspectionDate,
-      String overallResult
-  ) {}
+      String overallResult) {}
 
   public record EpcAssessmentSummary(
-      String epcRating,
-      Integer epcScore,
-      Integer potentialRating,
-      Integer potentialScore
-  ) {}
+      String epcRating, Integer epcScore, Integer potentialRating, Integer potentialScore) {}
 }

@@ -47,9 +47,7 @@ public interface CertificateRepository extends JpaRepository<Certificate, UUID> 
       @Param("type") String type,
       @Param("propertyId") UUID propertyId);
 
-  /**
-   * Fetches a single certificate with all detail associations loaded in one query to avoid N+1.
-   */
+  /** Fetches a single certificate with all detail associations loaded in one query to avoid N+1. */
   @Query(
       """
       SELECT c FROM Certificate c
@@ -62,8 +60,8 @@ public interface CertificateRepository extends JpaRepository<Certificate, UUID> 
   Optional<Certificate> findByIdWithDetails(@Param("id") UUID id);
 
   /**
-   * Checks whether an active (non-superseded, non-expired) certificate of the given type exists
-   * for a property. Used for missing-certificate detection.
+   * Checks whether an active (non-superseded, non-expired) certificate of the given type exists for
+   * a property. Used for missing-certificate detection.
    */
   @Query(
       """

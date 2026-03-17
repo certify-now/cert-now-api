@@ -19,5 +19,4 @@ public record CertificateListItemResponse(
     boolean canDownload,
     boolean canShare,
     boolean canRenew,
-    EngineerSummaryResponse issuedBy
-) {}
+    EngineerSummaryResponse issuedBy) {}

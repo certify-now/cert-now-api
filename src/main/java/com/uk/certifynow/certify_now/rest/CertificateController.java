@@ -69,7 +69,8 @@ public class CertificateController {
       final HttpServletRequest httpRequest) {
 
     final UUID customerId = extractUserId(authentication);
-    final GetCertificatesRequest filters = new GetCertificatesRequest(type, status, propertyId, sort);
+    final GetCertificatesRequest filters =
+        new GetCertificatesRequest(type, status, propertyId, sort);
     return ApiResponse.of(
         customerCertificateService.getCustomerCertificates(customerId, filters),
         requestId(httpRequest));
@@ -107,8 +108,7 @@ public class CertificateController {
     final UUID userId = extractUserId(authentication);
     final UserRole role = extractRole(authentication);
     return ApiResponse.of(
-        customerCertificateService.getCertificateForUser(id, userId, role),
-        requestId(httpRequest));
+        customerCertificateService.getCertificateForUser(id, userId, role), requestId(httpRequest));
   }
 
   // ── GET /api/v1/certificates/{id}/download ────────────────────────────────

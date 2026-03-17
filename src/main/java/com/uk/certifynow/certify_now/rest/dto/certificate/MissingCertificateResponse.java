@@ -8,8 +8,7 @@ public record MissingCertificateResponse(
     String status,
     String reason,
     String urgency,
-    ActionResponse action
-) {
+    ActionResponse action) {
 
   public record ActionResponse(String text, String url) {}
 
@@ -22,8 +21,7 @@ public record MissingCertificateResponse(
       String certificateType,
       String reason,
       String urgency) {
-    final String bookUrl =
-        "/jobs/create?property_id=" + propertyId + "&type=" + certificateType;
+    final String bookUrl = "/jobs/create?property_id=" + propertyId + "&type=" + certificateType;
     final String actionText = "Book " + friendlyTypeName(certificateType) + " Certificate";
     return new MissingCertificateResponse(
         new PropertySummaryResponse(propertyId, addressLine1, addressLine2, city, postcode),

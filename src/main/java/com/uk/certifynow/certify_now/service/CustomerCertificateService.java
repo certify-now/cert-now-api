@@ -210,6 +210,7 @@ public class CustomerCertificateService {
         daysUntilExpiry(cert.getExpiryAt(), today),
         cert.getDocumentUrl(),
         cert.getShareToken(),
+        buildShareUrl(cert.getShareToken()),
         canDownload,
         canShare,
         canRenew,
@@ -518,6 +519,7 @@ public class CustomerCertificateService {
         daysUntilExpiry(cert.getExpiryAt(), today),
         cert.getDocumentUrl(),
         cert.getShareToken(),
+        buildShareUrl(cert.getShareToken()),
         canDl,
         true,
         "EXPIRED".equals(dynamicStatus) || "EXPIRING_SOON".equals(dynamicStatus),
@@ -532,6 +534,7 @@ public class CustomerCertificateService {
         certificateType,
         toPropertySummary(property),
         "MISSING",
+        null,
         null,
         null,
         null,
@@ -562,6 +565,10 @@ public class CustomerCertificateService {
         engineer.getId(),
         engineer.getFullName(),
         null);
+  }
+
+  private static String buildShareUrl(final String shareToken) {
+    return shareToken != null ? "/api/v1/certificates/shared/" + shareToken : null;
   }
 
   private static String buildFilename(final Certificate cert) {

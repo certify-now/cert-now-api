@@ -16,6 +16,7 @@ public record CertificateDetailResponse(
     Long daysUntilExpiry,
     String documentUrl,
     String shareToken,
+    String shareUrl,
     boolean canDownload,
     boolean canShare,
     boolean canRenew,

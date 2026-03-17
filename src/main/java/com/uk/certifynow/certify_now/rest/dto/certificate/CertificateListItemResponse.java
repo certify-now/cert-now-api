@@ -15,6 +15,7 @@ public record CertificateListItemResponse(
     Long daysUntilExpiry,
     String documentUrl,
     String shareToken,
+    String shareUrl,
     boolean canDownload,
     boolean canShare,
     boolean canRenew,

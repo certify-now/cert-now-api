@@ -2,8 +2,8 @@ package com.uk.certifynow.certify_now.service.job;
 
 import com.uk.certifynow.certify_now.domain.Job;
 import com.uk.certifynow.certify_now.domain.Payment;
-import com.uk.certifynow.certify_now.exception.EntityNotFoundException;
 import com.uk.certifynow.certify_now.events.job.JobCancelledEvent;
+import com.uk.certifynow.certify_now.exception.EntityNotFoundException;
 import com.uk.certifynow.certify_now.repos.JobMatchLogRepository;
 import com.uk.certifynow.certify_now.repos.JobRepository;
 import com.uk.certifynow.certify_now.repos.PaymentRepository;
@@ -92,9 +92,16 @@ public class JobCancellationService {
 
     final String metadataJson = "{\"refund_amount_pence\":" + refundPence + "}";
     jobHistoryService.recordHistory(
-        saved, prevStatus, JobStatus.CANCELLED.name(), actorId, actor.name(), request.reason(), metadataJson);
+        saved,
+        prevStatus,
+        JobStatus.CANCELLED.name(),
+        actorId,
+        actor.name(),
+        request.reason(),
+        metadataJson);
 
-    publisher.publishEvent(new JobCancelledEvent(saved.getId(), actor.name(), request.reason(), refundPence));
+    publisher.publishEvent(
+        new JobCancelledEvent(saved.getId(), actor.name(), request.reason(), refundPence));
     return jobResponseMapper.toJobResponse(saved, paymentOpt.orElse(null));
   }
 
@@ -115,7 +122,13 @@ public class JobCancellationService {
     final Job saved = jobRepository.save(job);
 
     jobHistoryService.recordHistory(
-        saved, prevStatus, JobStatus.CREATED.name(), engineerId, "ENGINEER", request.reason(), null);
+        saved,
+        prevStatus,
+        JobStatus.CREATED.name(),
+        engineerId,
+        "ENGINEER",
+        request.reason(),
+        null);
 
     matchLogRepository
         .findByJobIdAndEngineerId(jobId, engineerId)

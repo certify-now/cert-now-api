@@ -10,7 +10,6 @@ hibernate {
     enhancement {
         lazyInitialization = true
         dirtyTracking = true
-        associationManagement = false
     }
 }
 

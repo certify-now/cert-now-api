@@ -3,8 +3,8 @@ package com.uk.certifynow.certify_now.util;
 import com.uk.certifynow.certify_now.exception.EntityNotFoundException;
 
 /**
- * Legacy convenience alias — extends {@link EntityNotFoundException} so that all usages are
- * handled by {@code GlobalExceptionHandler} and return HTTP 404 consistently.
+ * Legacy convenience alias — extends {@link EntityNotFoundException} so that all usages are handled
+ * by {@code GlobalExceptionHandler} and return HTTP 404 consistently.
  *
  * <p>Prefer {@link EntityNotFoundException} directly for new code.
  */

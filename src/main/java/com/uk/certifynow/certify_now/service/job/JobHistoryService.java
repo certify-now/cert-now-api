@@ -55,10 +55,7 @@ public class JobHistoryService {
 
   @Transactional
   public void createMatchLog(
-      final Job job,
-      final User engineer,
-      final BigDecimal score,
-      final BigDecimal distance) {
+      final Job job, final User engineer, final BigDecimal score, final BigDecimal distance) {
     final JobMatchLog log = new JobMatchLog();
     log.setJob(job);
     log.setEngineer(engineer);

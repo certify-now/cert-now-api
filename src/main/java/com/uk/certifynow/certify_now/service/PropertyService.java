@@ -42,7 +42,6 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 public class PropertyService {
 
-
   private final PropertyRepository propertyRepository;
   private final UserRepository userRepository;
   private final JobRepository jobRepository;
@@ -85,8 +84,7 @@ public class PropertyService {
     return enriched(propertyMapper.toDTO(property));
   }
 
-  public Page<PropertyDTO> getByOwner(
-      final UUID ownerId, final Pageable pageable) {
+  public Page<PropertyDTO> getByOwner(final UUID ownerId, final Pageable pageable) {
     return propertyRepository
         .findByOwnerIdAndIsActiveTrue(ownerId, pageable)
         .map(p -> enriched(propertyMapper.toDTO(p)));
@@ -146,8 +144,7 @@ public class PropertyService {
     Property saved = propertyRepository.save(property);
     if (saved.getOwner() != null) {
       log.info("Property {} created for owner {}", saved.getId(), saved.getOwner().getId());
-      publisher.publishEvent(
-          new PropertyCreatedEvent(saved.getId(), saved.getOwner().getId()));
+      publisher.publishEvent(new PropertyCreatedEvent(saved.getId(), saved.getOwner().getId()));
     }
     return propertyMapper.toDTO(saved);
   }
@@ -267,7 +264,10 @@ public class PropertyService {
       final MultipartFile pdfFile,
       final UUID userId) {
     return updateCertificateFields(
-        id, userId, pdfFile, "gas cert PDF",
+        id,
+        userId,
+        pdfFile,
+        "gas cert PDF",
         property -> {
           if (hasGasCertificate != null) property.setHasGasCertificate(hasGasCertificate);
           if (gasExpiryDate != null) property.setGasExpiryDate(gasExpiryDate);
@@ -286,7 +286,10 @@ public class PropertyService {
       final MultipartFile pdfFile,
       final UUID userId) {
     return updateCertificateFields(
-        id, userId, pdfFile, "EICR PDF",
+        id,
+        userId,
+        pdfFile,
+        "EICR PDF",
         property -> {
           if (hasEicr != null) property.setHasEicr(hasEicr);
           if (eicrExpiryDate != null) property.setEicrExpiryDate(eicrExpiryDate);
@@ -378,7 +381,8 @@ public class PropertyService {
         property.setGasCertPdf(gasCertPdf.getBytes());
         property.setGasCertPdfName(gasCertPdf.getOriginalFilename());
       } catch (IOException e) {
-        throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "PDF_READ_ERROR", "Failed to read gas cert PDF");
+        throw new BusinessException(
+            HttpStatus.INTERNAL_SERVER_ERROR, "PDF_READ_ERROR", "Failed to read gas cert PDF");
       }
     }
     if (eicrCertPdf != null && !eicrCertPdf.isEmpty()) {
@@ -386,7 +390,8 @@ public class PropertyService {
         property.setEicrCertPdf(eicrCertPdf.getBytes());
         property.setEicrCertPdfName(eicrCertPdf.getOriginalFilename());
       } catch (IOException e) {
-        throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "PDF_READ_ERROR", "Failed to read EICR PDF");
+        throw new BusinessException(
+            HttpStatus.INTERNAL_SERVER_ERROR, "PDF_READ_ERROR", "Failed to read EICR PDF");
       }
     }
   }

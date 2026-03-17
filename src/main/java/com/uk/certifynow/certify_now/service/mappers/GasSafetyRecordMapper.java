@@ -23,7 +23,6 @@ import com.uk.certifynow.certify_now.rest.dto.inspection.GasSafetyRecordResponse
 import com.uk.certifynow.certify_now.rest.dto.inspection.GasSafetyRecordResponse.TenantSummary;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
 
 /**
  * MapStruct compile-time mapper for {@link GasSafetyRecord}. Replaces the ~400-line manual mapping
@@ -45,9 +44,7 @@ public interface GasSafetyRecordMapper {
   @Mapping(source = "certificate.qrCodeUrl", target = "qrCodeUrl")
   @Mapping(source = "certificate.verificationUrl", target = "verificationUrl")
   @Mapping(source = "engineerDetails.name", target = "engineerName")
-  @Mapping(
-      source = "engineerDetails.gasSafeRegistrationNumber",
-      target = "engineerGasSafeNumber")
+  @Mapping(source = "engineerDetails.gasSafeRegistrationNumber", target = "engineerGasSafeNumber")
   @Mapping(
       source = "engineerDetails.engineerLicenceCardNumber",
       target = "engineerLicenceCardNumber")
@@ -112,30 +109,15 @@ public interface GasSafetyRecordMapper {
 
   @Mapping(source = "job.id", target = "jobId")
   @Mapping(source = "dateCreated", target = "createdAt")
-  @Mapping(
-      expression =
-          "java(toEngineerSummary(record))",
-      target = "engineer")
+  @Mapping(expression = "java(toEngineerSummary(record))", target = "engineer")
   @Mapping(source = "companyDetails", target = "companyDetails")
   @Mapping(source = "clientDetails", target = "clientDetails")
   @Mapping(source = "tenantDetails", target = "tenantDetails")
   @Mapping(source = "installationDetails", target = "installationDetails")
-  @Mapping(
-      expression =
-          "java(toFinalChecksSummary(record))",
-      target = "finalChecks")
-  @Mapping(
-      expression =
-          "java(toFaultsSummary(record))",
-      target = "faultsAndRemedials")
-  @Mapping(
-      expression =
-          "java(toSignaturesSummary(record))",
-      target = "signatures")
-  @Mapping(
-      expression =
-          "java(toMetadataSummary(record))",
-      target = "metadata")
+  @Mapping(expression = "java(toFinalChecksSummary(record))", target = "finalChecks")
+  @Mapping(expression = "java(toFaultsSummary(record))", target = "faultsAndRemedials")
+  @Mapping(expression = "java(toSignaturesSummary(record))", target = "signatures")
+  @Mapping(expression = "java(toMetadataSummary(record))", target = "metadata")
   GasSafetyRecordResponse toResponse(GasSafetyRecord record);
 
   @Mapping(source = "applianceIndex", target = "index")

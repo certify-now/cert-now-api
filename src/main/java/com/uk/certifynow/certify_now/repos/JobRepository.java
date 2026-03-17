@@ -99,15 +99,13 @@ public interface JobRepository extends JpaRepository<Job, UUID> {
       "SELECT CASE WHEN COUNT(j) > 0 THEN true ELSE false END FROM Job j "
           + "WHERE j.customer.id = :userId AND j.status NOT IN :terminalStatuses")
   boolean existsActiveJobsByCustomerId(
-      @Param("userId") UUID userId,
-      @Param("terminalStatuses") Collection<String> terminalStatuses);
+      @Param("userId") UUID userId, @Param("terminalStatuses") Collection<String> terminalStatuses);
 
   @Query(
       "SELECT CASE WHEN COUNT(j) > 0 THEN true ELSE false END FROM Job j "
           + "WHERE j.engineer.id = :userId AND j.status NOT IN :terminalStatuses")
   boolean existsActiveJobsByEngineerId(
-      @Param("userId") UUID userId,
-      @Param("terminalStatuses") Collection<String> terminalStatuses);
+      @Param("userId") UUID userId, @Param("terminalStatuses") Collection<String> terminalStatuses);
 
   // ── Matching Engine queries ─────────────────────────────────────────────
 
@@ -121,8 +119,12 @@ public interface JobRepository extends JpaRepository<Job, UUID> {
   /** Jobs in CREATED status that have not been broadcast yet — paginated batch variant. */
   Page<Job> findByStatusAndBroadcastAtIsNull(String status, Pageable pageable);
 
-  /** Jobs in AWAITING_ACCEPTANCE that were broadcast before the given cutoff — paginated batch variant. */
-  Page<Job> findByStatusAndBroadcastAtBefore(String status, OffsetDateTime cutoff, Pageable pageable);
+  /**
+   * Jobs in AWAITING_ACCEPTANCE that were broadcast before the given cutoff — paginated batch
+   * variant.
+   */
+  Page<Job> findByStatusAndBroadcastAtBefore(
+      String status, OffsetDateTime cutoff, Pageable pageable);
 
   /**
    * Atomic claim: conditionally update job to MATCHED only if it is currently AWAITING_ACCEPTANCE.

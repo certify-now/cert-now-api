@@ -35,9 +35,7 @@ public class MatchingScheduler {
   private int broadcastExpiryMinutes;
 
   public MatchingScheduler(
-      final JobRepository jobRepository,
-      final MatchingService matchingService,
-      final Clock clock) {
+      final JobRepository jobRepository, final MatchingService matchingService, final Clock clock) {
     this.jobRepository = jobRepository;
     this.matchingService = matchingService;
     this.clock = clock;
@@ -53,12 +51,14 @@ public class MatchingScheduler {
     // so processed items fall off the result set naturally.
     Page<Job> page;
     do {
-      page = jobRepository.findByStatusAndBroadcastAtIsNull(
-          "CREATED", PageRequest.of(0, BATCH_SIZE));
+      page =
+          jobRepository.findByStatusAndBroadcastAtIsNull("CREATED", PageRequest.of(0, BATCH_SIZE));
       if (page.isEmpty()) {
         return;
       }
-      log.info("processUnmatchedJobs: processing batch of {} unbroadcast jobs", page.getNumberOfElements());
+      log.info(
+          "processUnmatchedJobs: processing batch of {} unbroadcast jobs",
+          page.getNumberOfElements());
       for (final Job job : page.getContent()) {
         try {
           matchingService.broadcastToEligible(job);
@@ -80,8 +80,9 @@ public class MatchingScheduler {
     // so processed items fall off the result set naturally.
     Page<Job> page;
     do {
-      page = jobRepository.findByStatusAndBroadcastAtBefore(
-          "AWAITING_ACCEPTANCE", cutoff, PageRequest.of(0, BATCH_SIZE));
+      page =
+          jobRepository.findByStatusAndBroadcastAtBefore(
+              "AWAITING_ACCEPTANCE", cutoff, PageRequest.of(0, BATCH_SIZE));
       if (page.isEmpty()) {
         return;
       }

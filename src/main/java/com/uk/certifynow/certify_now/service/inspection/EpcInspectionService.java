@@ -142,11 +142,13 @@ public class EpcInspectionService {
     jobRepository.save(job);
 
     // 10. Record COMPLETED → CERTIFIED status history entry.
-    recordHistory(job, JobStatus.COMPLETED.name(), JobStatus.CERTIFIED.name(), engineerId, "SYSTEM");
+    recordHistory(
+        job, JobStatus.COMPLETED.name(), JobStatus.CERTIFIED.name(), engineerId, "SYSTEM");
 
     // 11. Publish status-changed event and CertificateIssuedEvent.
     publisher.publishEvent(
-        new JobStatusChangedEvent(jobId, JobStatus.COMPLETED.name(), JobStatus.CERTIFIED.name(), engineerId, "SYSTEM"));
+        new JobStatusChangedEvent(
+            jobId, JobStatus.COMPLETED.name(), JobStatus.CERTIFIED.name(), engineerId, "SYSTEM"));
     publisher.publishEvent(
         new CertificateIssuedEvent(jobId, certificate.getId(), job.getProperty().getId(), "EPC"));
 
@@ -187,7 +189,8 @@ public class EpcInspectionService {
 
   private Certificate issueCertificate(final Job job, final EpcAssessment assessment) {
     final Certificate certificate = new Certificate();
-    final String certNumber = "EPC-" + job.getReferenceNumber() + "-" + LocalDate.now(clock).getYear();
+    final String certNumber =
+        "EPC-" + job.getReferenceNumber() + "-" + LocalDate.now(clock).getYear();
     certificate.setCertificateNumber(certNumber);
     certificate.setCertificateType("EPC");
     certificate.setIssuedAt(LocalDate.now(clock));

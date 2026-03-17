@@ -107,7 +107,8 @@ public class PricingService {
         modifiersApplied.add(
             new PriceBreakdown.ModifierApplied(
                 mod.getModifierType(),
-                buildModifierDescription(mod, propertyType, bedrooms, gasApplianceCount, floorAreaSqm),
+                buildModifierDescription(
+                    mod, propertyType, bedrooms, gasApplianceCount, floorAreaSqm),
                 mod.getModifierPence()));
       }
     }

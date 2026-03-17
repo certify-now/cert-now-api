@@ -6,6 +6,7 @@ import com.uk.certifynow.certify_now.events.BeforeDeleteUser;
 import com.uk.certifynow.certify_now.events.UserRestoredEvent;
 import com.uk.certifynow.certify_now.events.UserSoftDeletedEvent;
 import com.uk.certifynow.certify_now.exception.BusinessException;
+import com.uk.certifynow.certify_now.exception.EntityNotFoundException;
 import com.uk.certifynow.certify_now.model.UpdateMeRequest;
 import com.uk.certifynow.certify_now.model.UserDTO;
 import com.uk.certifynow.certify_now.model.UserMeDTO;
@@ -16,7 +17,6 @@ import com.uk.certifynow.certify_now.repos.RefreshTokenRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
 import com.uk.certifynow.certify_now.service.auth.UserRole;
 import com.uk.certifynow.certify_now.service.auth.UserStatus;
-import com.uk.certifynow.certify_now.exception.EntityNotFoundException;
 import com.uk.certifynow.certify_now.service.job.JobStatus;
 import com.uk.certifynow.certify_now.service.mappers.UserMapper;
 import java.time.Clock;
@@ -36,7 +36,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @Service
 public class UserService {
-
 
   private final UserRepository userRepository;
   private final JobRepository jobRepository;
@@ -116,7 +115,10 @@ public class UserService {
       value = {"users", "users_all", "users_email", "users_me"},
       allEntries = true)
   public void update(final UUID id, final UserDTO userDTO) {
-    final User user = userRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("User not found: " + id));
+    final User user =
+        userRepository
+            .findById(id)
+            .orElseThrow(() -> new EntityNotFoundException("User not found: " + id));
     userMapper.updateEntity(userDTO, user);
     userRepository.save(user);
     log.info("User {} updated", id);
@@ -127,7 +129,10 @@ public class UserService {
       value = {"users", "users_all", "users_email", "users_me"},
       allEntries = true)
   public void updateMe(final UUID id, final UpdateMeRequest updateMeRequest) {
-    final User user = userRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("User not found: " + id));
+    final User user =
+        userRepository
+            .findById(id)
+            .orElseThrow(() -> new EntityNotFoundException("User not found: " + id));
 
     if (updateMeRequest.getFullName() != null) {
       user.setFullName(updateMeRequest.getFullName().trim());
@@ -166,7 +171,10 @@ public class UserService {
       value = {"users", "users_all", "users_email", "users_me"},
       allEntries = true)
   public void delete(final UUID id) {
-    final User user = userRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("User not found: " + id));
+    final User user =
+        userRepository
+            .findById(id)
+            .orElseThrow(() -> new EntityNotFoundException("User not found: " + id));
     publisher.publishEvent(new BeforeDeleteUser(id));
     userRepository.delete(user);
     log.info("User {} deleted", id);
@@ -185,7 +193,9 @@ public class UserService {
       allEntries = true)
   public void softDelete(final UUID userId, final UUID deletedByUserId) {
     final User user =
-        userRepository.findByIdIncludingDeleted(userId).orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
+        userRepository
+            .findByIdIncludingDeleted(userId)
+            .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
 
     if (user.isDeleted()) {
       throw new BusinessException(
@@ -236,7 +246,9 @@ public class UserService {
       allEntries = true)
   public void restore(final UUID userId, final UUID restoredByUserId) {
     final User user =
-        userRepository.findByIdIncludingDeleted(userId).orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
+        userRepository
+            .findByIdIncludingDeleted(userId)
+            .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
 
     if (!user.isDeleted()) {
       throw new BusinessException(HttpStatus.CONFLICT, "NOT_DELETED", "User is not soft-deleted");

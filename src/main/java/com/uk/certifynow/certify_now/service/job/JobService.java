@@ -2,6 +2,8 @@ package com.uk.certifynow.certify_now.service.job;
 
 import com.uk.certifynow.certify_now.domain.Job;
 import com.uk.certifynow.certify_now.domain.Payment;
+import com.uk.certifynow.certify_now.domain.Property;
+import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.events.BeforeDeleteProperty;
 import com.uk.certifynow.certify_now.events.BeforeDeleteUser;
 import com.uk.certifynow.certify_now.events.job.JobAcceptedEvent;
@@ -29,8 +31,6 @@ import com.uk.certifynow.certify_now.rest.dto.job.MatchJobRequest;
 import com.uk.certifynow.certify_now.rest.dto.job.ProposeScheduleRequest;
 import com.uk.certifynow.certify_now.rest.dto.job.StartJobRequest;
 import com.uk.certifynow.certify_now.rest.dto.pricing.PriceBreakdown;
-import com.uk.certifynow.certify_now.domain.Property;
-import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.service.auth.UserRole;
 import com.uk.certifynow.certify_now.util.ReferencedException;
 import java.time.Clock;
@@ -56,8 +56,6 @@ import tools.jackson.databind.ObjectMapper;
 
 @Service
 public class JobService {
-
-
 
   private final JobRepository jobRepository;
   private final UserRepository userRepository;
@@ -180,7 +178,8 @@ public class JobService {
     }
 
     // 6. Record initial status history (null → CREATED)
-    jobHistoryService.recordHistory(saved, null, JobStatus.CREATED.name(), customerId, "CUSTOMER", null, null);
+    jobHistoryService.recordHistory(
+        saved, null, JobStatus.CREATED.name(), customerId, "CUSTOMER", null, null);
 
     // 7. Create stub payment
     final Payment payment = buildPayment(customer, saved, price);
@@ -333,7 +332,8 @@ public class JobService {
     job.setUpdatedAt(OffsetDateTime.now(clock));
     final Job saved = jobRepository.save(job);
 
-    jobHistoryService.recordHistory(saved, JobStatus.CREATED.name(), JobStatus.MATCHED.name(), adminId, "ADMIN", null, null);
+    jobHistoryService.recordHistory(
+        saved, JobStatus.CREATED.name(), JobStatus.MATCHED.name(), adminId, "ADMIN", null, null);
 
     // Create match log entry (score/distance null for manual admin match)
     jobHistoryService.createMatchLog(saved, engineer, null, null);
@@ -372,7 +372,14 @@ public class JobService {
     job.setUpdatedAt(OffsetDateTime.now(clock));
     final Job saved = jobRepository.save(job);
 
-    jobHistoryService.recordHistory(saved, JobStatus.MATCHED.name(), JobStatus.ACCEPTED.name(), engineerId, "ENGINEER", null, null);
+    jobHistoryService.recordHistory(
+        saved,
+        JobStatus.MATCHED.name(),
+        JobStatus.ACCEPTED.name(),
+        engineerId,
+        "ENGINEER",
+        null,
+        null);
 
     // Update match log
     matchLogRepository
@@ -418,9 +425,21 @@ public class JobService {
     job.setUpdatedAt(OffsetDateTime.now(clock));
     final Job saved = jobRepository.save(job);
 
-    jobHistoryService.recordHistory(saved, JobStatus.ACCEPTED.name(), JobStatus.EN_ROUTE.name(), engineerId, "ENGINEER", null, null);
+    jobHistoryService.recordHistory(
+        saved,
+        JobStatus.ACCEPTED.name(),
+        JobStatus.EN_ROUTE.name(),
+        engineerId,
+        "ENGINEER",
+        null,
+        null);
     publisher.publishEvent(
-        new JobStatusChangedEvent(saved.getId(), JobStatus.ACCEPTED.name(), JobStatus.EN_ROUTE.name(), engineerId, "ENGINEER"));
+        new JobStatusChangedEvent(
+            saved.getId(),
+            JobStatus.ACCEPTED.name(),
+            JobStatus.EN_ROUTE.name(),
+            engineerId,
+            "ENGINEER"));
     final Payment payment = paymentRepository.findByJobId(jobId).orElse(null);
     return jobResponseMapper.toJobResponse(saved, payment);
   }
@@ -452,10 +471,21 @@ public class JobService {
     job.setUpdatedAt(OffsetDateTime.now(clock));
     final Job saved = jobRepository.save(job);
 
-    jobHistoryService.recordHistory(saved, JobStatus.EN_ROUTE.name(), JobStatus.IN_PROGRESS.name(), engineerId, "ENGINEER", null, null);
+    jobHistoryService.recordHistory(
+        saved,
+        JobStatus.EN_ROUTE.name(),
+        JobStatus.IN_PROGRESS.name(),
+        engineerId,
+        "ENGINEER",
+        null,
+        null);
     publisher.publishEvent(
         new JobStatusChangedEvent(
-            saved.getId(), JobStatus.EN_ROUTE.name(), JobStatus.IN_PROGRESS.name(), engineerId, "ENGINEER"));
+            saved.getId(),
+            JobStatus.EN_ROUTE.name(),
+            JobStatus.IN_PROGRESS.name(),
+            engineerId,
+            "ENGINEER"));
     final Payment payment = paymentRepository.findByJobId(jobId).orElse(null);
     return jobResponseMapper.toJobResponse(saved, payment);
   }
@@ -476,10 +506,21 @@ public class JobService {
     job.setUpdatedAt(OffsetDateTime.now(clock));
     final Job saved = jobRepository.save(job);
 
-    jobHistoryService.recordHistory(saved, JobStatus.IN_PROGRESS.name(), JobStatus.COMPLETED.name(), engineerId, "ENGINEER", null, null);
+    jobHistoryService.recordHistory(
+        saved,
+        JobStatus.IN_PROGRESS.name(),
+        JobStatus.COMPLETED.name(),
+        engineerId,
+        "ENGINEER",
+        null,
+        null);
     publisher.publishEvent(
         new JobStatusChangedEvent(
-            saved.getId(), JobStatus.IN_PROGRESS.name(), JobStatus.COMPLETED.name(), engineerId, "ENGINEER"));
+            saved.getId(),
+            JobStatus.IN_PROGRESS.name(),
+            JobStatus.COMPLETED.name(),
+            engineerId,
+            "ENGINEER"));
     final Payment payment = paymentRepository.findByJobId(jobId).orElse(null);
     return jobResponseMapper.toJobResponse(saved, payment);
   }
@@ -499,9 +540,21 @@ public class JobService {
     jobRepository.save(job);
 
     final UUID engineerId = job.getEngineer() != null ? job.getEngineer().getId() : null;
-    jobHistoryService.recordHistory(job, JobStatus.COMPLETED.name(), JobStatus.CERTIFIED.name(), engineerId, "SYSTEM", null, null);
+    jobHistoryService.recordHistory(
+        job,
+        JobStatus.COMPLETED.name(),
+        JobStatus.CERTIFIED.name(),
+        engineerId,
+        "SYSTEM",
+        null,
+        null);
     publisher.publishEvent(
-        new JobStatusChangedEvent(job.getId(), JobStatus.COMPLETED.name(), JobStatus.CERTIFIED.name(), engineerId, "SYSTEM"));
+        new JobStatusChangedEvent(
+            job.getId(),
+            JobStatus.COMPLETED.name(),
+            JobStatus.CERTIFIED.name(),
+            engineerId,
+            "SYSTEM"));
   }
 
   // ────────────────────────────────────────────────────────────────────────────

@@ -296,10 +296,7 @@ public class JobService {
     // so we use IS NULL instead and pass null to signal "no filter".
     if (statusFilter == null || statusFilter.isBlank()) return null;
     final List<String> result =
-        Arrays.stream(statusFilter.split(","))
-            .map(String::trim)
-            .filter(s -> !s.isEmpty())
-            .toList();
+        Arrays.stream(statusFilter.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
     return result.isEmpty() ? null : result;
   }
 

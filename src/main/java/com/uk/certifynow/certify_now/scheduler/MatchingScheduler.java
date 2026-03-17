@@ -71,7 +71,8 @@ public class MatchingScheduler {
         }
       }
       if (successCount == 0) {
-        log.warn("processUnmatchedJobs: no jobs transitioned in this batch — stopping to avoid loop");
+        log.warn(
+            "processUnmatchedJobs: no jobs transitioned in this batch — stopping to avoid loop");
         return;
       }
     } while (page.hasNext());
@@ -109,7 +110,8 @@ public class MatchingScheduler {
         }
       }
       if (successCount == 0) {
-        log.warn("processExpiredBroadcasts: no jobs transitioned in this batch — stopping to avoid loop");
+        log.warn(
+            "processExpiredBroadcasts: no jobs transitioned in this batch — stopping to avoid loop");
         return;
       }
     } while (page.hasNext());

@@ -317,7 +317,7 @@ public class PropertyController {
       final Authentication authentication) {
     ensureCustomer(authentication);
     final UUID userId = UUID.fromString((String) authentication.getPrincipal());
-    propertyService.deactivate(id, userId);
+    propertyService.softDelete(id, userId);
   }
 
   @PostMapping("/{id}/gas-certificate")

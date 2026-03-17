@@ -12,7 +12,6 @@ import com.uk.certifynow.certify_now.events.LoginFailedEvent;
 import com.uk.certifynow.certify_now.events.UserLoggedInEvent;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.repos.UserRepository;
-import com.uk.certifynow.certify_now.service.auth.AuthProvider;
 import com.uk.certifynow.certify_now.util.TestConstants;
 import java.time.Clock;
 import java.time.OffsetDateTime;

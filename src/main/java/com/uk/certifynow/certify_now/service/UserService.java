@@ -236,15 +236,11 @@ public class UserService {
             userId, user.getEmail(), "ACCOUNT_DEACTIVATED", initiatedBy, accountAgeInDays, null));
   }
 
-  /**
-   * Restores a soft-deleted user by clearing deletedAt/deletedBy and setting status to ACTIVE.
-   * Cascades restore to associated profile.
-   */
   @Transactional
   @CacheEvict(
       value = {"users", "users_all", "users_email", "users_me"},
       allEntries = true)
-  public void restore(final UUID userId, final UUID restoredByUserId) {
+  public UserDTO restore(final UUID userId, final UUID restoredByUserId) {
     final User user =
         userRepository
             .findByIdIncludingDeleted(userId)
@@ -259,13 +255,14 @@ public class UserService {
     user.setDeletedBy(null);
     user.setStatus(UserStatus.ACTIVE);
     user.setUpdatedAt(now);
-    userRepository.save(user);
+    final User saved = userRepository.save(user);
 
-    // Cascade restore to profile
     cascadeRestoreProfile(user, now);
 
     log.info("User {} restored by {}", userId, restoredByUserId);
     publisher.publishEvent(new UserRestoredEvent(userId, restoredByUserId));
+
+    return userMapper.toDTO(saved);
   }
 
   private void cascadeSoftDeleteProfile(

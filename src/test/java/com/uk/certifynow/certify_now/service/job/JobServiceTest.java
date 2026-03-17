@@ -3,7 +3,6 @@ package com.uk.certifynow.certify_now.service.job;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -187,7 +186,10 @@ class JobServiceTest {
 
     assertThatThrownBy(() -> jobService.createJob(customer.getId(), req))
         .isInstanceOf(BusinessException.class)
-        .satisfies(e -> assertThat(((BusinessException) e).getErrorCode()).isEqualTo("INVALID_PREFERRED_DAY"));
+        .satisfies(
+            e ->
+                assertThat(((BusinessException) e).getErrorCode())
+                    .isEqualTo("INVALID_PREFERRED_DAY"));
   }
 
   @Test
@@ -205,7 +207,10 @@ class JobServiceTest {
 
     assertThatThrownBy(() -> jobService.createJob(customer.getId(), req))
         .isInstanceOf(BusinessException.class)
-        .satisfies(e -> assertThat(((BusinessException) e).getErrorCode()).isEqualTo("INVALID_PREFERRED_TIME_SLOT"));
+        .satisfies(
+            e ->
+                assertThat(((BusinessException) e).getErrorCode())
+                    .isEqualTo("INVALID_PREFERRED_TIME_SLOT"));
   }
 
   @Test
@@ -309,7 +314,10 @@ class JobServiceTest {
 
     assertThatThrownBy(() -> jobService.acceptJob(job.getId(), engineer.getId(), req))
         .isInstanceOf(BusinessException.class)
-        .satisfies(e -> assertThat(((BusinessException) e).getErrorCode()).isEqualTo("INVALID_SCHEDULE_DATE"));
+        .satisfies(
+            e ->
+                assertThat(((BusinessException) e).getErrorCode())
+                    .isEqualTo("INVALID_SCHEDULE_DATE"));
   }
 
   @Test
@@ -325,7 +333,10 @@ class JobServiceTest {
 
     assertThatThrownBy(() -> jobService.acceptJob(job.getId(), engineer.getId(), req))
         .isInstanceOf(BusinessException.class)
-        .satisfies(e -> assertThat(((BusinessException) e).getErrorCode()).isEqualTo("INVALID_SCHEDULE_DATE"));
+        .satisfies(
+            e ->
+                assertThat(((BusinessException) e).getErrorCode())
+                    .isEqualTo("INVALID_SCHEDULE_DATE"));
   }
 
   @Test

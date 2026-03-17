@@ -236,9 +236,8 @@ public class PropertyService {
     publisher.publishEvent(new PropertySoftDeletedEvent(id, deletedByUserId));
   }
 
-  /** Restores a soft-deleted property by clearing deletedAt/deletedBy. Admin only. */
   @Transactional
-  public void restore(final UUID id, final UUID restoredByUserId) {
+  public PropertyDTO restore(final UUID id, final UUID restoredByUserId) {
     final Property property =
         propertyRepository.findByIdIncludingDeleted(id).orElseThrow(NotFoundException::new);
 
@@ -249,10 +248,12 @@ public class PropertyService {
 
     property.setDeletedAt(null);
     property.setDeletedBy(null);
-    propertyRepository.save(property);
+    final Property saved = propertyRepository.save(property);
 
     log.info("Property {} restored by {}", id, restoredByUserId);
     publisher.publishEvent(new PropertyRestoredEvent(id, restoredByUserId));
+
+    return enriched(propertyMapper.toDTO(saved));
   }
 
   /** Upload or update the Gas Safety Certificate PDF and/or expiry metadata for a property. */

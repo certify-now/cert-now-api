@@ -5,13 +5,20 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 
+import com.uk.certifynow.certify_now.domain.User;
+import com.uk.certifynow.certify_now.repos.UserRepository;
 import com.uk.certifynow.certify_now.service.EmailService;
+import com.uk.certifynow.certify_now.service.auth.AuthProvider;
+import com.uk.certifynow.certify_now.service.auth.UserFactory;
+import com.uk.certifynow.certify_now.service.auth.UserRole;
+import com.uk.certifynow.certify_now.service.auth.UserStatus;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.ActiveProfiles;
@@ -61,6 +68,10 @@ public abstract class BaseIntegrationTest {
   @LocalServerPort protected int port;
 
   @MockitoBean protected EmailService emailService;
+
+  @Autowired private UserFactory userFactory;
+
+  @Autowired private UserRepository userRepository;
 
   @BeforeEach
   void setUpBase() {
@@ -113,6 +124,40 @@ public abstract class BaseIntegrationTest {
           .then()
           .statusCode(200);
     }
+
+    final var loginResponse =
+        given()
+            .contentType(ContentType.JSON)
+            .body(
+                """
+                {
+                  "email": "%s",
+                  "password": "Test1234!"
+                }
+                """
+                    .formatted(email))
+            .post("/api/v1/auth/login")
+            .then()
+            .statusCode(200)
+            .extract();
+
+    return new TokenPair(
+        loginResponse.path("data.accessToken"), loginResponse.path("data.refreshToken"));
+  }
+
+  /**
+   * Creates an ADMIN user directly in the database (bypassing self-registration restrictions) and
+   * logs in. Returns the token pair from login.
+   *
+   * @param email unique email for this admin user
+   */
+  protected TokenPair createAdminAndLogin(final String email) {
+    final User admin =
+        userFactory.createEmailUser(email, "Test1234!", "Admin User", null, UserRole.ADMIN);
+    admin.setStatus(UserStatus.ACTIVE);
+    admin.setEmailVerified(true);
+    admin.setAuthProvider(AuthProvider.EMAIL);
+    userRepository.save(admin);
 
     final var loginResponse =
         given()

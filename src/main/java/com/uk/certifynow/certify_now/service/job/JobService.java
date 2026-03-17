@@ -292,7 +292,9 @@ public class JobService {
   }
 
   private static List<String> parseStatuses(final String statusFilter) {
-    if (statusFilter == null || statusFilter.isBlank()) return null;
+    // Return empty list (not null) so JPQL ":statuses IS EMPTY" works correctly across
+    // all Hibernate versions; passing null to an IN clause can fail on some dialects.
+    if (statusFilter == null || statusFilter.isBlank()) return List.of();
     return Arrays.stream(statusFilter.split(","))
         .map(String::trim)
         .filter(s -> !s.isEmpty())

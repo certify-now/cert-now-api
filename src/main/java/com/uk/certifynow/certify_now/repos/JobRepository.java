@@ -25,12 +25,21 @@ public interface JobRepository extends JpaRepository<Job, UUID> {
   Job findFirstByPropertyId(UUID id);
 
   // ── Customer list queries ──────────────────────────────────────────────────
+  // EntityGraph is used instead of JOIN FETCH to avoid Hibernate's HHH90003004
+  // "firstResult/maxResults specified with collection fetch; applying in memory" warning.
+  @EntityGraph(attributePaths = {"property", "engineer"})
   @Query(
-      "SELECT j FROM Job j JOIN FETCH j.property LEFT JOIN FETCH j.engineer "
-          + "WHERE j.customer.id = :customerId "
-          + "AND (:statuses IS NULL OR j.status IN :statuses) "
-          + "AND (:certificateType IS NULL OR j.certificateType = :certificateType) "
-          + "ORDER BY j.createdAt DESC")
+      value =
+          "SELECT j FROM Job j "
+              + "WHERE j.customer.id = :customerId "
+              + "AND (:statuses IS EMPTY OR j.status IN :statuses) "
+              + "AND (:certificateType IS NULL OR j.certificateType = :certificateType) "
+              + "ORDER BY j.createdAt DESC",
+      countQuery =
+          "SELECT COUNT(j) FROM Job j "
+              + "WHERE j.customer.id = :customerId "
+              + "AND (:statuses IS EMPTY OR j.status IN :statuses) "
+              + "AND (:certificateType IS NULL OR j.certificateType = :certificateType)")
   Page<Job> findByCustomerWithFilters(
       @Param("customerId") UUID customerId,
       @Param("statuses") List<String> statuses,
@@ -38,12 +47,19 @@ public interface JobRepository extends JpaRepository<Job, UUID> {
       Pageable pageable);
 
   // ── Engineer list queries ──────────────────────────────────────────────────
+  @EntityGraph(attributePaths = {"property", "engineer"})
   @Query(
-      "SELECT j FROM Job j JOIN FETCH j.property LEFT JOIN FETCH j.engineer "
-          + "WHERE j.engineer.id = :engineerId "
-          + "AND (:statuses IS NULL OR j.status IN :statuses) "
-          + "AND (:certificateType IS NULL OR j.certificateType = :certificateType) "
-          + "ORDER BY j.createdAt DESC")
+      value =
+          "SELECT j FROM Job j "
+              + "WHERE j.engineer.id = :engineerId "
+              + "AND (:statuses IS EMPTY OR j.status IN :statuses) "
+              + "AND (:certificateType IS NULL OR j.certificateType = :certificateType) "
+              + "ORDER BY j.createdAt DESC",
+      countQuery =
+          "SELECT COUNT(j) FROM Job j "
+              + "WHERE j.engineer.id = :engineerId "
+              + "AND (:statuses IS EMPTY OR j.status IN :statuses) "
+              + "AND (:certificateType IS NULL OR j.certificateType = :certificateType)")
   Page<Job> findByEngineerWithFilters(
       @Param("engineerId") UUID engineerId,
       @Param("statuses") List<String> statuses,
@@ -52,10 +68,15 @@ public interface JobRepository extends JpaRepository<Job, UUID> {
 
   // ── Admin list queries (all jobs with optional filters) ───────────────────
   @Query(
-      "SELECT j FROM Job j WHERE "
-          + "(:statuses IS NULL OR j.status IN :statuses) AND "
-          + "(:certificateType IS NULL OR j.certificateType = :certificateType) "
-          + "ORDER BY j.createdAt DESC")
+      value =
+          "SELECT j FROM Job j WHERE "
+              + "(:statuses IS EMPTY OR j.status IN :statuses) AND "
+              + "(:certificateType IS NULL OR j.certificateType = :certificateType) "
+              + "ORDER BY j.createdAt DESC",
+      countQuery =
+          "SELECT COUNT(j) FROM Job j WHERE "
+              + "(:statuses IS EMPTY OR j.status IN :statuses) AND "
+              + "(:certificateType IS NULL OR j.certificateType = :certificateType)")
   Page<Job> findAllWithFilters(
       @Param("statuses") List<String> statuses,
       @Param("certificateType") String certificateType,

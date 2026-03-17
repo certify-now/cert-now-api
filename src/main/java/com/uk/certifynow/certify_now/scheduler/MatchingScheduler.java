@@ -49,18 +49,16 @@ public class MatchingScheduler {
    */
   @Scheduled(fixedRateString = "${certifynow.matching.unmatched-job-check-interval-ms:30000}")
   public void processUnmatchedJobs() {
-    int pageNumber = 0;
+    // Always fetch page 0: broadcastToEligible transitions jobs out of CREATED,
+    // so processed items fall off the result set naturally.
     Page<Job> page;
     do {
       page = jobRepository.findByStatusAndBroadcastAtIsNull(
-          "CREATED", PageRequest.of(pageNumber, BATCH_SIZE));
+          "CREATED", PageRequest.of(0, BATCH_SIZE));
       if (page.isEmpty()) {
         return;
       }
-      log.info(
-          "processUnmatchedJobs: processing page {} ({} jobs)",
-          pageNumber,
-          page.getNumberOfElements());
+      log.info("processUnmatchedJobs: processing batch of {} unbroadcast jobs", page.getNumberOfElements());
       for (final Job job : page.getContent()) {
         try {
           matchingService.broadcastToEligible(job);
@@ -68,7 +66,6 @@ public class MatchingScheduler {
           log.error("processUnmatchedJobs: failed to broadcast job {}", job.getId(), e);
         }
       }
-      pageNumber++;
     } while (page.hasNext());
   }
 
@@ -79,17 +76,17 @@ public class MatchingScheduler {
   @Scheduled(fixedRateString = "${certifynow.matching.expired-broadcast-check-interval-ms:30000}")
   public void processExpiredBroadcasts() {
     final OffsetDateTime cutoff = OffsetDateTime.now(clock).minusMinutes(broadcastExpiryMinutes);
-    int pageNumber = 0;
+    // Always fetch page 0: escalateJob transitions jobs out of AWAITING_ACCEPTANCE,
+    // so processed items fall off the result set naturally.
     Page<Job> page;
     do {
       page = jobRepository.findByStatusAndBroadcastAtBefore(
-          "AWAITING_ACCEPTANCE", cutoff, PageRequest.of(pageNumber, BATCH_SIZE));
+          "AWAITING_ACCEPTANCE", cutoff, PageRequest.of(0, BATCH_SIZE));
       if (page.isEmpty()) {
         return;
       }
       log.info(
-          "processExpiredBroadcasts: processing page {} ({} jobs past {}min broadcast window)",
-          pageNumber,
+          "processExpiredBroadcasts: processing batch of {} jobs past {}min broadcast window",
           page.getNumberOfElements(),
           broadcastExpiryMinutes);
       for (final Job job : page.getContent()) {
@@ -99,7 +96,6 @@ public class MatchingScheduler {
           log.error("processExpiredBroadcasts: failed to escalate job {}", job.getId(), e);
         }
       }
-      pageNumber++;
     } while (page.hasNext());
   }
 }

@@ -79,7 +79,7 @@ public class AuthEventLogger {
   }
 
   @Async("authEventsExecutor")
-  @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+  @TransactionalEventListener(phase = TransactionPhase.AFTER_COMPLETION)
   public void onLoginFailed(final LoginFailedEvent event) {
     try {
       MDC.put("eventType", "LOGIN_FAILED");

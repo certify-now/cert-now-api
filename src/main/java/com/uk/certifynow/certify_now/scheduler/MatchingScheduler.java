@@ -5,10 +5,11 @@ import com.uk.certifynow.certify_now.repos.JobRepository;
 import com.uk.certifynow.certify_now.service.matching.MatchingService;
 import java.time.Clock;
 import java.time.OffsetDateTime;
-import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -24,6 +25,7 @@ import org.springframework.stereotype.Component;
 public class MatchingScheduler {
 
   private static final Logger log = LoggerFactory.getLogger(MatchingScheduler.class);
+  private static final int BATCH_SIZE = 50;
 
   private final JobRepository jobRepository;
   private final MatchingService matchingService;
@@ -47,22 +49,27 @@ public class MatchingScheduler {
    */
   @Scheduled(fixedRateString = "${certifynow.matching.unmatched-job-check-interval-ms:30000}")
   public void processUnmatchedJobs() {
-    final List<Job> unmatchedJobs = jobRepository.findByStatusAndBroadcastAtIsNull("CREATED");
-
-    if (unmatchedJobs.isEmpty()) {
-      return;
-    }
-
-    log.info(
-        "processUnmatchedJobs: found {} unbroadcast jobs in CREATED status", unmatchedJobs.size());
-
-    for (final Job job : unmatchedJobs) {
-      try {
-        matchingService.broadcastToEligible(job);
-      } catch (final Exception e) {
-        log.error("processUnmatchedJobs: failed to broadcast job {}", job.getId(), e);
+    int pageNumber = 0;
+    Page<Job> page;
+    do {
+      page = jobRepository.findByStatusAndBroadcastAtIsNull(
+          "CREATED", PageRequest.of(pageNumber, BATCH_SIZE));
+      if (page.isEmpty()) {
+        return;
       }
-    }
+      log.info(
+          "processUnmatchedJobs: processing page {} ({} jobs)",
+          pageNumber,
+          page.getNumberOfElements());
+      for (final Job job : page.getContent()) {
+        try {
+          matchingService.broadcastToEligible(job);
+        } catch (final Exception e) {
+          log.error("processUnmatchedJobs: failed to broadcast job {}", job.getId(), e);
+        }
+      }
+      pageNumber++;
+    } while (page.hasNext());
   }
 
   /**
@@ -72,25 +79,27 @@ public class MatchingScheduler {
   @Scheduled(fixedRateString = "${certifynow.matching.expired-broadcast-check-interval-ms:30000}")
   public void processExpiredBroadcasts() {
     final OffsetDateTime cutoff = OffsetDateTime.now(clock).minusMinutes(broadcastExpiryMinutes);
-
-    final List<Job> expiredJobs =
-        jobRepository.findByStatusAndBroadcastAtBefore("AWAITING_ACCEPTANCE", cutoff);
-
-    if (expiredJobs.isEmpty()) {
-      return;
-    }
-
-    log.info(
-        "processExpiredBroadcasts: found {} jobs past {}min broadcast window",
-        expiredJobs.size(),
-        broadcastExpiryMinutes);
-
-    for (final Job job : expiredJobs) {
-      try {
-        matchingService.escalateJob(job);
-      } catch (final Exception e) {
-        log.error("processExpiredBroadcasts: failed to escalate job {}", job.getId(), e);
+    int pageNumber = 0;
+    Page<Job> page;
+    do {
+      page = jobRepository.findByStatusAndBroadcastAtBefore(
+          "AWAITING_ACCEPTANCE", cutoff, PageRequest.of(pageNumber, BATCH_SIZE));
+      if (page.isEmpty()) {
+        return;
       }
-    }
+      log.info(
+          "processExpiredBroadcasts: processing page {} ({} jobs past {}min broadcast window)",
+          pageNumber,
+          page.getNumberOfElements(),
+          broadcastExpiryMinutes);
+      for (final Job job : page.getContent()) {
+        try {
+          matchingService.escalateJob(job);
+        } catch (final Exception e) {
+          log.error("processExpiredBroadcasts: failed to escalate job {}", job.getId(), e);
+        }
+      }
+      pageNumber++;
+    } while (page.hasNext());
   }
 }

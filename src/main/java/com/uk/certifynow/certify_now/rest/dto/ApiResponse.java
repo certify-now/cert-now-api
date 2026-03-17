@@ -11,5 +11,11 @@ public record ApiResponse<T>(T data, Meta meta) {
     return new ApiResponse<>(data, new Meta(safeRequestId, Instant.now()));
   }
 
+  public static <T> ApiResponse<T> error(final String requestId) {
+    final String safeRequestId =
+        requestId == null || requestId.isBlank() ? UUID.randomUUID().toString() : requestId;
+    return new ApiResponse<>(null, new Meta(safeRequestId, Instant.now()));
+  }
+
   public record Meta(String requestId, Instant timestamp) {}
 }

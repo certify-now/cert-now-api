@@ -16,8 +16,9 @@ import com.uk.certifynow.certify_now.repos.RefreshTokenRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
 import com.uk.certifynow.certify_now.service.auth.UserRole;
 import com.uk.certifynow.certify_now.service.auth.UserStatus;
+import com.uk.certifynow.certify_now.exception.EntityNotFoundException;
+import com.uk.certifynow.certify_now.service.job.JobStatus;
 import com.uk.certifynow.certify_now.service.mappers.UserMapper;
-import com.uk.certifynow.certify_now.util.NotFoundException;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
@@ -36,8 +37,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class UserService {
 
-  private static final List<String> TERMINAL_STATUSES =
-      List.of("COMPLETED", "CERTIFIED", "CANCELLED", "FAILED");
 
   private final UserRepository userRepository;
   private final JobRepository jobRepository;
@@ -67,28 +66,37 @@ public class UserService {
     this.clock = clock;
   }
 
-  @Cacheable("users_all")
+  @Transactional(readOnly = true)
   public List<UserDTO> findAll() {
     final List<User> users = userRepository.findAll(Sort.by("id"));
     return users.stream().map(userMapper::toDTO).toList();
   }
 
+  @Transactional(readOnly = true)
   @Cacheable(value = "users", key = "#id")
   public UserDTO get(final UUID id) {
-    return userRepository.findById(id).map(userMapper::toDTO).orElseThrow(NotFoundException::new);
+    return userRepository
+        .findById(id)
+        .map(userMapper::toDTO)
+        .orElseThrow(() -> new EntityNotFoundException("User not found: " + id));
   }
 
+  @Transactional(readOnly = true)
   @Cacheable(value = "users_email", key = "#email")
   public UserDTO getByEmail(final String email) {
     return userRepository
         .findByEmailIgnoreCase(email)
         .map(userMapper::toDTO)
-        .orElseThrow(NotFoundException::new);
+        .orElseThrow(() -> new EntityNotFoundException("User not found with email: " + email));
   }
 
+  @Transactional(readOnly = true)
   @Cacheable(value = "users_me", key = "#id")
   public UserMeDTO getMe(final UUID id) {
-    return userRepository.findById(id).map(userMapper::toMeDTO).orElseThrow(NotFoundException::new);
+    return userRepository
+        .findById(id)
+        .map(userMapper::toMeDTO)
+        .orElseThrow(() -> new EntityNotFoundException("User not found: " + id));
   }
 
   @Transactional
@@ -108,7 +116,7 @@ public class UserService {
       value = {"users", "users_all", "users_email", "users_me"},
       allEntries = true)
   public void update(final UUID id, final UserDTO userDTO) {
-    final User user = userRepository.findById(id).orElseThrow(NotFoundException::new);
+    final User user = userRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("User not found: " + id));
     userMapper.updateEntity(userDTO, user);
     userRepository.save(user);
     log.info("User {} updated", id);
@@ -119,7 +127,7 @@ public class UserService {
       value = {"users", "users_all", "users_email", "users_me"},
       allEntries = true)
   public void updateMe(final UUID id, final UpdateMeRequest updateMeRequest) {
-    final User user = userRepository.findById(id).orElseThrow(NotFoundException::new);
+    final User user = userRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("User not found: " + id));
 
     if (updateMeRequest.getFullName() != null) {
       user.setFullName(updateMeRequest.getFullName().trim());
@@ -158,7 +166,7 @@ public class UserService {
       value = {"users", "users_all", "users_email", "users_me"},
       allEntries = true)
   public void delete(final UUID id) {
-    final User user = userRepository.findById(id).orElseThrow(NotFoundException::new);
+    final User user = userRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("User not found: " + id));
     publisher.publishEvent(new BeforeDeleteUser(id));
     userRepository.delete(user);
     log.info("User {} deleted", id);
@@ -177,7 +185,7 @@ public class UserService {
       allEntries = true)
   public void softDelete(final UUID userId, final UUID deletedByUserId) {
     final User user =
-        userRepository.findByIdIncludingDeleted(userId).orElseThrow(NotFoundException::new);
+        userRepository.findByIdIncludingDeleted(userId).orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
 
     if (user.isDeleted()) {
       throw new BusinessException(
@@ -186,9 +194,9 @@ public class UserService {
 
     // Validate: no active (non-terminal) jobs
     final boolean hasActiveCustomerJobs =
-        jobRepository.existsActiveJobsByCustomerId(userId, TERMINAL_STATUSES);
+        jobRepository.existsActiveJobsByCustomerId(userId, JobStatus.TERMINAL_STATUSES);
     final boolean hasActiveEngineerJobs =
-        jobRepository.existsActiveJobsByEngineerId(userId, TERMINAL_STATUSES);
+        jobRepository.existsActiveJobsByEngineerId(userId, JobStatus.TERMINAL_STATUSES);
     if (hasActiveCustomerJobs || hasActiveEngineerJobs) {
       throw new BusinessException(
           HttpStatus.CONFLICT, "ACTIVE_JOBS_EXIST", "Cannot soft-delete user with active jobs");
@@ -228,7 +236,7 @@ public class UserService {
       allEntries = true)
   public void restore(final UUID userId, final UUID restoredByUserId) {
     final User user =
-        userRepository.findByIdIncludingDeleted(userId).orElseThrow(NotFoundException::new);
+        userRepository.findByIdIncludingDeleted(userId).orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
 
     if (!user.isDeleted()) {
       throw new BusinessException(HttpStatus.CONFLICT, "NOT_DELETED", "User is not soft-deleted");

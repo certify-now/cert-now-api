@@ -18,6 +18,10 @@ public enum JobStatus {
   CANCELLED,
   ESCALATED;
 
+  /** Statuses after which no further state transitions are allowed. */
+  public static final java.util.Set<String> TERMINAL_STATUSES =
+      java.util.Set.of(CERTIFIED.name(), CANCELLED.name(), FAILED.name());
+
   /**
    * Returns true if a transition from this status to {@code target} is valid.
    *

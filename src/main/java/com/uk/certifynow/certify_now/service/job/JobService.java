@@ -1,16 +1,10 @@
 package com.uk.certifynow.certify_now.service.job;
 
 import com.uk.certifynow.certify_now.domain.Job;
-import com.uk.certifynow.certify_now.domain.JobMatchLog;
-import com.uk.certifynow.certify_now.domain.JobStatusHistory;
 import com.uk.certifynow.certify_now.domain.Payment;
-import com.uk.certifynow.certify_now.domain.Property;
-import com.uk.certifynow.certify_now.domain.User;
-import com.uk.certifynow.certify_now.events.BeforeDeleteJob;
 import com.uk.certifynow.certify_now.events.BeforeDeleteProperty;
 import com.uk.certifynow.certify_now.events.BeforeDeleteUser;
 import com.uk.certifynow.certify_now.events.job.JobAcceptedEvent;
-import com.uk.certifynow.certify_now.events.job.JobCancelledEvent;
 import com.uk.certifynow.certify_now.events.job.JobCreatedEvent;
 import com.uk.certifynow.certify_now.events.job.JobMatchedEvent;
 import com.uk.certifynow.certify_now.events.job.JobStatusChangedEvent;
@@ -20,7 +14,6 @@ import com.uk.certifynow.certify_now.exception.InvalidStateTransitionException;
 import com.uk.certifynow.certify_now.interfaces.PricingCalculator;
 import com.uk.certifynow.certify_now.repos.JobMatchLogRepository;
 import com.uk.certifynow.certify_now.repos.JobRepository;
-import com.uk.certifynow.certify_now.repos.JobStatusHistoryRepository;
 import com.uk.certifynow.certify_now.repos.PaymentRepository;
 import com.uk.certifynow.certify_now.repos.PropertyRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
@@ -36,17 +29,15 @@ import com.uk.certifynow.certify_now.rest.dto.job.MatchJobRequest;
 import com.uk.certifynow.certify_now.rest.dto.job.ProposeScheduleRequest;
 import com.uk.certifynow.certify_now.rest.dto.job.StartJobRequest;
 import com.uk.certifynow.certify_now.rest.dto.pricing.PriceBreakdown;
+import com.uk.certifynow.certify_now.domain.Property;
+import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.service.auth.UserRole;
 import com.uk.certifynow.certify_now.util.ReferencedException;
-import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.cache.annotation.CacheEvict;
@@ -61,55 +52,54 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.core.JacksonException;
-import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 @Service
 public class JobService {
 
-  // Terminal statuses — no further transitions allowed
-  private static final List<String> TERMINAL_STATUSES =
-      List.of("COMPLETED", "CERTIFIED", "CANCELLED", "FAILED");
 
-  // Call-out fee in pence (£15.00) charged when customer cancels after engineer
-  // is en-route
-  private static final int CALLOUT_FEE_PENCE = 1500;
 
   private final JobRepository jobRepository;
   private final UserRepository userRepository;
   private final PropertyRepository propertyRepository;
   private final PaymentRepository paymentRepository;
-  private final JobStatusHistoryRepository historyRepository;
   private final JobMatchLogRepository matchLogRepository;
   private final PricingCalculator pricingCalculator;
   private final ReferenceNumberGenerator referenceNumberGenerator;
   private final ApplicationEventPublisher publisher;
   private final ObjectMapper objectMapper;
   private final Clock clock;
+  private final JobResponseMapper jobResponseMapper;
+  private final JobHistoryService jobHistoryService;
+  private final JobCancellationService jobCancellationService;
 
   public JobService(
       final JobRepository jobRepository,
       final UserRepository userRepository,
       final PropertyRepository propertyRepository,
       final PaymentRepository paymentRepository,
-      final JobStatusHistoryRepository historyRepository,
       final JobMatchLogRepository matchLogRepository,
       final PricingCalculator pricingCalculator,
       final ReferenceNumberGenerator referenceNumberGenerator,
       final ApplicationEventPublisher publisher,
       final ObjectMapper objectMapper,
-      final Clock clock) {
+      final Clock clock,
+      final JobResponseMapper jobResponseMapper,
+      final JobHistoryService jobHistoryService,
+      final JobCancellationService jobCancellationService) {
     this.jobRepository = jobRepository;
     this.userRepository = userRepository;
     this.propertyRepository = propertyRepository;
     this.paymentRepository = paymentRepository;
-    this.historyRepository = historyRepository;
     this.matchLogRepository = matchLogRepository;
     this.pricingCalculator = pricingCalculator;
     this.referenceNumberGenerator = referenceNumberGenerator;
     this.publisher = publisher;
     this.objectMapper = objectMapper;
     this.clock = clock;
+    this.jobResponseMapper = jobResponseMapper;
+    this.jobHistoryService = jobHistoryService;
+    this.jobCancellationService = jobCancellationService;
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -190,7 +180,7 @@ public class JobService {
     }
 
     // 6. Record initial status history (null → CREATED)
-    recordHistory(saved, null, "CREATED", customerId, "CUSTOMER", null, null);
+    jobHistoryService.recordHistory(saved, null, JobStatus.CREATED.name(), customerId, "CUSTOMER", null, null);
 
     // 7. Create stub payment
     final Payment payment = buildPayment(customer, saved, price);
@@ -201,7 +191,7 @@ public class JobService {
         new JobCreatedEvent(
             saved.getId(), customerId, property.getId(), certType, price.totalPricePence()));
 
-    return toJobResponse(saved, savedPayment);
+    return jobResponseMapper.toJobResponse(saved, savedPayment);
   }
 
   private Job buildJob(
@@ -216,7 +206,7 @@ public class JobService {
     job.setProperty(property);
     job.setCertificateType(certType);
     job.setUrgency(urgency);
-    job.setStatus("CREATED");
+    job.setStatus(JobStatus.CREATED.name());
     job.setReferenceNumber(referenceNumberGenerator.generate());
     job.setMatchAttempts(0);
     job.setAccessInstructions(request.accessInstructions());
@@ -272,7 +262,7 @@ public class JobService {
     final Job job = loadJobOrThrow(jobId);
     authoriseRead(job, actorId, actorRole);
     final Payment payment = paymentRepository.findByJobId(jobId).orElse(null);
-    return toJobResponse(job, payment);
+    return jobResponseMapper.toJobResponse(job, payment);
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -293,40 +283,12 @@ public class JobService {
     if (actorRole == UserRole.ADMIN) {
       page = jobRepository.findAllWithFilters(statuses, certTypeFilter, pageable);
     } else if (actorRole == UserRole.ENGINEER) {
-      if (statuses != null && certTypeFilter != null) {
-        page =
-            jobRepository.findByEngineerIdAndStatusInAndCertificateTypeOrderByCreatedAtDesc(
-                actorId, statuses, certTypeFilter, pageable);
-      } else if (statuses != null) {
-        page =
-            jobRepository.findByEngineerIdAndStatusInOrderByCreatedAtDesc(
-                actorId, statuses, pageable);
-      } else if (certTypeFilter != null) {
-        page =
-            jobRepository.findByEngineerIdAndCertificateTypeOrderByCreatedAtDesc(
-                actorId, certTypeFilter, pageable);
-      } else {
-        page = jobRepository.findByEngineerIdOrderByCreatedAtDesc(actorId, pageable);
-      }
+      page = jobRepository.findByEngineerWithFilters(actorId, statuses, certTypeFilter, pageable);
     } else {
       // CUSTOMER
-      if (statuses != null && certTypeFilter != null) {
-        page =
-            jobRepository.findByCustomerIdAndStatusInAndCertificateTypeOrderByCreatedAtDesc(
-                actorId, statuses, certTypeFilter, pageable);
-      } else if (statuses != null) {
-        page =
-            jobRepository.findByCustomerIdAndStatusInOrderByCreatedAtDesc(
-                actorId, statuses, pageable);
-      } else if (certTypeFilter != null) {
-        page =
-            jobRepository.findByCustomerIdAndCertificateTypeOrderByCreatedAtDesc(
-                actorId, certTypeFilter, pageable);
-      } else {
-        page = jobRepository.findByCustomerIdOrderByCreatedAtDesc(actorId, pageable);
-      }
+      page = jobRepository.findByCustomerWithFilters(actorId, statuses, certTypeFilter, pageable);
     }
-    return page.map(this::toJobSummary);
+    return page.map(jobResponseMapper::toJobSummary);
   }
 
   private static List<String> parseStatuses(final String statusFilter) {
@@ -364,19 +326,19 @@ public class JobService {
 
     job.setEngineer(engineer);
     job.setMatchedAt(OffsetDateTime.now(clock));
-    job.setStatus("MATCHED");
+    job.setStatus(JobStatus.MATCHED.name());
     job.setMatchAttempts(job.getMatchAttempts() + 1);
     job.setUpdatedAt(OffsetDateTime.now(clock));
     final Job saved = jobRepository.save(job);
 
-    recordHistory(saved, "CREATED", "MATCHED", adminId, "ADMIN", null, null);
+    jobHistoryService.recordHistory(saved, JobStatus.CREATED.name(), JobStatus.MATCHED.name(), adminId, "ADMIN", null, null);
 
     // Create match log entry (score/distance null for manual admin match)
-    createMatchLog(saved, engineer, null, null);
+    jobHistoryService.createMatchLog(saved, engineer, null, null);
 
     publisher.publishEvent(new JobMatchedEvent(saved.getId(), engineer.getId(), null, null));
     final Payment payment = paymentRepository.findByJobId(jobId).orElse(null);
-    return toJobResponse(saved, payment);
+    return jobResponseMapper.toJobResponse(saved, payment);
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -401,14 +363,14 @@ public class JobService {
           "scheduledDate must be between today and 14 days from now");
     }
 
-    job.setStatus("ACCEPTED");
+    job.setStatus(JobStatus.ACCEPTED.name());
     job.setScheduledDate(request.scheduledDate());
     job.setScheduledTimeSlot(request.scheduledTimeSlot());
     job.setAcceptedAt(OffsetDateTime.now(clock));
     job.setUpdatedAt(OffsetDateTime.now(clock));
     final Job saved = jobRepository.save(job);
 
-    recordHistory(saved, "MATCHED", "ACCEPTED", engineerId, "ENGINEER", null, null);
+    jobHistoryService.recordHistory(saved, JobStatus.MATCHED.name(), JobStatus.ACCEPTED.name(), engineerId, "ENGINEER", null, null);
 
     // Update match log
     matchLogRepository
@@ -416,7 +378,7 @@ public class JobService {
         .ifPresent(
             log -> {
               log.setRespondedAt(OffsetDateTime.now(clock));
-              log.setResponse("ACCEPTED");
+              log.setResponse(JobStatus.ACCEPTED.name());
               matchLogRepository.save(log);
             });
 
@@ -424,7 +386,7 @@ public class JobService {
         new JobAcceptedEvent(
             saved.getId(), engineerId, request.scheduledDate(), request.scheduledTimeSlot()));
     final Payment payment = paymentRepository.findByJobId(jobId).orElse(null);
-    return toJobResponse(saved, payment);
+    return jobResponseMapper.toJobResponse(saved, payment);
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -435,36 +397,7 @@ public class JobService {
   @Transactional
   public JobResponse declineJob(
       final UUID jobId, final UUID engineerId, final DeclineJobRequest request) {
-    final Job job = loadJobOrThrow(jobId);
-    authoriseEngineer(job, engineerId);
-    // Decline is MATCHED → CREATED (revert)
-    validateTransition(JobStatus.fromString(job.getStatus()), JobStatus.CREATED);
-
-    final String prevStatus = job.getStatus();
-    job.setStatus("CREATED");
-    job.setEngineer(null);
-    job.setMatchedAt(null);
-    job.setMatchAttempts(job.getMatchAttempts() + 1);
-    job.setUpdatedAt(OffsetDateTime.now(clock));
-    final Job saved = jobRepository.save(job);
-
-    recordHistory(saved, prevStatus, "CREATED", engineerId, "ENGINEER", request.reason(), null);
-
-    // Update match log
-    matchLogRepository
-        .findByJobIdAndEngineerId(jobId, engineerId)
-        .ifPresent(
-            log -> {
-              log.setRespondedAt(OffsetDateTime.now(clock));
-              log.setResponse("DECLINED");
-              log.setDeclineReason(request.reason());
-              matchLogRepository.save(log);
-            });
-
-    publisher.publishEvent(
-        new JobStatusChangedEvent(saved.getId(), prevStatus, "CREATED", engineerId, "ENGINEER"));
-    final Payment payment = paymentRepository.findByJobId(jobId).orElse(null);
-    return toJobResponse(saved, payment);
+    return jobCancellationService.declineJob(jobId, engineerId, request);
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -478,16 +411,16 @@ public class JobService {
     authoriseEngineer(job, engineerId);
     validateTransition(JobStatus.fromString(job.getStatus()), JobStatus.EN_ROUTE);
 
-    job.setStatus("EN_ROUTE");
+    job.setStatus(JobStatus.EN_ROUTE.name());
     job.setEnRouteAt(OffsetDateTime.now(clock));
     job.setUpdatedAt(OffsetDateTime.now(clock));
     final Job saved = jobRepository.save(job);
 
-    recordHistory(saved, "ACCEPTED", "EN_ROUTE", engineerId, "ENGINEER", null, null);
+    jobHistoryService.recordHistory(saved, JobStatus.ACCEPTED.name(), JobStatus.EN_ROUTE.name(), engineerId, "ENGINEER", null, null);
     publisher.publishEvent(
-        new JobStatusChangedEvent(saved.getId(), "ACCEPTED", "EN_ROUTE", engineerId, "ENGINEER"));
+        new JobStatusChangedEvent(saved.getId(), JobStatus.ACCEPTED.name(), JobStatus.EN_ROUTE.name(), engineerId, "ENGINEER"));
     final Payment payment = paymentRepository.findByJobId(jobId).orElse(null);
-    return toJobResponse(saved, payment);
+    return jobResponseMapper.toJobResponse(saved, payment);
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -510,19 +443,19 @@ public class JobService {
     // propertyLocationService.distanceMetres(request.latitude(),
     // request.longitude(), job.getProperty().getId()) > 200 → throw GPS_TOO_FAR
 
-    job.setStatus("IN_PROGRESS");
+    job.setStatus(JobStatus.IN_PROGRESS.name());
     job.setStartedAt(OffsetDateTime.now(clock));
     job.setEngineerStartLat(request.latitude());
     job.setEngineerStartLng(request.longitude());
     job.setUpdatedAt(OffsetDateTime.now(clock));
     final Job saved = jobRepository.save(job);
 
-    recordHistory(saved, "EN_ROUTE", "IN_PROGRESS", engineerId, "ENGINEER", null, null);
+    jobHistoryService.recordHistory(saved, JobStatus.EN_ROUTE.name(), JobStatus.IN_PROGRESS.name(), engineerId, "ENGINEER", null, null);
     publisher.publishEvent(
         new JobStatusChangedEvent(
-            saved.getId(), "EN_ROUTE", "IN_PROGRESS", engineerId, "ENGINEER"));
+            saved.getId(), JobStatus.EN_ROUTE.name(), JobStatus.IN_PROGRESS.name(), engineerId, "ENGINEER"));
     final Payment payment = paymentRepository.findByJobId(jobId).orElse(null);
-    return toJobResponse(saved, payment);
+    return jobResponseMapper.toJobResponse(saved, payment);
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -536,37 +469,37 @@ public class JobService {
     validateTransition(JobStatus.fromString(job.getStatus()), JobStatus.COMPLETED);
     authoriseEngineer(job, engineerId);
 
-    job.setStatus("COMPLETED");
+    job.setStatus(JobStatus.COMPLETED.name());
     job.setCompletedAt(OffsetDateTime.now(clock));
     job.setUpdatedAt(OffsetDateTime.now(clock));
     final Job saved = jobRepository.save(job);
 
-    recordHistory(saved, "IN_PROGRESS", "COMPLETED", engineerId, "ENGINEER", null, null);
+    jobHistoryService.recordHistory(saved, JobStatus.IN_PROGRESS.name(), JobStatus.COMPLETED.name(), engineerId, "ENGINEER", null, null);
     publisher.publishEvent(
         new JobStatusChangedEvent(
-            saved.getId(), "IN_PROGRESS", "COMPLETED", engineerId, "ENGINEER"));
+            saved.getId(), JobStatus.IN_PROGRESS.name(), JobStatus.COMPLETED.name(), engineerId, "ENGINEER"));
     final Payment payment = paymentRepository.findByJobId(jobId).orElse(null);
-    return toJobResponse(saved, payment);
+    return jobResponseMapper.toJobResponse(saved, payment);
   }
 
   // ────────────────────────────────────────────────────────────────────────────
   // ────────────────────────────────────────────────────────────────────────────
 
   @CacheEvict(value = "jobs", key = "#jobId")
-  @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+  @Transactional
   public void certifyJob(final UUID jobId) {
     final Job job = loadJobOrThrow(jobId);
     validateTransition(JobStatus.fromString(job.getStatus()), JobStatus.CERTIFIED);
 
-    job.setStatus("CERTIFIED");
+    job.setStatus(JobStatus.CERTIFIED.name());
     job.setCertifiedAt(OffsetDateTime.now(clock));
     job.setUpdatedAt(OffsetDateTime.now(clock));
     jobRepository.save(job);
 
     final UUID engineerId = job.getEngineer() != null ? job.getEngineer().getId() : null;
-    recordHistory(job, "COMPLETED", "CERTIFIED", engineerId, "SYSTEM", null, null);
+    jobHistoryService.recordHistory(job, JobStatus.COMPLETED.name(), JobStatus.CERTIFIED.name(), engineerId, "SYSTEM", null, null);
     publisher.publishEvent(
-        new JobStatusChangedEvent(job.getId(), "COMPLETED", "CERTIFIED", engineerId, "SYSTEM"));
+        new JobStatusChangedEvent(job.getId(), JobStatus.COMPLETED.name(), JobStatus.CERTIFIED.name(), engineerId, "SYSTEM"));
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -580,69 +513,19 @@ public class JobService {
       final UUID actorId,
       final UserRole actorRole,
       final CancelJobRequest request) {
-    final Job job = loadJobOrThrow(jobId);
-    final CancellationActor actor = determineCancellationActor(job, actorId, actorRole);
-    final JobStatus current = JobStatus.fromString(job.getStatus());
-
-    // Special case: engineer cancelling from MATCHED state is treated as a decline
-    if (actor == CancellationActor.ENGINEER && current == JobStatus.MATCHED) {
-      return declineJob(jobId, actorId, new DeclineJobRequest(request.reason()));
-    }
-
-    // Validate cancellation is allowed for this actor + status
-    validateCancellationPermission(actor, current);
-    validateTransition(current, JobStatus.CANCELLED);
-
-    // Calculate refund
-    final int refundPence = calculateRefund(job, actor, current);
-
-    final String prevStatus = job.getStatus();
-    job.setStatus("CANCELLED");
-    job.setCancelledAt(OffsetDateTime.now(clock));
-    job.setCancelledBy(actor.name());
-    job.setCancellationReason(request.reason());
-    job.setUpdatedAt(OffsetDateTime.now(clock));
-    final Job saved = jobRepository.save(job);
-
-    // Update payment refund fields (actual Stripe refund happens in Phase 8)
-    final Optional<Payment> paymentOpt = paymentRepository.findByJobId(jobId);
-    paymentOpt.ifPresent(
-        payment -> {
-          payment.setRefundAmountPence(refundPence);
-          payment.setRefundReason(request.reason());
-          paymentRepository.save(payment);
-        });
-
-    final String metadataJson = "{\"refund_amount_pence\":" + refundPence + "}";
-    recordHistory(
-        saved, prevStatus, "CANCELLED", actorId, actor.name(), request.reason(), metadataJson);
-
-    publisher.publishEvent(
-        new JobCancelledEvent(saved.getId(), actor.name(), request.reason(), refundPence));
-    return toJobResponse(saved, paymentOpt.orElse(null));
+    return jobCancellationService.cancelJob(jobId, actorId, actorRole, request);
   }
 
   // ────────────────────────────────────────────────────────────────────────────
   // GET STATUS HISTORY
   // ────────────────────────────────────────────────────────────────────────────
 
+  @Transactional(readOnly = true)
   public List<JobStatusHistoryResponse> getHistory(
       final UUID jobId, final UUID actorId, final UserRole actorRole) {
     final Job job = loadJobOrThrow(jobId);
     authoriseRead(job, actorId, actorRole);
-    return historyRepository.findByJobIdOrderByCreatedAtAsc(jobId).stream()
-        .map(
-            h ->
-                new JobStatusHistoryResponse(
-                    h.getId(),
-                    h.getFromStatus(),
-                    h.getToStatus(),
-                    h.getActorId(),
-                    h.getActorType(),
-                    h.getReason(),
-                    h.getMetadata(),
-                    h.getCreatedAt()))
-        .toList();
+    return jobHistoryService.getHistoryResponses(jobId);
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -681,12 +564,6 @@ public class JobService {
     }
   }
 
-  @EventListener(BeforeDeleteJob.class)
-  public void on(final BeforeDeleteJob event) {
-    // Cascade is handled by FK ON DELETE CASCADE in the database — no action
-    // required here.
-  }
-
   // ────────────────────────────────────────────────────────────────────────────
   // PRIVATE HELPERS
   // ────────────────────────────────────────────────────────────────────────────
@@ -719,197 +596,6 @@ public class JobService {
     }
   }
 
-  private CancellationActor determineCancellationActor(
-      final Job job, final UUID actorId, final UserRole role) {
-    if (role == UserRole.ADMIN) return CancellationActor.ADMIN;
-    if (job.getCustomer().getId().equals(actorId)) return CancellationActor.CUSTOMER;
-    if (job.getEngineer() != null && job.getEngineer().getId().equals(actorId)) {
-      return CancellationActor.ENGINEER;
-    }
-    throw new AccessDeniedException("Access denied to cancel this job");
-  }
-
-  private void validateCancellationPermission(
-      final CancellationActor actor, final JobStatus status) {
-    final boolean allowed =
-        switch (status) {
-          case CREATED, AWAITING_ACCEPTANCE, ESCALATED ->
-              actor == CancellationActor.CUSTOMER || actor == CancellationActor.ADMIN;
-          case MATCHED -> true; // customer, engineer (handled as decline above), admin
-          case ACCEPTED ->
-              actor == CancellationActor.CUSTOMER
-                  || actor == CancellationActor.ENGINEER
-                  || actor == CancellationActor.ADMIN;
-          case EN_ROUTE -> actor == CancellationActor.CUSTOMER || actor == CancellationActor.ADMIN;
-          default -> actor == CancellationActor.ADMIN; // IN_PROGRESS, etc. — only admin
-        };
-    if (!allowed) {
-      throw new InvalidStateTransitionException(
-          "Cancellation not allowed for " + actor + " when job is in state " + status);
-    }
-  }
-
-  private int calculateRefund(
-      final Job job, final CancellationActor actor, final JobStatus status) {
-    final int total = job.getTotalPricePence();
-    return switch (status) {
-      case CREATED, AWAITING_ACCEPTANCE, MATCHED, ESCALATED -> total; // 100% refund
-      case ACCEPTED -> {
-        // >24h before scheduled start: 100%, <24h: 80%
-        final OffsetDateTime scheduledStart = scheduledStart(job);
-        if (scheduledStart != null && OffsetDateTime.now(clock).plusHours(24).isAfter(scheduledStart)) {
-          yield (int) (total * 0.80); // 80% refund
-        }
-        yield total; // 100% refund
-      }
-      case EN_ROUTE -> Math.max(0, total - CALLOUT_FEE_PENCE); // minus £15 call-out fee
-      default -> 0;
-    };
-  }
-
-  private OffsetDateTime scheduledStart(final Job job) {
-    if (job.getScheduledDate() == null || job.getScheduledTimeSlot() == null) return null;
-    final LocalTime slotTime =
-        switch (job.getScheduledTimeSlot()) {
-          case "MORNING" -> LocalTime.of(8, 0);
-          case "AFTERNOON" -> LocalTime.of(12, 0);
-          case "EVENING" -> LocalTime.of(17, 0);
-          default -> LocalTime.NOON;
-        };
-    return job.getScheduledDate().atTime(slotTime).atOffset(ZoneOffset.UTC);
-  }
-
-  private void recordHistory(
-      final Job job,
-      final String fromStatus,
-      final String toStatus,
-      final UUID actorId,
-      final String actorType,
-      final String reason,
-      final String metadata) {
-    final JobStatusHistory history = new JobStatusHistory();
-    history.setJob(job);
-    history.setFromStatus(fromStatus);
-    history.setToStatus(toStatus);
-    history.setActorId(actorId);
-    history.setActorType(actorType);
-    history.setReason(reason);
-    history.setMetadata(metadata);
-    history.setCreatedAt(OffsetDateTime.now(clock));
-    historyRepository.save(history);
-  }
-
-  private void createMatchLog(
-      final Job job, final User engineer, final BigDecimal score, final BigDecimal distance) {
-    final JobMatchLog log = new JobMatchLog();
-    log.setJob(job);
-    log.setEngineer(engineer);
-    log.setMatchScore(score);
-    log.setDistanceMiles(distance);
-    log.setNotifiedAt(OffsetDateTime.now(clock));
-    log.setOfferedAt(OffsetDateTime.now(clock));
-    log.setCreatedAt(OffsetDateTime.now(clock));
-    matchLogRepository.save(log);
-  }
-
-  // ────────────────────────────────────────────────────────────────────────────
-  // MAPPERS
-  // ────────────────────────────────────────────────────────────────────────────
-
-  private JobResponse toJobResponse(final Job job, final Payment payment) {
-    final Property prop = job.getProperty();
-    final String propSummary =
-        prop.getAddressLine1() + ", " + prop.getCity() + " " + prop.getPostcode();
-    final User eng = job.getEngineer();
-    final String engName = eng == null ? null : eng.getFullName();
-    final UUID engId = eng == null ? null : eng.getId();
-
-    final JobResponse.Pricing pricing =
-        new JobResponse.Pricing(
-            job.getBasePricePence(),
-            job.getPropertyModifierPence(),
-            job.getUrgencyModifierPence(),
-            job.getDiscountPence(),
-            job.getTotalPricePence(),
-            job.getCommissionRate() == null ? 0.15 : job.getCommissionRate().doubleValue(),
-            job.getCommissionPence(),
-            job.getEngineerPayoutPence());
-
-    final JobResponse.Payment paymentSummary =
-        payment == null
-            ? null
-            : new JobResponse.Payment(
-                payment.getId(),
-                payment.getStatus(),
-                payment.getStripeClientSecret(),
-                payment.getAmountPence());
-
-    final JobResponse.Timestamps timestamps =
-        new JobResponse.Timestamps(
-            job.getCreatedAt(),
-            job.getMatchedAt(),
-            job.getAcceptedAt(),
-            job.getEnRouteAt(),
-            job.getStartedAt(),
-            job.getCompletedAt(),
-            job.getCertifiedAt(),
-            job.getCancelledAt());
-
-    return new JobResponse(
-        job.getId(),
-        job.getReferenceNumber(),
-        job.getCustomer().getId(),
-        prop.getId(),
-        propSummary,
-        engId,
-        engName,
-        job.getCertificateType(),
-        job.getStatus(),
-        job.getUrgency(),
-        job.getScheduledTimeSlot(),
-        job.getScheduledDate(),
-        job.getMatchAttempts(),
-        job.getAccessInstructions(),
-        job.getCustomerNotes(),
-        parseAvailability(job.getPreferredAvailability()),
-        job.getCancelledBy(),
-        job.getCancellationReason(),
-        pricing,
-        paymentSummary,
-        timestamps);
-  }
-
-  private JobSummaryResponse toJobSummary(final Job job) {
-    final Property prop = job.getProperty();
-    final String propSummary =
-        prop == null
-            ? null
-            : prop.getAddressLine1() + ", " + prop.getCity() + " " + prop.getPostcode();
-    final User eng = job.getEngineer();
-    return new JobSummaryResponse(
-        job.getId(),
-        job.getReferenceNumber(),
-        job.getCertificateType(),
-        job.getStatus(),
-        job.getUrgency(),
-        job.getTotalPricePence(),
-        job.getScheduledDate(),
-        job.getScheduledTimeSlot(),
-        propSummary,
-        eng == null ? null : eng.getFullName(),
-        job.getCreatedAt(),
-        parseAvailability(job.getPreferredAvailability()));
-  }
-
-  private List<DayAvailability> parseAvailability(final String json) {
-    if (json == null || json.isBlank()) return List.of();
-    try {
-      return objectMapper.readValue(json, new TypeReference<List<DayAvailability>>() {});
-    } catch (final JacksonException e) {
-      return List.of();
-    }
-  }
-
   // ────────────────────────────────────────────────────────────────────────────
   // PROPOSE SCHEDULE
   // ────────────────────────────────────────────────────────────────────────────
@@ -939,6 +625,6 @@ public class JobService {
     job.setUpdatedAt(OffsetDateTime.now(clock));
     jobRepository.save(job);
 
-    return toJobResponse(job, null);
+    return jobResponseMapper.toJobResponse(job, null);
   }
 }

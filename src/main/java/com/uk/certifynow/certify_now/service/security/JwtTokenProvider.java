@@ -4,6 +4,7 @@ import com.uk.certifynow.certify_now.domain.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
@@ -11,21 +12,28 @@ import java.util.Date;
 import java.util.UUID;
 import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
 @Component
 public class JwtTokenProvider {
 
+  private static final String DEV_SECRET_PREFIX =
+      "dev-secret-key-at-least-512-bits-long-for-hs512-algorithm";
+
   private final SecretKey key;
   private final long accessTokenExpiryMs;
   private final Clock clock;
+  private final String rawSecret;
+  private final Environment env;
 
   public JwtTokenProvider(
       @Value(
               "${app.jwt.secret:dev-secret-key-at-least-512-bits-long-for-hs512-algorithm-change-in-production}")
           final String secret,
       @Value("${app.jwt.access-token-expiry-ms:900000}") final long accessTokenExpiryMs,
-      final Clock clock) {
+      final Clock clock,
+      final Environment env) {
     final byte[] bytes = secret.getBytes(StandardCharsets.UTF_8);
     if (bytes.length < 64) {
       throw new IllegalArgumentException("JWT secret must be at least 512 bits (64 bytes)");
@@ -33,6 +41,19 @@ public class JwtTokenProvider {
     this.key = Keys.hmacShaKeyFor(bytes);
     this.accessTokenExpiryMs = accessTokenExpiryMs;
     this.clock = clock;
+    this.rawSecret = secret;
+    this.env = env;
+  }
+
+  @PostConstruct
+  void validateSecret() {
+    for (final String profile : env.getActiveProfiles()) {
+      if ("prod".equals(profile) && rawSecret.startsWith(DEV_SECRET_PREFIX)) {
+        throw new IllegalStateException(
+            "Production profile detected but app.jwt.secret is the insecure dev default. "
+                + "Set a strong secret via the APP_JWT_SECRET environment variable.");
+      }
+    }
   }
 
   /**

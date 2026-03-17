@@ -8,7 +8,7 @@ import lombok.Setter;
 @Embeddable
 @Getter
 @Setter
-public class TenantDetails {
+public class  TenantDetails {
 
   @Column(name = "tenant_name")
   private String name;

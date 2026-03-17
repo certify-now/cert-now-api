@@ -2,13 +2,11 @@ package com.uk.certifynow.certify_now.service;
 
 import com.uk.certifynow.certify_now.domain.PricingModifier;
 import com.uk.certifynow.certify_now.domain.PricingRule;
-import com.uk.certifynow.certify_now.domain.Property;
 import com.uk.certifynow.certify_now.domain.UrgencyMultiplier;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.exception.EntityNotFoundException;
 import com.uk.certifynow.certify_now.repos.PricingModifierRepository;
 import com.uk.certifynow.certify_now.repos.PricingRuleRepository;
-import com.uk.certifynow.certify_now.repos.PropertyRepository;
 import com.uk.certifynow.certify_now.repos.UrgencyMultiplierRepository;
 import com.uk.certifynow.certify_now.rest.dto.booking.CertificateTypeItem;
 import com.uk.certifynow.certify_now.rest.dto.booking.CertificateTypesResponse;
@@ -46,7 +44,6 @@ public class PricingService {
   private final PricingRuleRepository pricingRuleRepository;
   private final PricingModifierRepository pricingModifierRepository;
   private final UrgencyMultiplierRepository urgencyMultiplierRepository;
-  private final PropertyRepository propertyRepository;
   private final BigDecimal commissionRate;
   private final Clock clock;
 
@@ -54,13 +51,11 @@ public class PricingService {
       final PricingRuleRepository pricingRuleRepository,
       final PricingModifierRepository pricingModifierRepository,
       final UrgencyMultiplierRepository urgencyMultiplierRepository,
-      final PropertyRepository propertyRepository,
       @Value("${app.pricing.commission-rate:0.15}") final BigDecimal commissionRate,
       final Clock clock) {
     this.pricingRuleRepository = pricingRuleRepository;
     this.pricingModifierRepository = pricingModifierRepository;
     this.urgencyMultiplierRepository = urgencyMultiplierRepository;
-    this.propertyRepository = propertyRepository;
     this.commissionRate = commissionRate;
     this.clock = clock;
   }
@@ -69,19 +64,26 @@ public class PricingService {
   // CORE CALCULATION
   // ═══════════════════════════════════════════════════════
 
+  @Transactional(readOnly = true)
   @Cacheable(
       value = "pricing-calc",
       key =
-          "#certificateType + ':' + #property.propertyType + ':'"
-              + " + (#property.bedrooms != null ? #property.bedrooms : 0) + ':'"
-              + " + (#property.gasApplianceCount != null ? #property.gasApplianceCount : 0) + ':'"
-              + " + (#property.floorAreaSqm != null ? #property.floorAreaSqm : 0) + ':'"
+          "#certificateType + ':' + #propertyType + ':'"
+              + " + (#bedrooms != null ? #bedrooms : 0) + ':'"
+              + " + (#gasApplianceCount != null ? #gasApplianceCount : 0) + ':'"
+              + " + (#floorAreaSqm != null ? #floorAreaSqm : 0) + ':'"
               + " + #urgency")
   public PriceBreakdown calculatePrice(
-      final String certificateType, final Property property, final String urgency) {
+      final String certificateType,
+      final String postcode,
+      final String propertyType,
+      final Integer bedrooms,
+      final Integer gasApplianceCount,
+      final BigDecimal floorAreaSqm,
+      final String urgency) {
 
     // Step 1: Resolve active pricing rule
-    final PricingRule rule = resolveActiveRule(certificateType, property.getPostcode());
+    final PricingRule rule = resolveActiveRule(certificateType, postcode);
 
     // Step 2: Evaluate property modifiers
     final List<PriceBreakdown.ModifierApplied> modifiersApplied = new ArrayList<>();
@@ -92,13 +94,12 @@ public class PricingService {
     for (final PricingModifier mod : modifiers) {
       final boolean matches =
           switch (mod.getModifierType()) {
-            case "BEDROOMS" -> evaluateBracket(property.getBedrooms(), mod);
+            case "BEDROOMS" -> evaluateBracket(bedrooms, mod);
             case "APPLIANCES" ->
-                "GAS_SAFETY".equals(certificateType)
-                    && evaluateBracket(property.getGasApplianceCount(), mod);
+                "GAS_SAFETY".equals(certificateType) && evaluateBracket(gasApplianceCount, mod);
             case "FLOOR_AREA" ->
-                "EPC".equals(certificateType) && evaluateBracket(property.getFloorAreaSqm(), mod);
-            default -> mod.getModifierType().equals("PROPERTY_TYPE_" + property.getPropertyType());
+                "EPC".equals(certificateType) && evaluateBracket(floorAreaSqm, mod);
+            default -> mod.getModifierType().equals("PROPERTY_TYPE_" + propertyType);
           };
 
       if (matches) {
@@ -106,7 +107,7 @@ public class PricingService {
         modifiersApplied.add(
             new PriceBreakdown.ModifierApplied(
                 mod.getModifierType(),
-                buildModifierDescription(mod, property),
+                buildModifierDescription(mod, propertyType, bedrooms, gasApplianceCount, floorAreaSqm),
                 mod.getModifierPence()));
       }
     }
@@ -192,12 +193,16 @@ public class PricingService {
     return aboveMin && belowMax;
   }
 
-  private String buildModifierDescription(final PricingModifier mod, final Property property) {
+  private String buildModifierDescription(
+      final PricingModifier mod,
+      final String propertyType,
+      final Integer bedrooms,
+      final Integer gasApplianceCount,
+      final BigDecimal floorAreaSqm) {
     return switch (mod.getModifierType()) {
-      case "BEDROOMS" -> property.getBedrooms() + " bedrooms";
-      case "APPLIANCES" -> property.getGasApplianceCount() + " gas appliances";
-      case "FLOOR_AREA" ->
-          (property.getFloorAreaSqm() != null ? property.getFloorAreaSqm() : "?") + " sqm";
+      case "BEDROOMS" -> bedrooms + " bedrooms";
+      case "APPLIANCES" -> gasApplianceCount + " gas appliances";
+      case "FLOOR_AREA" -> (floorAreaSqm != null ? floorAreaSqm : "?") + " sqm";
       default ->
           mod.getModifierType().replace("PROPERTY_TYPE_", "").replace("_", " ").toLowerCase()
               + " property";
@@ -208,6 +213,7 @@ public class PricingService {
   // ADMIN — READ
   // ═══════════════════════════════════════════════════════
 
+  @Transactional(readOnly = true)
   @Cacheable(value = "pricing-rules")
   public List<PricingRuleResponse> getActivePricingRules(final boolean activeOnly) {
     final List<PricingRule> rules =
@@ -215,6 +221,7 @@ public class PricingService {
     return rules.stream().map(this::toRuleResponse).toList();
   }
 
+  @Transactional(readOnly = true)
   public PricingRuleResponse getPricingRule(final UUID id) {
     final PricingRule rule =
         pricingRuleRepository
@@ -223,6 +230,7 @@ public class PricingService {
     return toRuleResponse(rule);
   }
 
+  @Transactional(readOnly = true)
   @Cacheable(value = "urgency-multipliers")
   public List<UrgencyMultiplierResponse> getActiveUrgencyMultipliers() {
     return urgencyMultiplierRepository.findByIsActiveTrue().stream()
@@ -230,7 +238,8 @@ public class PricingService {
         .toList();
   }
 
-  @Cacheable(value = "certificate-types", key = "T(java.time.LocalDate).now().toString()")
+  @Transactional(readOnly = true)
+  @Cacheable(value = "certificate-types", key = "T(java.time.LocalDate).now(@clock).toString()")
   public CertificateTypesResponse getCertificateTypes() {
     final List<PricingRule> activeRules = pricingRuleRepository.findAllActiveNationalForToday();
 

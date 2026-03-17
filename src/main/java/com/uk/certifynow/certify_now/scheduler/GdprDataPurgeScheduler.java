@@ -98,10 +98,9 @@ public class GdprDataPurgeScheduler {
         .findByUserIdIncludingDeleted(userId)
         .ifPresent(
             profile -> {
-              // CustomerProfile doesn't have direct PII fields beyond the user FK,
-              // but clear any that exist
-              customerProfileRepository.save(profile);
-              log.debug("GDPR purge: anonymized customer profile for user {}", userId);
+              // CustomerProfile has no standalone PII fields beyond the user FK —
+              // no fields to clear, no save needed.
+              log.debug("GDPR purge: customer profile checked for user {}", userId);
             });
   }
 

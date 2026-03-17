@@ -77,11 +77,15 @@ public class BookingController {
 
     switch (item.type()) {
       case "GAS_SAFETY" -> {
-        overdue = countStatus(properties, "gasStatus", "EXPIRED");
+        overdue =
+            countStatus(properties, "gasStatus", "EXPIRED")
+                + countStatus(properties, "gasStatus", "MISSING");
         expiringSoon = countStatus(properties, "gasStatus", "EXPIRING_SOON");
       }
       case "EICR" -> {
-        overdue = countStatus(properties, "eicrStatus", "EXPIRED");
+        overdue =
+            countStatus(properties, "eicrStatus", "EXPIRED")
+                + countStatus(properties, "eicrStatus", "MISSING");
         expiringSoon = countStatus(properties, "eicrStatus", "EXPIRING_SOON");
       }
       default -> {

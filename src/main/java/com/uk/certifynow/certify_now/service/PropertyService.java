@@ -17,6 +17,7 @@ import com.uk.certifynow.certify_now.service.mappers.PropertyMapper;
 import com.uk.certifynow.certify_now.util.NotFoundException;
 import com.uk.certifynow.certify_now.util.ReferencedException;
 import java.io.IOException;
+import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -45,6 +46,7 @@ public class PropertyService {
   private final ApplicationEventPublisher publisher;
   private final PropertyMapper propertyMapper;
   private final ComplianceService complianceService;
+  private final Clock clock;
 
   public PropertyService(
       final PropertyRepository propertyRepository,
@@ -52,13 +54,15 @@ public class PropertyService {
       final JobRepository jobRepository,
       final ApplicationEventPublisher publisher,
       final PropertyMapper propertyMapper,
-      final ComplianceService complianceService) {
+      final ComplianceService complianceService,
+      final Clock clock) {
     this.propertyRepository = propertyRepository;
     this.userRepository = userRepository;
     this.jobRepository = jobRepository;
     this.publisher = publisher;
     this.propertyMapper = propertyMapper;
     this.complianceService = complianceService;
+    this.clock = clock;
   }
 
   public Page<PropertyDTO> findAll(final Pageable pageable) {
@@ -131,7 +135,7 @@ public class PropertyService {
     property.setOwner(owner);
     property.setIsActive(true);
     if (property.getId() == null) {
-      final java.time.OffsetDateTime now = java.time.OffsetDateTime.now();
+      final OffsetDateTime now = OffsetDateTime.now(clock);
       property.setCreatedAt(now);
       property.setUpdatedAt(now);
     }
@@ -150,7 +154,7 @@ public class PropertyService {
   public PropertyDTO update(final UUID id, final PropertyDTO propertyDTO, final UUID userId) {
     final Property property = propertyRepository.findById(id).orElseThrow(NotFoundException::new);
     assertOwnership(property, userId);
-    final java.time.OffsetDateTime createdAt = property.getCreatedAt();
+    final OffsetDateTime createdAt = property.getCreatedAt();
 
     // Resolve owner reference from UUID before the duplicate check
     final User owner =
@@ -177,7 +181,7 @@ public class PropertyService {
     propertyMapper.updateEntity(propertyDTO, property);
     property.setOwner(owner);
     property.setCreatedAt(createdAt);
-    property.setUpdatedAt(java.time.OffsetDateTime.now());
+    property.setUpdatedAt(OffsetDateTime.now(clock));
     final Property saved = propertyRepository.save(property);
     log.info("Property {} updated", id);
     return enriched(propertyMapper.toDTO(saved));
@@ -224,7 +228,7 @@ public class PropertyService {
           HttpStatus.CONFLICT, "ACTIVE_JOBS_EXIST", "Cannot soft-delete property with active jobs");
     }
 
-    final OffsetDateTime now = OffsetDateTime.now();
+    final OffsetDateTime now = OffsetDateTime.now(clock);
     property.setDeletedAt(now);
     property.setDeletedBy(deletedByUserId);
     propertyRepository.save(property);
@@ -276,7 +280,7 @@ public class PropertyService {
         throw new RuntimeException("Failed to read gas cert PDF", e);
       }
     }
-    property.setUpdatedAt(java.time.OffsetDateTime.now());
+    property.setUpdatedAt(OffsetDateTime.now(clock));
     final Property saved = propertyRepository.save(property);
     log.info("Gas certificate updated for property {}", id);
     return enriched(propertyMapper.toDTO(saved));
@@ -306,7 +310,7 @@ public class PropertyService {
         throw new RuntimeException("Failed to read EICR PDF", e);
       }
     }
-    property.setUpdatedAt(java.time.OffsetDateTime.now());
+    property.setUpdatedAt(OffsetDateTime.now(clock));
     final Property saved = propertyRepository.save(property);
     log.info("EICR certificate updated for property {}", id);
     return enriched(propertyMapper.toDTO(saved));

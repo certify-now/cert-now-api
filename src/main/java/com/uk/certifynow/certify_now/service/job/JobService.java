@@ -39,6 +39,7 @@ import com.uk.certifynow.certify_now.rest.dto.pricing.PriceBreakdown;
 import com.uk.certifynow.certify_now.service.auth.UserRole;
 import com.uk.certifynow.certify_now.util.ReferencedException;
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
@@ -84,6 +85,7 @@ public class JobService {
   private final ReferenceNumberGenerator referenceNumberGenerator;
   private final ApplicationEventPublisher publisher;
   private final ObjectMapper objectMapper;
+  private final Clock clock;
 
   public JobService(
       final JobRepository jobRepository,
@@ -95,7 +97,8 @@ public class JobService {
       final PricingCalculator pricingCalculator,
       final ReferenceNumberGenerator referenceNumberGenerator,
       final ApplicationEventPublisher publisher,
-      final ObjectMapper objectMapper) {
+      final ObjectMapper objectMapper,
+      final Clock clock) {
     this.jobRepository = jobRepository;
     this.userRepository = userRepository;
     this.propertyRepository = propertyRepository;
@@ -106,6 +109,7 @@ public class JobService {
     this.referenceNumberGenerator = referenceNumberGenerator;
     this.publisher = publisher;
     this.objectMapper = objectMapper;
+    this.clock = clock;
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -237,8 +241,8 @@ public class JobService {
     job.setCommissionRate(price.commissionRate());
     job.setCommissionPence(price.commissionPence());
     job.setEngineerPayoutPence(price.engineerPayoutPence());
-    job.setCreatedAt(OffsetDateTime.now());
-    job.setUpdatedAt(OffsetDateTime.now());
+    job.setCreatedAt(OffsetDateTime.now(clock));
+    job.setUpdatedAt(OffsetDateTime.now(clock));
     return job;
   }
 
@@ -253,8 +257,8 @@ public class JobService {
     // Stub values — real Stripe integration in Phase 8
     payment.setStripePaymentIntentId("stub_pi_" + job.getId());
     payment.setStripeClientSecret("stub_secret_" + job.getId());
-    payment.setCreatedAt(OffsetDateTime.now());
-    payment.setUpdatedAt(OffsetDateTime.now());
+    payment.setCreatedAt(OffsetDateTime.now(clock));
+    payment.setUpdatedAt(OffsetDateTime.now(clock));
     return payment;
   }
 
@@ -359,10 +363,10 @@ public class JobService {
     }
 
     job.setEngineer(engineer);
-    job.setMatchedAt(OffsetDateTime.now());
+    job.setMatchedAt(OffsetDateTime.now(clock));
     job.setStatus("MATCHED");
     job.setMatchAttempts(job.getMatchAttempts() + 1);
-    job.setUpdatedAt(OffsetDateTime.now());
+    job.setUpdatedAt(OffsetDateTime.now(clock));
     final Job saved = jobRepository.save(job);
 
     recordHistory(saved, "CREATED", "MATCHED", adminId, "ADMIN", null, null);
@@ -388,7 +392,7 @@ public class JobService {
     validateTransition(JobStatus.fromString(job.getStatus()), JobStatus.ACCEPTED);
 
     // Validate scheduled date is within 14 days
-    final LocalDate today = LocalDate.now();
+    final LocalDate today = LocalDate.now(clock);
     final LocalDate maxDate = today.plusDays(14);
     if (request.scheduledDate().isBefore(today) || request.scheduledDate().isAfter(maxDate)) {
       throw new BusinessException(
@@ -400,8 +404,8 @@ public class JobService {
     job.setStatus("ACCEPTED");
     job.setScheduledDate(request.scheduledDate());
     job.setScheduledTimeSlot(request.scheduledTimeSlot());
-    job.setAcceptedAt(OffsetDateTime.now());
-    job.setUpdatedAt(OffsetDateTime.now());
+    job.setAcceptedAt(OffsetDateTime.now(clock));
+    job.setUpdatedAt(OffsetDateTime.now(clock));
     final Job saved = jobRepository.save(job);
 
     recordHistory(saved, "MATCHED", "ACCEPTED", engineerId, "ENGINEER", null, null);
@@ -411,7 +415,7 @@ public class JobService {
         .findByJobIdAndEngineerId(jobId, engineerId)
         .ifPresent(
             log -> {
-              log.setRespondedAt(OffsetDateTime.now());
+              log.setRespondedAt(OffsetDateTime.now(clock));
               log.setResponse("ACCEPTED");
               matchLogRepository.save(log);
             });
@@ -441,7 +445,7 @@ public class JobService {
     job.setEngineer(null);
     job.setMatchedAt(null);
     job.setMatchAttempts(job.getMatchAttempts() + 1);
-    job.setUpdatedAt(OffsetDateTime.now());
+    job.setUpdatedAt(OffsetDateTime.now(clock));
     final Job saved = jobRepository.save(job);
 
     recordHistory(saved, prevStatus, "CREATED", engineerId, "ENGINEER", request.reason(), null);
@@ -451,7 +455,7 @@ public class JobService {
         .findByJobIdAndEngineerId(jobId, engineerId)
         .ifPresent(
             log -> {
-              log.setRespondedAt(OffsetDateTime.now());
+              log.setRespondedAt(OffsetDateTime.now(clock));
               log.setResponse("DECLINED");
               log.setDeclineReason(request.reason());
               matchLogRepository.save(log);
@@ -475,8 +479,8 @@ public class JobService {
     validateTransition(JobStatus.fromString(job.getStatus()), JobStatus.EN_ROUTE);
 
     job.setStatus("EN_ROUTE");
-    job.setEnRouteAt(OffsetDateTime.now());
-    job.setUpdatedAt(OffsetDateTime.now());
+    job.setEnRouteAt(OffsetDateTime.now(clock));
+    job.setUpdatedAt(OffsetDateTime.now(clock));
     final Job saved = jobRepository.save(job);
 
     recordHistory(saved, "ACCEPTED", "EN_ROUTE", engineerId, "ENGINEER", null, null);
@@ -507,10 +511,10 @@ public class JobService {
     // request.longitude(), job.getProperty().getId()) > 200 → throw GPS_TOO_FAR
 
     job.setStatus("IN_PROGRESS");
-    job.setStartedAt(OffsetDateTime.now());
+    job.setStartedAt(OffsetDateTime.now(clock));
     job.setEngineerStartLat(request.latitude());
     job.setEngineerStartLng(request.longitude());
-    job.setUpdatedAt(OffsetDateTime.now());
+    job.setUpdatedAt(OffsetDateTime.now(clock));
     final Job saved = jobRepository.save(job);
 
     recordHistory(saved, "EN_ROUTE", "IN_PROGRESS", engineerId, "ENGINEER", null, null);
@@ -533,8 +537,8 @@ public class JobService {
     authoriseEngineer(job, engineerId);
 
     job.setStatus("COMPLETED");
-    job.setCompletedAt(OffsetDateTime.now());
-    job.setUpdatedAt(OffsetDateTime.now());
+    job.setCompletedAt(OffsetDateTime.now(clock));
+    job.setUpdatedAt(OffsetDateTime.now(clock));
     final Job saved = jobRepository.save(job);
 
     recordHistory(saved, "IN_PROGRESS", "COMPLETED", engineerId, "ENGINEER", null, null);
@@ -555,8 +559,8 @@ public class JobService {
     validateTransition(JobStatus.fromString(job.getStatus()), JobStatus.CERTIFIED);
 
     job.setStatus("CERTIFIED");
-    job.setCertifiedAt(OffsetDateTime.now());
-    job.setUpdatedAt(OffsetDateTime.now());
+    job.setCertifiedAt(OffsetDateTime.now(clock));
+    job.setUpdatedAt(OffsetDateTime.now(clock));
     jobRepository.save(job);
 
     final UUID engineerId = job.getEngineer() != null ? job.getEngineer().getId() : null;
@@ -594,10 +598,10 @@ public class JobService {
 
     final String prevStatus = job.getStatus();
     job.setStatus("CANCELLED");
-    job.setCancelledAt(OffsetDateTime.now());
+    job.setCancelledAt(OffsetDateTime.now(clock));
     job.setCancelledBy(actor.name());
     job.setCancellationReason(request.reason());
-    job.setUpdatedAt(OffsetDateTime.now());
+    job.setUpdatedAt(OffsetDateTime.now(clock));
     final Job saved = jobRepository.save(job);
 
     // Update payment refund fields (actual Stripe refund happens in Phase 8)
@@ -753,7 +757,7 @@ public class JobService {
       case ACCEPTED -> {
         // >24h before scheduled start: 100%, <24h: 80%
         final OffsetDateTime scheduledStart = scheduledStart(job);
-        if (scheduledStart != null && OffsetDateTime.now().plusHours(24).isAfter(scheduledStart)) {
+        if (scheduledStart != null && OffsetDateTime.now(clock).plusHours(24).isAfter(scheduledStart)) {
           yield (int) (total * 0.80); // 80% refund
         }
         yield total; // 100% refund
@@ -791,7 +795,7 @@ public class JobService {
     history.setActorType(actorType);
     history.setReason(reason);
     history.setMetadata(metadata);
-    history.setCreatedAt(OffsetDateTime.now());
+    history.setCreatedAt(OffsetDateTime.now(clock));
     historyRepository.save(history);
   }
 
@@ -802,9 +806,9 @@ public class JobService {
     log.setEngineer(engineer);
     log.setMatchScore(score);
     log.setDistanceMiles(distance);
-    log.setNotifiedAt(OffsetDateTime.now());
-    log.setOfferedAt(OffsetDateTime.now());
-    log.setCreatedAt(OffsetDateTime.now());
+    log.setNotifiedAt(OffsetDateTime.now(clock));
+    log.setOfferedAt(OffsetDateTime.now(clock));
+    log.setCreatedAt(OffsetDateTime.now(clock));
     matchLogRepository.save(log);
   }
 
@@ -931,8 +935,8 @@ public class JobService {
 
     job.setScheduledDate(request.scheduledDate());
     job.setScheduledTimeSlot(request.scheduledTimeSlot());
-    job.setScheduledAt(OffsetDateTime.now());
-    job.setUpdatedAt(OffsetDateTime.now());
+    job.setScheduledAt(OffsetDateTime.now(clock));
+    job.setUpdatedAt(OffsetDateTime.now(clock));
     jobRepository.save(job);
 
     return toJobResponse(job, null);

@@ -18,6 +18,7 @@ import com.uk.certifynow.certify_now.service.auth.UserRole;
 import com.uk.certifynow.certify_now.service.auth.UserStatus;
 import com.uk.certifynow.certify_now.service.mappers.UserMapper;
 import com.uk.certifynow.certify_now.util.NotFoundException;
+import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -45,6 +46,7 @@ public class UserService {
   private final RefreshTokenRepository refreshTokenRepository;
   private final ApplicationEventPublisher publisher;
   private final UserMapper userMapper;
+  private final Clock clock;
 
   public UserService(
       final UserRepository userRepository,
@@ -53,7 +55,8 @@ public class UserService {
       final EngineerProfileRepository engineerProfileRepository,
       final RefreshTokenRepository refreshTokenRepository,
       final ApplicationEventPublisher publisher,
-      final UserMapper userMapper) {
+      final UserMapper userMapper,
+      final Clock clock) {
     this.userRepository = userRepository;
     this.jobRepository = jobRepository;
     this.customerProfileRepository = customerProfileRepository;
@@ -61,6 +64,7 @@ public class UserService {
     this.refreshTokenRepository = refreshTokenRepository;
     this.publisher = publisher;
     this.userMapper = userMapper;
+    this.clock = clock;
   }
 
   @Cacheable("users_all")
@@ -144,7 +148,7 @@ public class UserService {
       user.setAvatarUrl(updateMeRequest.getAvatarUrl().trim());
     }
 
-    user.setUpdatedAt(OffsetDateTime.now());
+    user.setUpdatedAt(OffsetDateTime.now(clock));
     userRepository.save(user);
     log.info("User {} updated their profile", id);
   }
@@ -190,7 +194,7 @@ public class UserService {
           HttpStatus.CONFLICT, "ACTIVE_JOBS_EXIST", "Cannot soft-delete user with active jobs");
     }
 
-    final OffsetDateTime now = OffsetDateTime.now();
+    final OffsetDateTime now = OffsetDateTime.now(clock);
     user.setDeletedAt(now);
     user.setDeletedBy(deletedByUserId);
     user.setStatus(UserStatus.DEACTIVATED);
@@ -230,7 +234,7 @@ public class UserService {
       throw new BusinessException(HttpStatus.CONFLICT, "NOT_DELETED", "User is not soft-deleted");
     }
 
-    final OffsetDateTime now = OffsetDateTime.now();
+    final OffsetDateTime now = OffsetDateTime.now(clock);
     user.setDeletedAt(null);
     user.setDeletedBy(null);
     user.setStatus(UserStatus.ACTIVE);

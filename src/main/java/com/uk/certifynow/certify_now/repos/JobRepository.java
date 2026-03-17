@@ -24,36 +24,30 @@ public interface JobRepository extends JpaRepository<Job, UUID> {
   Job findFirstByPropertyId(UUID id);
 
   // ── Customer list queries ──────────────────────────────────────────────────
-  @EntityGraph(attributePaths = {"property", "engineer"})
-  Page<Job> findByCustomerIdOrderByCreatedAtDesc(UUID customerId, Pageable pageable);
-
-  @EntityGraph(attributePaths = {"property", "engineer"})
-  Page<Job> findByCustomerIdAndStatusInOrderByCreatedAtDesc(
-      UUID customerId, List<String> statuses, Pageable pageable);
-
-  @EntityGraph(attributePaths = {"property", "engineer"})
-  Page<Job> findByCustomerIdAndCertificateTypeOrderByCreatedAtDesc(
-      UUID customerId, String certificateType, Pageable pageable);
-
-  @EntityGraph(attributePaths = {"property", "engineer"})
-  Page<Job> findByCustomerIdAndStatusInAndCertificateTypeOrderByCreatedAtDesc(
-      UUID customerId, List<String> statuses, String certificateType, Pageable pageable);
+  @Query(
+      "SELECT j FROM Job j JOIN FETCH j.property LEFT JOIN FETCH j.engineer "
+          + "WHERE j.customer.id = :customerId "
+          + "AND (:statuses IS NULL OR j.status IN :statuses) "
+          + "AND (:certificateType IS NULL OR j.certificateType = :certificateType) "
+          + "ORDER BY j.createdAt DESC")
+  Page<Job> findByCustomerWithFilters(
+      @Param("customerId") UUID customerId,
+      @Param("statuses") List<String> statuses,
+      @Param("certificateType") String certificateType,
+      Pageable pageable);
 
   // ── Engineer list queries ──────────────────────────────────────────────────
-  @EntityGraph(attributePaths = {"property", "engineer"})
-  Page<Job> findByEngineerIdOrderByCreatedAtDesc(UUID engineerId, Pageable pageable);
-
-  @EntityGraph(attributePaths = {"property", "engineer"})
-  Page<Job> findByEngineerIdAndStatusInOrderByCreatedAtDesc(
-      UUID engineerId, List<String> statuses, Pageable pageable);
-
-  @EntityGraph(attributePaths = {"property", "engineer"})
-  Page<Job> findByEngineerIdAndCertificateTypeOrderByCreatedAtDesc(
-      UUID engineerId, String certificateType, Pageable pageable);
-
-  @EntityGraph(attributePaths = {"property", "engineer"})
-  Page<Job> findByEngineerIdAndStatusInAndCertificateTypeOrderByCreatedAtDesc(
-      UUID engineerId, List<String> statuses, String certificateType, Pageable pageable);
+  @Query(
+      "SELECT j FROM Job j JOIN FETCH j.property LEFT JOIN FETCH j.engineer "
+          + "WHERE j.engineer.id = :engineerId "
+          + "AND (:statuses IS NULL OR j.status IN :statuses) "
+          + "AND (:certificateType IS NULL OR j.certificateType = :certificateType) "
+          + "ORDER BY j.createdAt DESC")
+  Page<Job> findByEngineerWithFilters(
+      @Param("engineerId") UUID engineerId,
+      @Param("statuses") List<String> statuses,
+      @Param("certificateType") String certificateType,
+      Pageable pageable);
 
   // ── Admin list queries (all jobs with optional filters) ───────────────────
   @Query(

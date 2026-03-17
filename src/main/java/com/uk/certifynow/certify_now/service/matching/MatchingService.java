@@ -15,6 +15,7 @@ import com.uk.certifynow.certify_now.repos.UserRepository;
 import com.uk.certifynow.certify_now.rest.dto.job.DayAvailability;
 import com.uk.certifynow.certify_now.rest.dto.job.JobResponse;
 import com.uk.certifynow.certify_now.service.job.JobStatus;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -48,6 +49,7 @@ public class MatchingService {
   private final UserRepository userRepository;
   private final ApplicationEventPublisher publisher;
   private final ObjectMapper objectMapper;
+  private final Clock clock;
 
   @Value("${certifynow.matching.broadcast-expiry-minutes:15}")
   private int broadcastExpiryMinutes;
@@ -58,13 +60,15 @@ public class MatchingService {
       final JobMatchLogRepository matchLogRepository,
       final UserRepository userRepository,
       final ApplicationEventPublisher publisher,
-      final ObjectMapper objectMapper) {
+      final ObjectMapper objectMapper,
+      final Clock clock) {
     this.jobRepository = jobRepository;
     this.engineerProfileRepository = engineerProfileRepository;
     this.matchLogRepository = matchLogRepository;
     this.userRepository = userRepository;
     this.publisher = publisher;
     this.objectMapper = objectMapper;
+    this.clock = clock;
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -99,7 +103,7 @@ public class MatchingService {
     final List<EngineerProfile> nearby = engineerProfileRepository.findNearbyApproved(lat, lng);
 
     // Filter: daily job cap check — batch query to avoid N+1
-    final OffsetDateTime startOfDay = LocalDate.now().atStartOfDay().atOffset(ZoneOffset.UTC);
+    final OffsetDateTime startOfDay = LocalDate.now(clock).atStartOfDay().atOffset(ZoneOffset.UTC);
     final List<UUID> nearbyIds = nearby.stream().map(ep -> ep.getUser().getId()).toList();
     final Map<UUID, Long> jobCountByEngineerId =
         jobRepository.countEngineerJobsTodayBatch(nearbyIds, startOfDay).stream()
@@ -169,12 +173,12 @@ public class MatchingService {
 
     // Update job status to AWAITING_ACCEPTANCE
     job.setStatus("AWAITING_ACCEPTANCE");
-    job.setBroadcastAt(OffsetDateTime.now());
-    job.setUpdatedAt(OffsetDateTime.now());
+    job.setBroadcastAt(OffsetDateTime.now(clock));
+    job.setUpdatedAt(OffsetDateTime.now(clock));
     jobRepository.save(job);
 
     // Create match log entries and "notify" each engineer
-    final OffsetDateTime now = OffsetDateTime.now();
+    final OffsetDateTime now = OffsetDateTime.now(clock);
     final List<JobMatchLog> matchLogs = new java.util.ArrayList<>(candidates.size());
     for (final EngineerProfile ep : candidates) {
       final JobMatchLog matchLog = new JobMatchLog();
@@ -229,7 +233,7 @@ public class MatchingService {
                         "Engineer was not notified about this job"));
 
     // Atomic conditional update — only succeeds if job is still AWAITING_ACCEPTANCE
-    final OffsetDateTime now = OffsetDateTime.now();
+    final OffsetDateTime now = OffsetDateTime.now(clock);
     final int updatedRows = jobRepository.claimJob(jobId, engineer, now);
 
     if (updatedRows == 0) {
@@ -274,8 +278,8 @@ public class MatchingService {
     log.warn("Escalating job {} — no engineer accepted within timeout", job.getId());
 
     job.setStatus("ESCALATED");
-    job.setEscalatedAt(OffsetDateTime.now());
-    job.setUpdatedAt(OffsetDateTime.now());
+    job.setEscalatedAt(OffsetDateTime.now(clock));
+    job.setUpdatedAt(OffsetDateTime.now(clock));
     jobRepository.save(job);
 
     // Expire all pending match log entries

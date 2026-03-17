@@ -31,6 +31,7 @@ import com.uk.certifynow.certify_now.rest.dto.inspection.EpcRecordResponse.Docum
 import com.uk.certifynow.certify_now.rest.dto.inspection.EpcRecordResponse.PhotosSummary;
 import com.uk.certifynow.certify_now.rest.dto.inspection.EpcRecordResponse.PreAssessmentSummary;
 import com.uk.certifynow.certify_now.service.job.JobStatus;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Collections;
@@ -59,18 +60,21 @@ public class EpcInspectionService {
   private final CertificateRepository certificateRepository;
   private final JobStatusHistoryRepository historyRepository;
   private final ApplicationEventPublisher publisher;
+  private final Clock clock;
 
   public EpcInspectionService(
       final EpcAssessmentRepository epcAssessmentRepository,
       final JobRepository jobRepository,
       final CertificateRepository certificateRepository,
       final JobStatusHistoryRepository historyRepository,
-      final ApplicationEventPublisher publisher) {
+      final ApplicationEventPublisher publisher,
+      final Clock clock) {
     this.epcAssessmentRepository = epcAssessmentRepository;
     this.jobRepository = jobRepository;
     this.certificateRepository = certificateRepository;
     this.historyRepository = historyRepository;
     this.publisher = publisher;
+    this.clock = clock;
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -133,8 +137,8 @@ public class EpcInspectionService {
     // The status change, history record, and events are all committed as one unit —
     // no post-commit listener is needed for the job status.
     job.setStatus("CERTIFIED");
-    job.setCertifiedAt(OffsetDateTime.now());
-    job.setUpdatedAt(OffsetDateTime.now());
+    job.setCertifiedAt(OffsetDateTime.now(clock));
+    job.setUpdatedAt(OffsetDateTime.now(clock));
     jobRepository.save(job);
 
     // 10. Record COMPLETED → CERTIFIED status history entry.
@@ -183,18 +187,18 @@ public class EpcInspectionService {
 
   private Certificate issueCertificate(final Job job, final EpcAssessment assessment) {
     final Certificate certificate = new Certificate();
-    final String certNumber = "EPC-" + job.getReferenceNumber() + "-" + LocalDate.now().getYear();
+    final String certNumber = "EPC-" + job.getReferenceNumber() + "-" + LocalDate.now(clock).getYear();
     certificate.setCertificateNumber(certNumber);
     certificate.setCertificateType("EPC");
-    certificate.setIssuedAt(LocalDate.now());
-    certificate.setExpiryAt(LocalDate.now().plusYears(10));
+    certificate.setIssuedAt(LocalDate.now(clock));
+    certificate.setExpiryAt(LocalDate.now(clock).plusYears(10));
     certificate.setStatus("ACTIVE");
     certificate.setResult("PASS");
     certificate.setJob(job);
     certificate.setProperty(job.getProperty());
     certificate.setIssuedByEngineer(job.getEngineer());
-    certificate.setCreatedAt(OffsetDateTime.now());
-    certificate.setUpdatedAt(OffsetDateTime.now());
+    certificate.setCreatedAt(OffsetDateTime.now(clock));
+    certificate.setUpdatedAt(OffsetDateTime.now(clock));
     return certificateRepository.save(certificate);
   }
 
@@ -207,7 +211,7 @@ public class EpcInspectionService {
       if (!existing.getId().equals(newCertificate.getId())) {
         existing.setStatus("SUPERSEDED");
         existing.setSupersededBy(newCertificate);
-        existing.setUpdatedAt(OffsetDateTime.now());
+        existing.setUpdatedAt(OffsetDateTime.now(clock));
         certificateRepository.save(existing);
       }
     }
@@ -410,7 +414,7 @@ public class EpcInspectionService {
     h.setToStatus(toStatus);
     h.setActorId(actorId);
     h.setActorType(actorType);
-    h.setCreatedAt(OffsetDateTime.now());
+    h.setCreatedAt(OffsetDateTime.now(clock));
     historyRepository.save(h);
   }
 }

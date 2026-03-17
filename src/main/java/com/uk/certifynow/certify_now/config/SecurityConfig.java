@@ -149,23 +149,23 @@ public class SecurityConfig {
                     // ═══════════════════════════════════════════════════════
                     .requestMatchers(HttpMethod.POST, "/api/v1/jobs")
                     .hasRole("CUSTOMER")
-                    .requestMatchers(HttpMethod.PUT, "/api/v1/jobs/*/accept")
+                    .requestMatchers(HttpMethod.PUT, "/api/v1/jobs/{id}/accept")
                     .hasRole("ENGINEER")
-                    .requestMatchers(HttpMethod.PUT, "/api/v1/jobs/*/decline")
+                    .requestMatchers(HttpMethod.PUT, "/api/v1/jobs/{id}/decline")
                     .hasRole("ENGINEER")
-                    .requestMatchers(HttpMethod.PUT, "/api/v1/jobs/*/en-route")
+                    .requestMatchers(HttpMethod.PUT, "/api/v1/jobs/{id}/en-route")
                     .hasRole("ENGINEER")
-                    .requestMatchers(HttpMethod.PUT, "/api/v1/jobs/*/start")
+                    .requestMatchers(HttpMethod.PUT, "/api/v1/jobs/{id}/start")
                     .hasRole("ENGINEER")
-                    .requestMatchers(HttpMethod.PUT, "/api/v1/jobs/*/complete")
+                    .requestMatchers(HttpMethod.PUT, "/api/v1/jobs/{id}/complete")
                     .hasRole("ENGINEER")
-                    .requestMatchers(HttpMethod.PUT, "/api/v1/jobs/*/propose-schedule")
+                    .requestMatchers(HttpMethod.PUT, "/api/v1/jobs/{id}/propose-schedule")
                     .hasRole("ENGINEER")
 
                     // ═══════════════════════════════════════════════════════
                     // INSPECTION ENDPOINTS
                     // ═══════════════════════════════════════════════════════
-                    .requestMatchers(HttpMethod.POST, "/api/v1/jobs/*/inspection/gas-safety")
+                    .requestMatchers(HttpMethod.POST, "/api/v1/jobs/{id}/inspection/gas-safety")
                     .hasRole("ENGINEER")
                     // GET inspection: ownership enforced in service layer —
                     // only the assigned engineer or the booking customer may read.

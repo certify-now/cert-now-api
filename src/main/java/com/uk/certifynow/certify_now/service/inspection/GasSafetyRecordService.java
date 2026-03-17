@@ -39,6 +39,7 @@ import com.uk.certifynow.certify_now.rest.dto.inspection.GasSafetyRecordResponse
 import com.uk.certifynow.certify_now.rest.dto.inspection.MetadataRequest;
 import com.uk.certifynow.certify_now.rest.dto.inspection.SignaturesRequest;
 import com.uk.certifynow.certify_now.service.job.JobStatus;
+import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -58,18 +59,21 @@ public class GasSafetyRecordService {
   private final CertificateRepository certificateRepository;
   private final JobStatusHistoryRepository historyRepository;
   private final ApplicationEventPublisher publisher;
+  private final Clock clock;
 
   public GasSafetyRecordService(
       final GasSafetyRecordRepository gasSafetyRecordRepository,
       final JobRepository jobRepository,
       final CertificateRepository certificateRepository,
       final JobStatusHistoryRepository historyRepository,
-      final ApplicationEventPublisher publisher) {
+      final ApplicationEventPublisher publisher,
+      final Clock clock) {
     this.gasSafetyRecordRepository = gasSafetyRecordRepository;
     this.jobRepository = jobRepository;
     this.certificateRepository = certificateRepository;
     this.historyRepository = historyRepository;
     this.publisher = publisher;
+    this.clock = clock;
   }
 
   @CacheEvict(value = "jobs", key = "#jobId")
@@ -142,8 +146,8 @@ public class GasSafetyRecordService {
     // The status change, history record, and events are all committed as one unit —
     // no post-commit listener is needed for the job status.
     job.setStatus("CERTIFIED");
-    job.setCertifiedAt(OffsetDateTime.now());
-    job.setUpdatedAt(OffsetDateTime.now());
+    job.setCertifiedAt(OffsetDateTime.now(clock));
+    job.setUpdatedAt(OffsetDateTime.now(clock));
     jobRepository.save(job);
 
     // 11. Record COMPLETED → CERTIFIED status history entry.
@@ -193,8 +197,8 @@ public class GasSafetyRecordService {
     certificate.setJob(job);
     certificate.setProperty(job.getProperty());
     certificate.setIssuedByEngineer(job.getEngineer());
-    certificate.setCreatedAt(OffsetDateTime.now());
-    certificate.setUpdatedAt(OffsetDateTime.now());
+    certificate.setCreatedAt(OffsetDateTime.now(clock));
+    certificate.setUpdatedAt(OffsetDateTime.now(clock));
     return certificateRepository.save(certificate);
   }
 
@@ -207,7 +211,7 @@ public class GasSafetyRecordService {
       if (!existing.getId().equals(newCertificate.getId())) {
         existing.setStatus("SUPERSEDED");
         existing.setSupersededBy(newCertificate);
-        existing.setUpdatedAt(OffsetDateTime.now());
+        existing.setUpdatedAt(OffsetDateTime.now(clock));
         certificateRepository.save(existing);
       }
     }
@@ -587,7 +591,7 @@ public class GasSafetyRecordService {
     h.setToStatus(toStatus);
     h.setActorId(actorId);
     h.setActorType(actorType);
-    h.setCreatedAt(java.time.OffsetDateTime.now());
+    h.setCreatedAt(OffsetDateTime.now(clock));
     historyRepository.save(h);
   }
 }

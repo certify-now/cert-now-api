@@ -22,6 +22,7 @@ import com.uk.certifynow.certify_now.rest.dto.pricing.UpdateUrgencyMultiplierReq
 import com.uk.certifynow.certify_now.rest.dto.pricing.UrgencyMultiplierResponse;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -47,18 +48,21 @@ public class PricingService {
   private final UrgencyMultiplierRepository urgencyMultiplierRepository;
   private final PropertyRepository propertyRepository;
   private final BigDecimal commissionRate;
+  private final Clock clock;
 
   public PricingService(
       final PricingRuleRepository pricingRuleRepository,
       final PricingModifierRepository pricingModifierRepository,
       final UrgencyMultiplierRepository urgencyMultiplierRepository,
       final PropertyRepository propertyRepository,
-      @Value("${app.pricing.commission-rate:0.15}") final BigDecimal commissionRate) {
+      @Value("${app.pricing.commission-rate:0.15}") final BigDecimal commissionRate,
+      final Clock clock) {
     this.pricingRuleRepository = pricingRuleRepository;
     this.pricingModifierRepository = pricingModifierRepository;
     this.urgencyMultiplierRepository = urgencyMultiplierRepository;
     this.propertyRepository = propertyRepository;
     this.commissionRate = commissionRate;
+    this.clock = clock;
   }
 
   // ═══════════════════════════════════════════════════════
@@ -311,7 +315,7 @@ public class PricingService {
     rule.setEffectiveFrom(newFrom);
     rule.setEffectiveTo(newTo);
     rule.setIsActive(true);
-    rule.setCreatedAt(OffsetDateTime.now());
+    rule.setCreatedAt(OffsetDateTime.now(clock));
 
     final PricingRuleResponse response = toRuleResponse(pricingRuleRepository.save(rule));
     log.info(
@@ -388,7 +392,7 @@ public class PricingService {
     modifier.setConditionMin(request.conditionMin());
     modifier.setConditionMax(request.conditionMax());
     modifier.setModifierPence(request.modifierPence());
-    modifier.setCreatedAt(OffsetDateTime.now());
+    modifier.setCreatedAt(OffsetDateTime.now(clock));
     modifier.setPricingRule(rule);
 
     pricingModifierRepository.save(modifier);

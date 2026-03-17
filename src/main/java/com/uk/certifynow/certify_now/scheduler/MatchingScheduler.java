@@ -3,6 +3,7 @@ package com.uk.certifynow.certify_now.scheduler;
 import com.uk.certifynow.certify_now.domain.Job;
 import com.uk.certifynow.certify_now.repos.JobRepository;
 import com.uk.certifynow.certify_now.service.matching.MatchingService;
+import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.List;
 import org.slf4j.Logger;
@@ -26,14 +27,18 @@ public class MatchingScheduler {
 
   private final JobRepository jobRepository;
   private final MatchingService matchingService;
+  private final Clock clock;
 
   @Value("${certifynow.matching.broadcast-expiry-minutes:15}")
   private int broadcastExpiryMinutes;
 
   public MatchingScheduler(
-      final JobRepository jobRepository, final MatchingService matchingService) {
+      final JobRepository jobRepository,
+      final MatchingService matchingService,
+      final Clock clock) {
     this.jobRepository = jobRepository;
     this.matchingService = matchingService;
+    this.clock = clock;
   }
 
   /**
@@ -66,7 +71,7 @@ public class MatchingScheduler {
    */
   @Scheduled(fixedRateString = "${certifynow.matching.expired-broadcast-check-interval-ms:30000}")
   public void processExpiredBroadcasts() {
-    final OffsetDateTime cutoff = OffsetDateTime.now().minusMinutes(broadcastExpiryMinutes);
+    final OffsetDateTime cutoff = OffsetDateTime.now(clock).minusMinutes(broadcastExpiryMinutes);
 
     final List<Job> expiredJobs =
         jobRepository.findByStatusAndBroadcastAtBefore("AWAITING_ACCEPTANCE", cutoff);

@@ -3,7 +3,6 @@ package com.uk.certifynow.certify_now.service.security;
 import com.uk.certifynow.certify_now.domain.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -59,12 +58,12 @@ public class JwtTokenProvider {
         .claim("status", user.getStatus().name())
         .issuedAt(Date.from(now))
         .expiration(Date.from(expiry))
-        .signWith(SignatureAlgorithm.HS512, key)
+        .signWith(key, Jwts.SIG.HS512)
         .compact();
   }
 
   public Claims parseClaims(final String token) {
-    return Jwts.parser().setSigningKey(key).build().parseClaimsJws(token).getBody();
+    return Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
   }
 
   /**

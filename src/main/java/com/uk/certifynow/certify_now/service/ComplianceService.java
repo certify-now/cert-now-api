@@ -3,6 +3,7 @@ package com.uk.certifynow.certify_now.service;
 import com.uk.certifynow.certify_now.model.ComplianceHealthDTO;
 import com.uk.certifynow.certify_now.model.PropertyComplianceItemDTO;
 import com.uk.certifynow.certify_now.model.PropertyDTO;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -20,6 +21,12 @@ public class ComplianceService {
   /** Certs expiring within this many days are flagged EXPIRING_SOON. */
   private static final int EXPIRY_WARNING_DAYS = 30;
 
+  private final Clock clock;
+
+  public ComplianceService(final Clock clock) {
+    this.clock = clock;
+  }
+
   // ── Per-certificate status ─────────────────────────────────────────────────
 
   /**
@@ -36,7 +43,7 @@ public class ComplianceService {
     if (!Boolean.TRUE.equals(hasCert) || expiryDate == null) {
       return "MISSING";
     }
-    LocalDate today = LocalDate.now();
+    LocalDate today = LocalDate.now(clock);
     if (expiryDate.isBefore(today)) {
       return "EXPIRED";
     }
@@ -51,7 +58,7 @@ public class ComplianceService {
     if (!"COMPLIANT".equals(certStatus) && !"EXPIRING_SOON".equals(certStatus)) {
       return null;
     }
-    return (int) ChronoUnit.DAYS.between(LocalDate.now(), expiryDate);
+    return (int) ChronoUnit.DAYS.between(LocalDate.now(clock), expiryDate);
   }
 
   // ── Per-property score ─────────────────────────────────────────────────────

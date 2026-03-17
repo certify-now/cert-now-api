@@ -39,9 +39,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
           "/api/v1/auth/verify-email",
           "/api/v1/auth/request-password-reset",
           "/api/v1/auth/reset-password",
+          "/api/v1/auth/resend-verification",
           "/api/v1/certificates/shared",
           "/api/v1/webhooks/stripe",
-          "/actuator/health");
+          "/actuator/health",
+          "/actuator/prometheus");
 
   private final JwtTokenProvider jwtTokenProvider;
   private final TokenDenylistService tokenDenylistService;

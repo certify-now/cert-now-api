@@ -1,3 +1,10 @@
+logging:
+  file:
+    name: ./logs/app.log
+  logback:
+    rollingpolicy:
+      file-name-pattern: ./logs/app.%d{yyyy-MM-dd}.%i.log.gz
+
 spring:
   config:
     import:

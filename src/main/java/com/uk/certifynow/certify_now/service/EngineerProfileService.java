@@ -229,9 +229,9 @@ public class EngineerProfileService {
 
   private EngineerProfileResponse toResponse(final EngineerProfile profile) {
     final int qualificationsCount =
-        engineerQualificationRepository.findAllByEngineerProfileId(profile.getId()).size();
+        (int) engineerQualificationRepository.countByEngineerProfileId(profile.getId());
     final int insuranceCount =
-        engineerInsuranceRepository.findAllByEngineerProfileId(profile.getId()).size();
+        (int) engineerInsuranceRepository.countByEngineerProfileId(profile.getId());
     final String availabilitySummary = profile.getIsOnline() ? "Online" : "Offline";
     return new EngineerProfileResponse(
         profile.getId(),

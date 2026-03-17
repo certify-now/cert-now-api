@@ -11,6 +11,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -106,11 +108,11 @@ public class AdminSoftDeleteController {
       summary = "List properties (optionally including deleted)",
       description =
           "Returns all properties. When include_deleted=true, includes soft-deleted properties.")
-  public ApiResponse<List<PropertyDTO>> listProperties(
+  public ApiResponse<Page<PropertyDTO>> listProperties(
       @RequestParam(name = "include_deleted", defaultValue = "false") final boolean includeDeleted,
+      final Pageable pageable,
       final HttpServletRequest httpRequest) {
-    final List<PropertyDTO> properties = propertyService.findAll();
-    return ApiResponse.of(properties, requestId(httpRequest));
+    return ApiResponse.of(propertyService.findAll(pageable), requestId(httpRequest));
   }
 
   @PutMapping("/properties/{id}/soft-delete")

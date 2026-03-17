@@ -485,7 +485,7 @@ public class JobController {
     return authentication.getAuthorities().stream()
         .map(GrantedAuthority::getAuthority)
         .filter(a -> a.startsWith("ROLE_"))
-        .map(a -> UserRole.fromDatabaseValue(a.replace("ROLE_", "")))
+        .map(a -> UserRole.valueOf(a.replace("ROLE_", "")))
         .findFirst()
         .orElse(UserRole.CUSTOMER);
   }

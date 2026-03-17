@@ -12,6 +12,8 @@ public interface EngineerInsuranceRepository extends JpaRepository<EngineerInsur
 
   List<EngineerInsurance> findAllByEngineerProfileId(UUID profileId);
 
+  long countByEngineerProfileId(UUID profileId);
+
   Optional<EngineerInsurance> findByEngineerProfileIdAndPolicyType(
       UUID profileId, String policyType);
 }

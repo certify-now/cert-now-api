@@ -45,6 +45,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.cache.annotation.CacheEvict;
@@ -600,14 +601,13 @@ public class JobService {
     final Job saved = jobRepository.save(job);
 
     // Update payment refund fields (actual Stripe refund happens in Phase 8)
-    paymentRepository
-        .findByJobId(jobId)
-        .ifPresent(
-            payment -> {
-              payment.setRefundAmountPence(refundPence);
-              payment.setRefundReason(request.reason());
-              paymentRepository.save(payment);
-            });
+    final Optional<Payment> paymentOpt = paymentRepository.findByJobId(jobId);
+    paymentOpt.ifPresent(
+        payment -> {
+          payment.setRefundAmountPence(refundPence);
+          payment.setRefundReason(request.reason());
+          paymentRepository.save(payment);
+        });
 
     final String metadataJson = "{\"refund_amount_pence\":" + refundPence + "}";
     recordHistory(
@@ -615,8 +615,7 @@ public class JobService {
 
     publisher.publishEvent(
         new JobCancelledEvent(saved.getId(), actor.name(), request.reason(), refundPence));
-    final Payment payment = paymentRepository.findByJobId(jobId).orElse(null);
-    return toJobResponse(saved, payment);
+    return toJobResponse(saved, paymentOpt.orElse(null));
   }
 
   // ────────────────────────────────────────────────────────────────────────────

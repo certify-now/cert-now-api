@@ -3,7 +3,6 @@ package com.uk.certifynow.certify_now.domain;
 import jakarta.persistence.Basic;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
@@ -22,9 +21,6 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.annotations.UuidGenerator;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
 @Table(
@@ -33,7 +29,6 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
             name = "uq_property_owner_address_postcode",
             columnNames = {"owner_id", "address_line1", "postcode"}))
 @SQLRestriction("deleted_at IS NULL")
-@EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter
 public class Property implements SoftDeletable {
@@ -147,12 +142,4 @@ public class Property implements SoftDeletable {
 
   @Column(name = "deleted_by")
   private UUID deletedBy;
-
-  @CreatedDate
-  @Column(nullable = false, updatable = false)
-  private OffsetDateTime dateCreated;
-
-  @LastModifiedDate
-  @Column(nullable = false)
-  private OffsetDateTime lastUpdated;
 }

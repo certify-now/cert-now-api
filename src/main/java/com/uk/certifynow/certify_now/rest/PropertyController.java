@@ -180,11 +180,7 @@ public class PropertyController {
       final HttpServletRequest request) {
     ensureCustomer(authentication);
     final UUID userId = UUID.fromString((String) authentication.getPrincipal());
-    final PropertyDTO propertyDTO = propertyService.get(id);
-    if (propertyDTO.getOwner() == null || !propertyDTO.getOwner().equals(userId)) {
-      throw new AccessDeniedException("You do not own this property");
-    }
-    return ApiResponse.of(propertyDTO, requestId(request));
+    return ApiResponse.of(propertyService.getForOwner(id, userId), requestId(request));
   }
 
   @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -218,18 +214,14 @@ public class PropertyController {
       final HttpServletRequest request) {
     ensureCustomer(authentication);
     final UUID userId = UUID.fromString((String) authentication.getPrincipal());
-    final PropertyDTO existingProperty = propertyService.get(id);
-    if (existingProperty.getOwner() == null || !existingProperty.getOwner().equals(userId)) {
-      throw new AccessDeniedException("You do not own this property");
-    }
     propertyDTO.setId(id);
     propertyDTO.setOwner(userId);
-    PropertyDTO updated = propertyService.update(id, propertyDTO);
+    PropertyDTO updated = propertyService.update(id, propertyDTO, userId);
     if (gasCertPdf != null && !gasCertPdf.isEmpty()) {
-      updated = propertyService.uploadGasCertificate(id, null, null, gasCertPdf);
+      updated = propertyService.uploadGasCertificate(id, null, null, gasCertPdf, userId);
     }
     if (eicrCertPdf != null && !eicrCertPdf.isEmpty()) {
-      updated = propertyService.uploadEicrCertificate(id, null, null, eicrCertPdf);
+      updated = propertyService.uploadEicrCertificate(id, null, null, eicrCertPdf, userId);
     }
     return ApiResponse.of(updated, requestId(request));
   }
@@ -262,13 +254,9 @@ public class PropertyController {
       final HttpServletRequest request) {
     ensureCustomer(authentication);
     final UUID userId = UUID.fromString((String) authentication.getPrincipal());
-    final PropertyDTO existingProperty = propertyService.get(id);
-    if (existingProperty.getOwner() == null || !existingProperty.getOwner().equals(userId)) {
-      throw new AccessDeniedException("You do not own this property");
-    }
     propertyDTO.setId(id);
     propertyDTO.setOwner(userId);
-    return ApiResponse.of(propertyService.update(id, propertyDTO), requestId(request));
+    return ApiResponse.of(propertyService.update(id, propertyDTO, userId), requestId(request));
   }
 
   @GetMapping("/{id}/gas-cert-pdf")
@@ -279,17 +267,12 @@ public class PropertyController {
       @PathVariable final UUID id, final Authentication authentication) {
     ensureCustomer(authentication);
     final UUID userId = UUID.fromString((String) authentication.getPrincipal());
-    final PropertyDTO prop = propertyService.get(id);
-    if (prop.getOwner() == null || !prop.getOwner().equals(userId)) {
-      throw new AccessDeniedException("You do not own this property");
-    }
-    final byte[] pdf = propertyService.getGasCertPdf(id);
-    final String filename =
-        prop.getGasCertPdfName() != null ? prop.getGasCertPdfName() : "gas-safety-cert.pdf";
+    final PropertyService.PropertyPdf result = propertyService.getGasCertPdf(id, userId);
     return ResponseEntity.ok()
-        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+        .header(
+            HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + result.filename() + "\"")
         .contentType(MediaType.APPLICATION_PDF)
-        .body(pdf);
+        .body(result.bytes());
   }
 
   @GetMapping("/{id}/eicr-cert-pdf")
@@ -300,17 +283,12 @@ public class PropertyController {
       @PathVariable final UUID id, final Authentication authentication) {
     ensureCustomer(authentication);
     final UUID userId = UUID.fromString((String) authentication.getPrincipal());
-    final PropertyDTO prop = propertyService.get(id);
-    if (prop.getOwner() == null || !prop.getOwner().equals(userId)) {
-      throw new AccessDeniedException("You do not own this property");
-    }
-    final byte[] pdf = propertyService.getEicrCertPdf(id);
-    final String filename =
-        prop.getEicrCertPdfName() != null ? prop.getEicrCertPdfName() : "eicr-cert.pdf";
+    final PropertyService.PropertyPdf result = propertyService.getEicrCertPdf(id, userId);
     return ResponseEntity.ok()
-        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+        .header(
+            HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + result.filename() + "\"")
         .contentType(MediaType.APPLICATION_PDF)
-        .body(pdf);
+        .body(result.bytes());
   }
 
   @DeleteMapping("/{id}")
@@ -339,11 +317,7 @@ public class PropertyController {
       final Authentication authentication) {
     ensureCustomer(authentication);
     final UUID userId = UUID.fromString((String) authentication.getPrincipal());
-    final PropertyDTO existingProperty = propertyService.get(id);
-    if (existingProperty.getOwner() == null || !existingProperty.getOwner().equals(userId)) {
-      throw new AccessDeniedException("You do not own this property");
-    }
-    propertyService.deactivate(id);
+    propertyService.deactivate(id, userId);
   }
 
   @PostMapping("/{id}/gas-certificate")
@@ -363,12 +337,9 @@ public class PropertyController {
       final HttpServletRequest request) {
     ensureCustomer(authentication);
     final UUID userId = UUID.fromString((String) authentication.getPrincipal());
-    final PropertyDTO existing = propertyService.get(id);
-    if (!userId.equals(existing.getOwner())) {
-      throw new AccessDeniedException("You do not own this property");
-    }
     return ApiResponse.of(
-        propertyService.uploadGasCertificate(id, hasGasCertificate, gasExpiryDate, gasCertPdf),
+        propertyService.uploadGasCertificate(
+            id, hasGasCertificate, gasExpiryDate, gasCertPdf, userId),
         requestId(request));
   }
 
@@ -389,12 +360,8 @@ public class PropertyController {
       final HttpServletRequest request) {
     ensureCustomer(authentication);
     final UUID userId = UUID.fromString((String) authentication.getPrincipal());
-    final PropertyDTO existing = propertyService.get(id);
-    if (!userId.equals(existing.getOwner())) {
-      throw new AccessDeniedException("You do not own this property");
-    }
     return ApiResponse.of(
-        propertyService.uploadEicrCertificate(id, hasEicr, eicrExpiryDate, eicrCertPdf),
+        propertyService.uploadEicrCertificate(id, hasEicr, eicrExpiryDate, eicrCertPdf, userId),
         requestId(request));
   }
 

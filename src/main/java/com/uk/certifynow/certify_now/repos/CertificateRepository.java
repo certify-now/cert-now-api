@@ -81,6 +81,19 @@ public interface CertificateRepository extends JpaRepository<Certificate, UUID> 
   @Query("SELECT c FROM Certificate c JOIN FETCH c.property p JOIN FETCH p.owner WHERE c.id = :id")
   Optional<Certificate> findByIdWithProperty(@Param("id") UUID id);
 
+  /**
+   * Batch-loads all ACTIVE certificates for multiple properties in a single query. Used by
+   * CustomerCertificateService to avoid N×type per-property lookups. The caller partitions by
+   * (propertyId, certificateType) and filters by expiry date in memory.
+   */
+  @Query(
+      """
+      SELECT c FROM Certificate c
+      WHERE c.property.id IN :propertyIds
+        AND c.status = 'ACTIVE'
+      """)
+  List<Certificate> findAllActiveCertsByPropertyIds(@Param("propertyIds") List<UUID> propertyIds);
+
   /** Find by share token for the public share endpoint. */
   Optional<Certificate> findByShareToken(String shareToken);
 }

@@ -279,14 +279,8 @@ public class PricingService {
 
     // Find any existing active rules for same cert-type + region
     final List<PricingRule> existing =
-        pricingRuleRepository.findAll().stream()
-            .filter(r -> r.getCertificateType().equals(request.certificateType()))
-            .filter(
-                r ->
-                    request.region() == null
-                        ? r.getRegion() == null
-                        : request.region().equals(r.getRegion()))
-            .toList();
+        pricingRuleRepository.findByCertificateTypeAndRegion(
+            request.certificateType(), request.region());
 
     for (final PricingRule existingRule : existing) {
       final LocalDate exFrom = existingRule.getEffectiveFrom();
@@ -465,45 +459,6 @@ public class PricingService {
   // ═══════════════════════════════════════════════════════
   // HELPERS
   // ═══════════════════════════════════════════════════════
-
-  private void validateNoOverlap(
-      final String certificateType,
-      final String region,
-      final LocalDate effectiveFrom,
-      final LocalDate effectiveTo,
-      final UUID excludeId) {
-    final LocalDate today = LocalDate.now();
-    final List<PricingRule> existing =
-        region == null
-            ? pricingRuleRepository.findAll().stream()
-                .filter(
-                    r -> r.getCertificateType().equals(certificateType) && r.getRegion() == null)
-                // Exclude rules that have already expired (effective_to is in the past)
-                .filter(r -> r.getEffectiveTo() == null || !r.getEffectiveTo().isBefore(today))
-                .toList()
-            : pricingRuleRepository.findAll().stream()
-                .filter(
-                    r ->
-                        r.getCertificateType().equals(certificateType)
-                            && region.equals(r.getRegion()))
-                // Exclude rules that have already expired (effective_to is in the past)
-                .filter(r -> r.getEffectiveTo() == null || !r.getEffectiveTo().isBefore(today))
-                .toList();
-
-    for (final PricingRule rule : existing) {
-      if (excludeId != null && rule.getId().equals(excludeId)) {
-        continue;
-      }
-      final boolean overlaps =
-          datesOverlap(effectiveFrom, effectiveTo, rule.getEffectiveFrom(), rule.getEffectiveTo());
-      if (overlaps) {
-        throw new BusinessException(
-            HttpStatus.CONFLICT,
-            "PRICING_RULE_OVERLAP",
-            "A pricing rule already exists for this certificate type and region with overlapping dates");
-      }
-    }
-  }
 
   private boolean datesOverlap(
       final LocalDate start1, final LocalDate end1, final LocalDate start2, final LocalDate end2) {

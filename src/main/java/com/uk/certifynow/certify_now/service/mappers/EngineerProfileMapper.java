@@ -27,8 +27,6 @@ public interface EngineerProfileMapper {
   @Mapping(target = "engineerProfileEngineerAvailabilities", ignore = true)
   @Mapping(target = "engineerProfileEngineerInsurances", ignore = true)
   @Mapping(target = "engineerProfileEngineerQualifications", ignore = true)
-  @Mapping(target = "dateCreated", ignore = true)
-  @Mapping(target = "lastUpdated", ignore = true)
   void updateEntity(EngineerProfileDTO dto, @MappingTarget EngineerProfile entity);
 
   default UUID mapUserToUuid(User user) {

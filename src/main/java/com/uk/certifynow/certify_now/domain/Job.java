@@ -2,30 +2,22 @@ package com.uk.certifynow.certify_now.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Version;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.UuidGenerator;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
-@EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter
 public class Job {
@@ -129,23 +121,8 @@ public class Job {
   @Column(nullable = false)
   private String urgency;
 
-  @OneToMany(mappedBy = "job")
-  private Set<Certificate> jobCertificates = new HashSet<>();
-
-  @OneToMany(mappedBy = "job")
-  private Set<EicrInspection> jobEicrInspections = new HashSet<>();
-
-  @OneToMany(mappedBy = "job")
-  private Set<EpcAssessment> jobEpcAssessments = new HashSet<>();
-
   @OneToOne(mappedBy = "job")
   private GasSafetyRecord gasSafetyRecord;
-
-  @OneToMany(mappedBy = "job")
-  private Set<JobMatchLog> jobJobMatchLogs = new HashSet<>();
-
-  @OneToMany(mappedBy = "job")
-  private Set<JobStatusHistory> jobJobStatusHistories = new HashSet<>();
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "customer_id", nullable = false)
@@ -159,28 +136,5 @@ public class Job {
   @JoinColumn(name = "property_id", nullable = false)
   private Property property;
 
-  @OneToMany(mappedBy = "job")
-  private Set<Message> jobMessages = new HashSet<>();
-
-  @OneToMany(mappedBy = "relatedJob")
-  private Set<Notification> relatedJobNotifications = new HashSet<>();
-
-  @OneToMany(mappedBy = "job")
-  private Set<Payment> jobPayments = new HashSet<>();
-
-  @OneToMany(mappedBy = "job")
-  private Set<Payout> jobPayouts = new HashSet<>();
-
-  @OneToMany(mappedBy = "job")
-  private Set<Review> jobReviews = new HashSet<>();
-
   @Version private Long version;
-
-  @CreatedDate
-  @Column(nullable = false, updatable = false)
-  private OffsetDateTime dateCreated;
-
-  @LastModifiedDate
-  @Column(nullable = false)
-  private OffsetDateTime lastUpdated;
 }

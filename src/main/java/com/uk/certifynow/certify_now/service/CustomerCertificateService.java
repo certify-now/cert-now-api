@@ -100,11 +100,14 @@ public class CustomerCertificateService {
     if (filters.status() == null || "MISSING".equalsIgnoreCase(filters.status())) {
       final List<Property> properties =
           propertyRepository.findByOwnerIdAndIsActiveTrue(customerId, Sort.by("addressLine1"));
+      final Map<String, List<Certificate>> activeCertsByKey =
+          batchLoadActiveCerts(properties.stream().map(Property::getId).toList());
       for (final Property property : properties) {
         if (filters.propertyId() != null && !filters.propertyId().equals(property.getId())) {
           continue;
         }
-        final List<MissingEntry> missing = detectMissingForProperty(property, today);
+        final List<MissingEntry> missing =
+            detectMissingForProperty(property, activeCertsByKey, today);
         for (final MissingEntry entry : missing) {
           if (filters.type() != null && !filters.type().equalsIgnoreCase(entry.certificateType())) {
             continue;
@@ -310,9 +313,12 @@ public class CustomerCertificateService {
     final List<Property> properties =
         propertyRepository.findByOwnerIdAndIsActiveTrue(customerId, Sort.by("addressLine1"));
 
+    final Map<String, List<Certificate>> activeCertsByKey =
+        batchLoadActiveCerts(properties.stream().map(Property::getId).toList());
+
     final List<MissingCertificateResponse> result = new ArrayList<>();
     for (final Property property : properties) {
-      for (final MissingEntry entry : detectMissingForProperty(property, today)) {
+      for (final MissingEntry entry : detectMissingForProperty(property, activeCertsByKey, today)) {
         result.add(
             MissingCertificateResponse.of(
                 property.getId(),
@@ -332,25 +338,41 @@ public class CustomerCertificateService {
 
   private record MissingEntry(String certificateType, String reason, String urgency) {}
 
+  /**
+   * Batch-loads all ACTIVE certificates for the given property IDs in a single query and groups
+   * them by {@code "propertyId|certificateType"} for O(1) lookup in {@link
+   * #detectMissingForProperty}.
+   */
+  private Map<String, List<Certificate>> batchLoadActiveCerts(final List<UUID> propertyIds) {
+    if (propertyIds.isEmpty()) return Map.of();
+    final Map<String, List<Certificate>> map = new HashMap<>();
+    for (final Certificate c : certificateRepository.findAllActiveCertsByPropertyIds(propertyIds)) {
+      final String key = c.getProperty().getId() + "|" + c.getCertificateType();
+      map.computeIfAbsent(key, k -> new ArrayList<>()).add(c);
+    }
+    return map;
+  }
+
   private List<MissingEntry> detectMissingForProperty(
-      final Property property, final LocalDate today) {
+      final Property property,
+      final Map<String, List<Certificate>> activeCertsByKey,
+      final LocalDate today) {
     final List<MissingEntry> entries = new ArrayList<>();
+    final UUID pid = property.getId();
 
     // Gas Safety: required if property has gas supply
     if (Boolean.TRUE.equals(property.getHasGasSupply())) {
-      final List<Certificate> gasCerts =
-          certificateRepository.findActiveCertificateByPropertyAndType(
-              property.getId(), "GAS_SAFETY", today);
-      if (gasCerts.isEmpty()) {
-        final boolean hasExpired =
-            !certificateRepository
-                .findByPropertyIdAndCertificateTypeAndStatus(
-                    property.getId(), "GAS_SAFETY", "ACTIVE")
-                .isEmpty();
+      final List<Certificate> allActive =
+          activeCertsByKey.getOrDefault(pid + "|GAS_SAFETY", List.of());
+      final List<Certificate> nonExpired =
+          allActive.stream()
+              .filter(c -> c.getExpiryAt() == null || !c.getExpiryAt().isBefore(today))
+              .toList();
+      if (nonExpired.isEmpty()) {
         entries.add(
             new MissingEntry(
                 "GAS_SAFETY",
-                hasExpired
+                !allActive.isEmpty()
                     ? "Gas safety certificate has expired"
                     : "No gas safety certificate on record",
                 "HIGH"));
@@ -368,8 +390,9 @@ public class CustomerCertificateService {
     if (isResidential) {
       final LocalDate epcCutoff = today.minusYears(EPC_MAX_AGE_YEARS);
       final List<Certificate> epcCerts =
-          certificateRepository.findActiveCertificateByPropertyAndType(
-              property.getId(), "EPC", today);
+          activeCertsByKey.getOrDefault(pid + "|EPC", List.of()).stream()
+              .filter(c -> c.getExpiryAt() == null || !c.getExpiryAt().isBefore(today))
+              .toList();
       final boolean hasValidEpc =
           epcCerts.stream()
               .anyMatch(c -> c.getIssuedAt() != null && c.getIssuedAt().isAfter(epcCutoff));
@@ -388,8 +411,9 @@ public class CustomerCertificateService {
     if (Boolean.TRUE.equals(property.getHasElectric()) && isResidential) {
       final LocalDate eicrCutoff = today.minusYears(EICR_MAX_AGE_YEARS);
       final List<Certificate> eicrCerts =
-          certificateRepository.findActiveCertificateByPropertyAndType(
-              property.getId(), "EICR", today);
+          activeCertsByKey.getOrDefault(pid + "|EICR", List.of()).stream()
+              .filter(c -> c.getExpiryAt() == null || !c.getExpiryAt().isBefore(today))
+              .toList();
       final boolean hasValidEicr =
           eicrCerts.stream()
               .anyMatch(c -> c.getIssuedAt() != null && c.getIssuedAt().isAfter(eicrCutoff));
@@ -408,8 +432,9 @@ public class CustomerCertificateService {
     if ("HMO".equalsIgnoreCase(propertyType) || "COMMERCIAL".equalsIgnoreCase(propertyType)) {
       final LocalDate patCutoff = today.minusYears(PAT_MAX_AGE_YEARS);
       final List<Certificate> patCerts =
-          certificateRepository.findActiveCertificateByPropertyAndType(
-              property.getId(), "PAT", today);
+          activeCertsByKey.getOrDefault(pid + "|PAT", List.of()).stream()
+              .filter(c -> c.getExpiryAt() == null || !c.getExpiryAt().isBefore(today))
+              .toList();
       final boolean hasValidPat =
           patCerts.stream()
               .anyMatch(c -> c.getIssuedAt() != null && c.getIssuedAt().isAfter(patCutoff));

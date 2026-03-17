@@ -5,7 +5,6 @@ import com.uk.certifynow.certify_now.service.auth.EngineerTier;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
@@ -21,13 +20,9 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.annotations.UuidGenerator;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
 @SQLRestriction("deleted_at IS NULL")
-@EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter
 public class EngineerProfile implements SoftDeletable {
@@ -130,12 +125,4 @@ public class EngineerProfile implements SoftDeletable {
 
   @Column(name = "deleted_by")
   private UUID deletedBy;
-
-  @CreatedDate
-  @Column(nullable = false, updatable = false)
-  private OffsetDateTime dateCreated;
-
-  @LastModifiedDate
-  @Column(nullable = false)
-  private OffsetDateTime lastUpdated;
 }

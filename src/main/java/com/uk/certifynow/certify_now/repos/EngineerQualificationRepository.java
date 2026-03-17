@@ -12,5 +12,7 @@ public interface EngineerQualificationRepository
 
   List<EngineerQualification> findAllByEngineerProfileId(UUID profileId);
 
+  long countByEngineerProfileId(UUID profileId);
+
   boolean existsByEngineerProfileIdAndType(UUID profileId, String type);
 }

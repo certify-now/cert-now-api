@@ -32,6 +32,12 @@ public interface PricingRuleRepository extends JpaRepository<PricingRule, UUID> 
   List<PricingRule> findByIsActiveTrue();
 
   @Query(
+      "SELECT r FROM PricingRule r WHERE r.certificateType = :type "
+          + "AND (:region IS NULL AND r.region IS NULL OR r.region = :region)")
+  List<PricingRule> findByCertificateTypeAndRegion(
+      @Param("type") String type, @Param("region") String region);
+
+  @Query(
       "SELECT r FROM PricingRule r WHERE r.isActive = true "
           + "AND r.region IS NULL "
           + "AND r.effectiveFrom <= CURRENT_DATE "

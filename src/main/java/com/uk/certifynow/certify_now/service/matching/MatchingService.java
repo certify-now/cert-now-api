@@ -19,7 +19,9 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -96,14 +98,19 @@ public class MatchingService {
     // PostGIS spatial query: approved engineers within their own service radius
     final List<EngineerProfile> nearby = engineerProfileRepository.findNearbyApproved(lat, lng);
 
-    // Filter: daily job cap check
+    // Filter: daily job cap check — batch query to avoid N+1
     final OffsetDateTime startOfDay = LocalDate.now().atStartOfDay().atOffset(ZoneOffset.UTC);
+    final List<UUID> nearbyIds = nearby.stream().map(ep -> ep.getUser().getId()).toList();
+    final Map<UUID, Long> jobCountByEngineerId =
+        jobRepository.countEngineerJobsTodayBatch(nearbyIds, startOfDay).stream()
+            .collect(Collectors.toMap(row -> (UUID) row[0], row -> (Long) row[1]));
+
     final List<EngineerProfile> eligible =
         nearby.stream()
             .filter(
                 ep -> {
                   final long todayCount =
-                      jobRepository.countEngineerJobsToday(ep.getUser().getId(), startOfDay);
+                      jobCountByEngineerId.getOrDefault(ep.getUser().getId(), 0L);
                   return todayCount < ep.getMaxDailyJobs();
                 })
             .toList();
@@ -168,6 +175,7 @@ public class MatchingService {
 
     // Create match log entries and "notify" each engineer
     final OffsetDateTime now = OffsetDateTime.now();
+    final List<JobMatchLog> matchLogs = new java.util.ArrayList<>(candidates.size());
     for (final EngineerProfile ep : candidates) {
       final JobMatchLog matchLog = new JobMatchLog();
       matchLog.setJob(job);
@@ -176,20 +184,17 @@ public class MatchingService {
       matchLog.setCreatedAt(now);
       matchLog.setResponse("PENDING");
       // Distance calculation would require PostGIS — left as null for now
-      matchLogRepository.save(matchLog);
-
-      // Placeholder for push notification — log for now
-      log.info(
-          "Job {} broadcast to engineer {} (user {})",
-          job.getId(),
-          ep.getId(),
-          ep.getUser().getId());
+      matchLogs.add(matchLog);
     }
+    matchLogRepository.saveAll(matchLogs);
 
     log.info(
-        "Job {} broadcast to {} eligible engineers, status=AWAITING_ACCEPTANCE",
+        "Job {} broadcast to {} eligible engineers: {}",
         job.getId(),
-        candidates.size());
+        candidates.size(),
+        candidates.stream().map(ep -> ep.getUser().getId().toString()).toList());
+
+    log.info("Job {} status=AWAITING_ACCEPTANCE", job.getId());
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -213,14 +218,15 @@ public class MatchingService {
     }
 
     // Verify the engineer was actually notified about this job
-    matchLogRepository
-        .findByJobIdAndEngineerId(jobId, engineerId)
-        .orElseThrow(
-            () ->
-                new BusinessException(
-                    HttpStatus.FORBIDDEN,
-                    "NOT_NOTIFIED",
-                    "Engineer was not notified about this job"));
+    final JobMatchLog matchLog =
+        matchLogRepository
+            .findByJobIdAndEngineerId(jobId, engineerId)
+            .orElseThrow(
+                () ->
+                    new BusinessException(
+                        HttpStatus.FORBIDDEN,
+                        "NOT_NOTIFIED",
+                        "Engineer was not notified about this job"));
 
     // Atomic conditional update — only succeeds if job is still AWAITING_ACCEPTANCE
     final OffsetDateTime now = OffsetDateTime.now();
@@ -234,14 +240,9 @@ public class MatchingService {
     }
 
     // Update match log for the claiming engineer
-    matchLogRepository
-        .findByJobIdAndEngineerId(jobId, engineerId)
-        .ifPresent(
-            matchLog -> {
-              matchLog.setRespondedAt(now);
-              matchLog.setResponse("ACCEPTED");
-              matchLogRepository.save(matchLog);
-            });
+    matchLog.setRespondedAt(now);
+    matchLog.setResponse("ACCEPTED");
+    matchLogRepository.save(matchLog);
 
     // Expire all other pending match log entries
     matchLogRepository.expireAllPendingForJob(jobId);
@@ -316,8 +317,10 @@ public class MatchingService {
     } catch (final Exception e) {
       log.error("Failed to parse location string: {}", location, e);
     }
-    // Default to London coordinates as fallback
-    return new double[] {51.5074, -0.1278};
+    throw new BusinessException(
+        HttpStatus.BAD_REQUEST,
+        "INVALID_LOCATION",
+        "Failed to parse property location: " + location);
   }
 
   /**

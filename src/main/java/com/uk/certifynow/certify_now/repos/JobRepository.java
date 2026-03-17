@@ -8,6 +8,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -23,26 +24,34 @@ public interface JobRepository extends JpaRepository<Job, UUID> {
   Job findFirstByPropertyId(UUID id);
 
   // ── Customer list queries ──────────────────────────────────────────────────
+  @EntityGraph(attributePaths = {"property", "engineer"})
   Page<Job> findByCustomerIdOrderByCreatedAtDesc(UUID customerId, Pageable pageable);
 
+  @EntityGraph(attributePaths = {"property", "engineer"})
   Page<Job> findByCustomerIdAndStatusInOrderByCreatedAtDesc(
       UUID customerId, List<String> statuses, Pageable pageable);
 
+  @EntityGraph(attributePaths = {"property", "engineer"})
   Page<Job> findByCustomerIdAndCertificateTypeOrderByCreatedAtDesc(
       UUID customerId, String certificateType, Pageable pageable);
 
+  @EntityGraph(attributePaths = {"property", "engineer"})
   Page<Job> findByCustomerIdAndStatusInAndCertificateTypeOrderByCreatedAtDesc(
       UUID customerId, List<String> statuses, String certificateType, Pageable pageable);
 
   // ── Engineer list queries ──────────────────────────────────────────────────
+  @EntityGraph(attributePaths = {"property", "engineer"})
   Page<Job> findByEngineerIdOrderByCreatedAtDesc(UUID engineerId, Pageable pageable);
 
+  @EntityGraph(attributePaths = {"property", "engineer"})
   Page<Job> findByEngineerIdAndStatusInOrderByCreatedAtDesc(
       UUID engineerId, List<String> statuses, Pageable pageable);
 
+  @EntityGraph(attributePaths = {"property", "engineer"})
   Page<Job> findByEngineerIdAndCertificateTypeOrderByCreatedAtDesc(
       UUID engineerId, String certificateType, Pageable pageable);
 
+  @EntityGraph(attributePaths = {"property", "engineer"})
   Page<Job> findByEngineerIdAndStatusInAndCertificateTypeOrderByCreatedAtDesc(
       UUID engineerId, List<String> statuses, String certificateType, Pageable pageable);
 
@@ -118,4 +127,14 @@ public interface JobRepository extends JpaRepository<Job, UUID> {
           + "AND j.matchedAt >= :startOfDay")
   long countEngineerJobsToday(
       @Param("engineerId") UUID engineerId, @Param("startOfDay") OffsetDateTime startOfDay);
+
+  /** Batch version: count today's jobs for multiple engineers in a single query. */
+  @Query(
+      "SELECT j.engineer.id, COUNT(j) FROM Job j "
+          + "WHERE j.engineer.id IN :engineerIds "
+          + "AND j.status NOT IN ('CANCELLED', 'FAILED') "
+          + "AND j.matchedAt >= :startOfDay "
+          + "GROUP BY j.engineer.id")
+  List<Object[]> countEngineerJobsTodayBatch(
+      @Param("engineerIds") List<UUID> engineerIds, @Param("startOfDay") OffsetDateTime startOfDay);
 }

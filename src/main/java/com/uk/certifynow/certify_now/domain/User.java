@@ -6,7 +6,6 @@ import com.uk.certifynow.certify_now.service.auth.UserStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EntityListeners;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
@@ -20,14 +19,10 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.annotations.UuidGenerator;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
 @Table(name = "\"user\"")
 @SQLRestriction("deleted_at IS NULL")
-@EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter
 public class User implements SoftDeletable {
@@ -81,59 +76,11 @@ public class User implements SoftDeletable {
   @Convert(converter = UserStatus.UserStatusConverter.class)
   private UserStatus status;
 
-  @OneToMany(mappedBy = "issuedByEngineer")
-  private Set<Certificate> issuedByEngineerCertificates = new HashSet<>();
-
-  @OneToMany(mappedBy = "user")
-  private Set<CustomerProfile> userCustomerProfiles = new HashSet<>();
-
-  @OneToMany(mappedBy = "user")
-  private Set<DataRequest> userDataRequests = new HashSet<>();
-
-  @OneToMany(mappedBy = "owner")
-  private Set<Document> ownerDocuments = new HashSet<>();
-
-  @OneToMany(mappedBy = "user")
-  private Set<EngineerProfile> userEngineerProfiles = new HashSet<>();
-
-  @OneToMany(mappedBy = "engineer")
-  private Set<JobMatchLog> engineerJobMatchLogs = new HashSet<>();
-
-  @OneToMany(mappedBy = "customer")
-  private Set<Job> customerJobs = new HashSet<>();
-
-  @OneToMany(mappedBy = "engineer")
-  private Set<Job> engineerJobs = new HashSet<>();
-
-  @OneToMany(mappedBy = "sender")
-  private Set<Message> senderMessages = new HashSet<>();
-
-  @OneToMany(mappedBy = "user")
-  private Set<Notification> userNotifications = new HashSet<>();
-
-  @OneToMany(mappedBy = "customer")
-  private Set<Payment> customerPayments = new HashSet<>();
-
-  @OneToMany(mappedBy = "engineer")
-  private Set<Payout> engineerPayouts = new HashSet<>();
-
   @OneToMany(mappedBy = "owner")
   private Set<Property> ownerProperties = new HashSet<>();
 
   @OneToMany(mappedBy = "user")
   private Set<RefreshToken> userRefreshTokens = new HashSet<>();
-
-  @OneToMany(mappedBy = "customer")
-  private Set<RenewalReminder> customerRenewalReminders = new HashSet<>();
-
-  @OneToMany(mappedBy = "reviewee")
-  private Set<Review> revieweeReviews = new HashSet<>();
-
-  @OneToMany(mappedBy = "reviewer")
-  private Set<Review> reviewerReviews = new HashSet<>();
-
-  @OneToMany(mappedBy = "user")
-  private Set<UserConsent> userUserConsents = new HashSet<>();
 
   // ── Soft-delete fields ──────────────────────────────────────────────────
 
@@ -143,27 +90,7 @@ public class User implements SoftDeletable {
   @Column(name = "deleted_by")
   private UUID deletedBy;
 
-  @CreatedDate
-  @Column(nullable = false, updatable = false)
-  private OffsetDateTime dateCreated;
-
-  @LastModifiedDate
-  @Column(nullable = false)
-  private OffsetDateTime lastUpdated;
-
   // Domain behavior methods
-
-  /**
-   * Determines if this user can authenticate based on their account status.
-   *
-   * @return true if user can login, false otherwise
-   */
-  public boolean canAuthenticate() {
-    if (deletedAt != null) {
-      return false;
-    }
-    return status != null && status.canAuthenticate();
-  }
 
   /**
    * Determines if this user is an engineer.

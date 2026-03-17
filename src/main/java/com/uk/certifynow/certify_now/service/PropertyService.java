@@ -23,8 +23,11 @@ import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -58,9 +61,8 @@ public class PropertyService {
     this.complianceService = complianceService;
   }
 
-  public List<PropertyDTO> findAll() {
-    final List<Property> properties = propertyRepository.findAll(Sort.by("id"));
-    return properties.stream().map(p -> enriched(propertyMapper.toDTO(p))).toList();
+  public Page<PropertyDTO> findAll(final Pageable pageable) {
+    return propertyRepository.findAll(pageable).map(p -> enriched(propertyMapper.toDTO(p)));
   }
 
   public PropertyDTO get(final UUID id) {
@@ -68,6 +70,12 @@ public class PropertyService {
         .findById(id)
         .map(p -> enriched(propertyMapper.toDTO(p)))
         .orElseThrow(NotFoundException::new);
+  }
+
+  public PropertyDTO getForOwner(final UUID id, final UUID userId) {
+    final Property property = propertyRepository.findById(id).orElseThrow(NotFoundException::new);
+    assertOwnership(property, userId);
+    return enriched(propertyMapper.toDTO(property));
   }
 
   public org.springframework.data.domain.Page<PropertyDTO> getByOwner(
@@ -139,8 +147,9 @@ public class PropertyService {
   }
 
   @Transactional
-  public PropertyDTO update(final UUID id, final PropertyDTO propertyDTO) {
+  public PropertyDTO update(final UUID id, final PropertyDTO propertyDTO, final UUID userId) {
     final Property property = propertyRepository.findById(id).orElseThrow(NotFoundException::new);
+    assertOwnership(property, userId);
     final java.time.OffsetDateTime createdAt = property.getCreatedAt();
 
     // Resolve owner reference from UUID before the duplicate check
@@ -175,8 +184,9 @@ public class PropertyService {
   }
 
   @Transactional
-  public void deactivate(final UUID id) {
+  public void deactivate(final UUID id, final UUID userId) {
     final Property property = propertyRepository.findById(id).orElseThrow(NotFoundException::new);
+    assertOwnership(property, userId);
     property.setIsActive(false);
     propertyRepository.save(property);
     log.info("Property {} deactivated", id);
@@ -248,8 +258,10 @@ public class PropertyService {
       final UUID id,
       final Boolean hasGasCertificate,
       final java.time.LocalDate gasExpiryDate,
-      final MultipartFile pdfFile) {
+      final MultipartFile pdfFile,
+      final UUID userId) {
     final Property property = propertyRepository.findById(id).orElseThrow(NotFoundException::new);
+    assertOwnership(property, userId);
     if (hasGasCertificate != null) {
       property.setHasGasCertificate(hasGasCertificate);
     }
@@ -276,8 +288,10 @@ public class PropertyService {
       final UUID id,
       final Boolean hasEicr,
       final java.time.LocalDate eicrExpiryDate,
-      final MultipartFile pdfFile) {
+      final MultipartFile pdfFile,
+      final UUID userId) {
     final Property property = propertyRepository.findById(id).orElseThrow(NotFoundException::new);
+    assertOwnership(property, userId);
     if (hasEicr != null) {
       property.setHasEicr(hasEicr);
     }
@@ -298,22 +312,30 @@ public class PropertyService {
     return enriched(propertyMapper.toDTO(saved));
   }
 
-  /** Returns the raw Gas Safety certificate PDF bytes for the given property. */
-  public byte[] getGasCertPdf(final UUID id) {
+  public record PropertyPdf(byte[] bytes, String filename) {}
+
+  /** Returns the Gas Safety certificate PDF (bytes + filename) for the owner of the property. */
+  public PropertyPdf getGasCertPdf(final UUID id, final UUID userId) {
     final Property property = propertyRepository.findById(id).orElseThrow(NotFoundException::new);
+    assertOwnership(property, userId);
     if (property.getGasCertPdf() == null || property.getGasCertPdf().length == 0) {
       throw new NotFoundException("No gas certificate PDF found");
     }
-    return property.getGasCertPdf();
+    final String filename =
+        property.getGasCertPdfName() != null ? property.getGasCertPdfName() : "gas-safety-cert.pdf";
+    return new PropertyPdf(property.getGasCertPdf(), filename);
   }
 
-  /** Returns the raw EICR certificate PDF bytes for the given property. */
-  public byte[] getEicrCertPdf(final UUID id) {
+  /** Returns the EICR certificate PDF (bytes + filename) for the owner of the property. */
+  public PropertyPdf getEicrCertPdf(final UUID id, final UUID userId) {
     final Property property = propertyRepository.findById(id).orElseThrow(NotFoundException::new);
+    assertOwnership(property, userId);
     if (property.getEicrCertPdf() == null || property.getEicrCertPdf().length == 0) {
       throw new NotFoundException("No EICR certificate PDF found");
     }
-    return property.getEicrCertPdf();
+    final String filename =
+        property.getEicrCertPdfName() != null ? property.getEicrCertPdfName() : "eicr-cert.pdf";
+    return new PropertyPdf(property.getEicrCertPdf(), filename);
   }
 
   @EventListener(BeforeDeleteUser.class)
@@ -324,6 +346,12 @@ public class PropertyService {
       referencedException.setKey("user.property.owner.referenced");
       referencedException.addParam(ownerProperty.getId());
       throw referencedException;
+    }
+  }
+
+  private void assertOwnership(final Property property, final UUID userId) {
+    if (property.getOwner() == null || !userId.equals(property.getOwner().getId())) {
+      throw new AccessDeniedException("You do not own this property");
     }
   }
 

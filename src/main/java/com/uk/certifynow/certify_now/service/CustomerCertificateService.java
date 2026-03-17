@@ -356,19 +356,9 @@ public class CustomerCertificateService {
                     ? "Gas safety certificate has expired"
                     : "No gas safety certificate on record",
                 "HIGH"));
-      } else {
-        final LocalDate expiryAt = gasCerts.get(0).getExpiryAt();
-        if (expiryAt != null) {
-          final long daysLeft = ChronoUnit.DAYS.between(today, expiryAt);
-          if (daysLeft <= 30) {
-            entries.add(
-                new MissingEntry(
-                    "GAS_SAFETY",
-                    "Gas safety certificate expires in " + daysLeft + " day(s)",
-                    "MEDIUM"));
-          }
-        }
       }
+      // Certs expiring soon already surface as EXPIRING_SOON in the main list;
+      // no duplicate MISSING entry is needed here.
     }
 
     // EPC: required for all residential properties (not commercial/other)
@@ -473,7 +463,9 @@ public class CustomerCertificateService {
 
   private boolean canShare(
       final Certificate cert, final UUID requestingUserId, final UserRole role) {
-    return isOwner(cert, requestingUserId) || role.isAdmin();
+    // Only the property owner may create/use share links; shareCertificate enforces
+    // the same constraint via verifyOwnership, so admin is intentionally excluded here.
+    return isOwner(cert, requestingUserId);
   }
 
   private boolean canRenew(final Certificate cert, final String dynamicStatus) {

@@ -27,9 +27,9 @@ import com.uk.certifynow.certify_now.service.auth.UserRole;
 import com.uk.certifynow.certify_now.service.storage.DocumentStorageService;
 import com.uk.certifynow.certify_now.util.NotFoundException;
 import java.security.SecureRandom;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -58,18 +58,21 @@ public class CustomerCertificateService {
   private final GasSafetyRecordRepository gasSafetyRecordRepository;
   private final EicrInspectionRepository eicrInspectionRepository;
   private final DocumentStorageService documentStorageService;
+  private final Clock clock;
 
   public CustomerCertificateService(
       final CertificateRepository certificateRepository,
       final PropertyRepository propertyRepository,
       final GasSafetyRecordRepository gasSafetyRecordRepository,
       final EicrInspectionRepository eicrInspectionRepository,
-      final DocumentStorageService documentStorageService) {
+      final DocumentStorageService documentStorageService,
+      final Clock clock) {
     this.certificateRepository = certificateRepository;
     this.propertyRepository = propertyRepository;
     this.gasSafetyRecordRepository = gasSafetyRecordRepository;
     this.eicrInspectionRepository = eicrInspectionRepository;
     this.documentStorageService = documentStorageService;
+    this.clock = clock;
   }
 
   // ── GET /my-certificates ─────────────────────────────────────────────────
@@ -78,7 +81,7 @@ public class CustomerCertificateService {
   public CertificatesListResponse getCustomerCertificates(
       final UUID customerId, final GetCertificatesRequest filters) {
 
-    final LocalDate today = LocalDate.now();
+    final LocalDate today = LocalDate.now(clock);
     final List<Certificate> rawCerts =
         certificateRepository.findByPropertyOwnerIdWithFilters(
             customerId, filters.type(), filters.propertyId());
@@ -139,7 +142,7 @@ public class CustomerCertificateService {
 
     verifyAccess(cert, requestingUserId, role);
 
-    final LocalDate today = LocalDate.now();
+    final LocalDate today = LocalDate.now(clock);
     final String dynamicStatus = calculateStatus(cert.getExpiryAt(), cert.getStatus(), today);
 
     // Load inspection data
@@ -279,7 +282,7 @@ public class CustomerCertificateService {
         hex.append(String.format("%02x", b));
       }
       cert.setShareToken(hex.toString());
-      cert.setShareTokenCreated(OffsetDateTime.now(ZoneOffset.UTC));
+      cert.setShareTokenCreated(OffsetDateTime.now(clock));
       certificateRepository.save(cert);
       log.info("Share token created for certId={} by userId={}", certId, requestingUserId);
     }
@@ -309,7 +312,7 @@ public class CustomerCertificateService {
 
   @Transactional(readOnly = true)
   public List<MissingCertificateResponse> getMissingCertificates(final UUID customerId) {
-    final LocalDate today = LocalDate.now();
+    final LocalDate today = LocalDate.now(clock);
     final List<Property> properties =
         propertyRepository.findByOwnerIdAndIsActiveTrue(customerId, Sort.by("addressLine1"));
 

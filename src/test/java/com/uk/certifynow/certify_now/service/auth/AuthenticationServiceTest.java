@@ -12,10 +12,9 @@ import com.uk.certifynow.certify_now.events.LoginFailedEvent;
 import com.uk.certifynow.certify_now.events.UserLoggedInEvent;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.repos.UserRepository;
+import com.uk.certifynow.certify_now.util.TestConstants;
 import java.time.Clock;
-import java.time.Instant;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,7 +33,7 @@ class AuthenticationServiceTest {
   @Mock private PasswordEncoder passwordEncoder;
   @Mock private ApplicationEventPublisher eventPublisher;
 
-  private final Clock clock = Clock.fixed(Instant.parse("2026-01-15T10:00:00Z"), ZoneOffset.UTC);
+  private final Clock clock = TestConstants.FIXED_CLOCK;
 
   private AuthenticationService authenticationService;
 
@@ -204,6 +203,7 @@ class AuthenticationServiceTest {
     user.setStatus(UserStatus.ACTIVE);
     user.setEmailVerified(true);
     user.setPhoneVerified(false);
+    user.setAuthProvider(AuthProvider.EMAIL);
     user.setCreatedAt(OffsetDateTime.now(clock).minusDays(30));
     user.setUpdatedAt(OffsetDateTime.now(clock));
     return user;

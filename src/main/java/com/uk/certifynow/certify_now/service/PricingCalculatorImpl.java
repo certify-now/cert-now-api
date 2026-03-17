@@ -27,6 +27,13 @@ public class PricingCalculatorImpl implements PricingCalculator {
         propertyRepository
             .findById(propertyId)
             .orElseThrow(() -> new EntityNotFoundException("Property not found: " + propertyId));
-    return pricingService.calculatePrice(certificateType, property, urgency);
+    return pricingService.calculatePrice(
+        certificateType,
+        property.getPostcode(),
+        property.getPropertyType(),
+        property.getBedrooms(),
+        property.getGasApplianceCount(),
+        property.getFloorAreaSqm(),
+        urgency);
   }
 }

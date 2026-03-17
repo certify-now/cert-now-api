@@ -4,6 +4,7 @@ import com.uk.certifynow.certify_now.domain.Property;
 import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.events.BeforeDeleteProperty;
 import com.uk.certifynow.certify_now.events.BeforeDeleteUser;
+import com.uk.certifynow.certify_now.events.PropertyCreatedEvent;
 import com.uk.certifynow.certify_now.events.PropertyRestoredEvent;
 import com.uk.certifynow.certify_now.events.PropertySoftDeletedEvent;
 import com.uk.certifynow.certify_now.exception.BusinessException;
@@ -13,13 +14,18 @@ import com.uk.certifynow.certify_now.model.PropertyDTO;
 import com.uk.certifynow.certify_now.repos.JobRepository;
 import com.uk.certifynow.certify_now.repos.PropertyRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
+import com.uk.certifynow.certify_now.service.job.JobStatus;
 import com.uk.certifynow.certify_now.service.mappers.PropertyMapper;
 import com.uk.certifynow.certify_now.util.NotFoundException;
 import com.uk.certifynow.certify_now.util.ReferencedException;
 import java.io.IOException;
+import java.time.Clock;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
@@ -36,15 +42,13 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 public class PropertyService {
 
-  private static final List<String> TERMINAL_STATUSES =
-      List.of("COMPLETED", "CERTIFIED", "CANCELLED", "FAILED");
-
   private final PropertyRepository propertyRepository;
   private final UserRepository userRepository;
   private final JobRepository jobRepository;
   private final ApplicationEventPublisher publisher;
   private final PropertyMapper propertyMapper;
   private final ComplianceService complianceService;
+  private final Clock clock;
 
   public PropertyService(
       final PropertyRepository propertyRepository,
@@ -52,13 +56,15 @@ public class PropertyService {
       final JobRepository jobRepository,
       final ApplicationEventPublisher publisher,
       final PropertyMapper propertyMapper,
-      final ComplianceService complianceService) {
+      final ComplianceService complianceService,
+      final Clock clock) {
     this.propertyRepository = propertyRepository;
     this.userRepository = userRepository;
     this.jobRepository = jobRepository;
     this.publisher = publisher;
     this.propertyMapper = propertyMapper;
     this.complianceService = complianceService;
+    this.clock = clock;
   }
 
   public Page<PropertyDTO> findAll(final Pageable pageable) {
@@ -78,8 +84,7 @@ public class PropertyService {
     return enriched(propertyMapper.toDTO(property));
   }
 
-  public org.springframework.data.domain.Page<PropertyDTO> getByOwner(
-      final UUID ownerId, final org.springframework.data.domain.Pageable pageable) {
+  public Page<PropertyDTO> getByOwner(final UUID ownerId, final Pageable pageable) {
     return propertyRepository
         .findByOwnerIdAndIsActiveTrue(ownerId, pageable)
         .map(p -> enriched(propertyMapper.toDTO(p)));
@@ -121,7 +126,7 @@ public class PropertyService {
             propertyDTO.getAddressLine1().trim(),
             propertyDTO.getPostcode().trim())) {
       throw new BusinessException(
-          org.springframework.http.HttpStatus.CONFLICT,
+          HttpStatus.CONFLICT,
           "DUPLICATE_PROPERTY",
           "A property at this address is already registered to your account.");
     }
@@ -131,7 +136,7 @@ public class PropertyService {
     property.setOwner(owner);
     property.setIsActive(true);
     if (property.getId() == null) {
-      final java.time.OffsetDateTime now = java.time.OffsetDateTime.now();
+      final OffsetDateTime now = OffsetDateTime.now(clock);
       property.setCreatedAt(now);
       property.setUpdatedAt(now);
     }
@@ -139,9 +144,7 @@ public class PropertyService {
     Property saved = propertyRepository.save(property);
     if (saved.getOwner() != null) {
       log.info("Property {} created for owner {}", saved.getId(), saved.getOwner().getId());
-      publisher.publishEvent(
-          new com.uk.certifynow.certify_now.events.PropertyCreatedEvent(
-              saved.getId(), saved.getOwner().getId()));
+      publisher.publishEvent(new PropertyCreatedEvent(saved.getId(), saved.getOwner().getId()));
     }
     return propertyMapper.toDTO(saved);
   }
@@ -150,7 +153,7 @@ public class PropertyService {
   public PropertyDTO update(final UUID id, final PropertyDTO propertyDTO, final UUID userId) {
     final Property property = propertyRepository.findById(id).orElseThrow(NotFoundException::new);
     assertOwnership(property, userId);
-    final java.time.OffsetDateTime createdAt = property.getCreatedAt();
+    final OffsetDateTime createdAt = property.getCreatedAt();
 
     // Resolve owner reference from UUID before the duplicate check
     final User owner =
@@ -169,7 +172,7 @@ public class PropertyService {
             propertyDTO.getPostcode().trim(),
             id)) {
       throw new BusinessException(
-          org.springframework.http.HttpStatus.CONFLICT,
+          HttpStatus.CONFLICT,
           "DUPLICATE_PROPERTY",
           "A property at this address is already registered to your account.");
     }
@@ -177,7 +180,7 @@ public class PropertyService {
     propertyMapper.updateEntity(propertyDTO, property);
     property.setOwner(owner);
     property.setCreatedAt(createdAt);
-    property.setUpdatedAt(java.time.OffsetDateTime.now());
+    property.setUpdatedAt(OffsetDateTime.now(clock));
     final Property saved = propertyRepository.save(property);
     log.info("Property {} updated", id);
     return enriched(propertyMapper.toDTO(saved));
@@ -218,13 +221,13 @@ public class PropertyService {
 
     // Validate: no active (non-terminal) jobs on this property
     final boolean hasActiveJobs =
-        jobRepository.existsByPropertyIdAndStatusNotIn(id, TERMINAL_STATUSES);
+        jobRepository.existsByPropertyIdAndStatusNotIn(id, JobStatus.TERMINAL_STATUSES);
     if (hasActiveJobs) {
       throw new BusinessException(
           HttpStatus.CONFLICT, "ACTIVE_JOBS_EXIST", "Cannot soft-delete property with active jobs");
     }
 
-    final OffsetDateTime now = OffsetDateTime.now();
+    final OffsetDateTime now = OffsetDateTime.now(clock);
     property.setDeletedAt(now);
     property.setDeletedBy(deletedByUserId);
     propertyRepository.save(property);
@@ -233,9 +236,8 @@ public class PropertyService {
     publisher.publishEvent(new PropertySoftDeletedEvent(id, deletedByUserId));
   }
 
-  /** Restores a soft-deleted property by clearing deletedAt/deletedBy. Admin only. */
   @Transactional
-  public void restore(final UUID id, final UUID restoredByUserId) {
+  public PropertyDTO restore(final UUID id, final UUID restoredByUserId) {
     final Property property =
         propertyRepository.findByIdIncludingDeleted(id).orElseThrow(NotFoundException::new);
 
@@ -246,10 +248,12 @@ public class PropertyService {
 
     property.setDeletedAt(null);
     property.setDeletedBy(null);
-    propertyRepository.save(property);
+    final Property saved = propertyRepository.save(property);
 
     log.info("Property {} restored by {}", id, restoredByUserId);
     publisher.publishEvent(new PropertyRestoredEvent(id, restoredByUserId));
+
+    return enriched(propertyMapper.toDTO(saved));
   }
 
   /** Upload or update the Gas Safety Certificate PDF and/or expiry metadata for a property. */
@@ -257,29 +261,21 @@ public class PropertyService {
   public PropertyDTO uploadGasCertificate(
       final UUID id,
       final Boolean hasGasCertificate,
-      final java.time.LocalDate gasExpiryDate,
+      final LocalDate gasExpiryDate,
       final MultipartFile pdfFile,
       final UUID userId) {
-    final Property property = propertyRepository.findById(id).orElseThrow(NotFoundException::new);
-    assertOwnership(property, userId);
-    if (hasGasCertificate != null) {
-      property.setHasGasCertificate(hasGasCertificate);
-    }
-    if (gasExpiryDate != null) {
-      property.setGasExpiryDate(gasExpiryDate);
-    }
-    if (pdfFile != null && !pdfFile.isEmpty()) {
-      try {
-        property.setGasCertPdf(pdfFile.getBytes());
-        property.setGasCertPdfName(pdfFile.getOriginalFilename());
-      } catch (IOException e) {
-        throw new RuntimeException("Failed to read gas cert PDF", e);
-      }
-    }
-    property.setUpdatedAt(java.time.OffsetDateTime.now());
-    final Property saved = propertyRepository.save(property);
-    log.info("Gas certificate updated for property {}", id);
-    return enriched(propertyMapper.toDTO(saved));
+    return updateCertificateFields(
+        id,
+        userId,
+        pdfFile,
+        "gas cert PDF",
+        property -> {
+          if (hasGasCertificate != null) property.setHasGasCertificate(hasGasCertificate);
+          if (gasExpiryDate != null) property.setGasExpiryDate(gasExpiryDate);
+        },
+        (property, bytes) -> property.setGasCertPdf(bytes),
+        (property, name) -> property.setGasCertPdfName(name),
+        "Gas certificate updated for property {}");
   }
 
   /** Upload or update the EICR PDF and/or expiry metadata for a property. */
@@ -287,28 +283,47 @@ public class PropertyService {
   public PropertyDTO uploadEicrCertificate(
       final UUID id,
       final Boolean hasEicr,
-      final java.time.LocalDate eicrExpiryDate,
+      final LocalDate eicrExpiryDate,
       final MultipartFile pdfFile,
       final UUID userId) {
+    return updateCertificateFields(
+        id,
+        userId,
+        pdfFile,
+        "EICR PDF",
+        property -> {
+          if (hasEicr != null) property.setHasEicr(hasEicr);
+          if (eicrExpiryDate != null) property.setEicrExpiryDate(eicrExpiryDate);
+        },
+        (property, bytes) -> property.setEicrCertPdf(bytes),
+        (property, name) -> property.setEicrCertPdfName(name),
+        "EICR certificate updated for property {}");
+  }
+
+  private PropertyDTO updateCertificateFields(
+      final UUID id,
+      final UUID userId,
+      final MultipartFile pdfFile,
+      final String pdfLabel,
+      final Consumer<Property> metadataUpdater,
+      final BiConsumer<Property, byte[]> byteSetter,
+      final BiConsumer<Property, String> nameSetter,
+      final String logMessage) {
     final Property property = propertyRepository.findById(id).orElseThrow(NotFoundException::new);
     assertOwnership(property, userId);
-    if (hasEicr != null) {
-      property.setHasEicr(hasEicr);
-    }
-    if (eicrExpiryDate != null) {
-      property.setEicrExpiryDate(eicrExpiryDate);
-    }
+    metadataUpdater.accept(property);
     if (pdfFile != null && !pdfFile.isEmpty()) {
       try {
-        property.setEicrCertPdf(pdfFile.getBytes());
-        property.setEicrCertPdfName(pdfFile.getOriginalFilename());
+        byteSetter.accept(property, pdfFile.getBytes());
+        nameSetter.accept(property, pdfFile.getOriginalFilename());
       } catch (IOException e) {
-        throw new RuntimeException("Failed to read EICR PDF", e);
+        throw new BusinessException(
+            HttpStatus.INTERNAL_SERVER_ERROR, "PDF_READ_ERROR", "Failed to read " + pdfLabel);
       }
     }
-    property.setUpdatedAt(java.time.OffsetDateTime.now());
+    property.setUpdatedAt(OffsetDateTime.now(clock));
     final Property saved = propertyRepository.save(property);
-    log.info("EICR certificate updated for property {}", id);
+    log.info(logMessage, id);
     return enriched(propertyMapper.toDTO(saved));
   }
 
@@ -367,7 +382,8 @@ public class PropertyService {
         property.setGasCertPdf(gasCertPdf.getBytes());
         property.setGasCertPdfName(gasCertPdf.getOriginalFilename());
       } catch (IOException e) {
-        throw new RuntimeException("Failed to read gas cert PDF", e);
+        throw new BusinessException(
+            HttpStatus.INTERNAL_SERVER_ERROR, "PDF_READ_ERROR", "Failed to read gas cert PDF");
       }
     }
     if (eicrCertPdf != null && !eicrCertPdf.isEmpty()) {
@@ -375,7 +391,8 @@ public class PropertyService {
         property.setEicrCertPdf(eicrCertPdf.getBytes());
         property.setEicrCertPdfName(eicrCertPdf.getOriginalFilename());
       } catch (IOException e) {
-        throw new RuntimeException("Failed to read EICR PDF", e);
+        throw new BusinessException(
+            HttpStatus.INTERNAL_SERVER_ERROR, "PDF_READ_ERROR", "Failed to read EICR PDF");
       }
     }
   }

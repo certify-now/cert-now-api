@@ -12,9 +12,10 @@ import com.uk.certifynow.certify_now.repos.EngineerProfileRepository;
 import com.uk.certifynow.certify_now.repos.JobMatchLogRepository;
 import com.uk.certifynow.certify_now.repos.JobRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
-import com.uk.certifynow.certify_now.rest.dto.job.DayAvailability;
 import com.uk.certifynow.certify_now.rest.dto.job.JobResponse;
+import com.uk.certifynow.certify_now.service.job.JobResponseMapper;
 import com.uk.certifynow.certify_now.service.job.JobStatus;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -29,9 +30,6 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import tools.jackson.core.JacksonException;
-import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.ObjectMapper;
 
 /**
  * Matching engine implementing the broadcast model. When a job is created, all eligible engineers
@@ -47,7 +45,8 @@ public class MatchingService {
   private final JobMatchLogRepository matchLogRepository;
   private final UserRepository userRepository;
   private final ApplicationEventPublisher publisher;
-  private final ObjectMapper objectMapper;
+  private final Clock clock;
+  private final JobResponseMapper jobResponseMapper;
 
   @Value("${certifynow.matching.broadcast-expiry-minutes:15}")
   private int broadcastExpiryMinutes;
@@ -58,13 +57,15 @@ public class MatchingService {
       final JobMatchLogRepository matchLogRepository,
       final UserRepository userRepository,
       final ApplicationEventPublisher publisher,
-      final ObjectMapper objectMapper) {
+      final Clock clock,
+      final JobResponseMapper jobResponseMapper) {
     this.jobRepository = jobRepository;
     this.engineerProfileRepository = engineerProfileRepository;
     this.matchLogRepository = matchLogRepository;
     this.userRepository = userRepository;
     this.publisher = publisher;
-    this.objectMapper = objectMapper;
+    this.clock = clock;
+    this.jobResponseMapper = jobResponseMapper;
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -99,7 +100,7 @@ public class MatchingService {
     final List<EngineerProfile> nearby = engineerProfileRepository.findNearbyApproved(lat, lng);
 
     // Filter: daily job cap check — batch query to avoid N+1
-    final OffsetDateTime startOfDay = LocalDate.now().atStartOfDay().atOffset(ZoneOffset.UTC);
+    final OffsetDateTime startOfDay = LocalDate.now(clock).atStartOfDay().atOffset(ZoneOffset.UTC);
     final List<UUID> nearbyIds = nearby.stream().map(ep -> ep.getUser().getId()).toList();
     final Map<UUID, Long> jobCountByEngineerId =
         jobRepository.countEngineerJobsTodayBatch(nearbyIds, startOfDay).stream()
@@ -120,7 +121,7 @@ public class MatchingService {
     // filter engineers who hold the required qualification for
     // job.getCertificateType().
 
-    log.info(
+    log.debug(
         "findCandidates: job={}, nearby={}, eligible (after cap check)={}",
         job.getId(),
         nearby.size(),
@@ -168,13 +169,13 @@ public class MatchingService {
     }
 
     // Update job status to AWAITING_ACCEPTANCE
-    job.setStatus("AWAITING_ACCEPTANCE");
-    job.setBroadcastAt(OffsetDateTime.now());
-    job.setUpdatedAt(OffsetDateTime.now());
+    job.setStatus(JobStatus.AWAITING_ACCEPTANCE.name());
+    job.setBroadcastAt(OffsetDateTime.now(clock));
+    job.setUpdatedAt(OffsetDateTime.now(clock));
     jobRepository.save(job);
 
     // Create match log entries and "notify" each engineer
-    final OffsetDateTime now = OffsetDateTime.now();
+    final OffsetDateTime now = OffsetDateTime.now(clock);
     final List<JobMatchLog> matchLogs = new java.util.ArrayList<>(candidates.size());
     for (final EngineerProfile ep : candidates) {
       final JobMatchLog matchLog = new JobMatchLog();
@@ -229,7 +230,7 @@ public class MatchingService {
                         "Engineer was not notified about this job"));
 
     // Atomic conditional update — only succeeds if job is still AWAITING_ACCEPTANCE
-    final OffsetDateTime now = OffsetDateTime.now();
+    final OffsetDateTime now = OffsetDateTime.now(clock);
     final int updatedRows = jobRepository.claimJob(jobId, engineer, now);
 
     if (updatedRows == 0) {
@@ -258,7 +259,7 @@ public class MatchingService {
 
     log.info("Job {} claimed by engineer {}", jobId, engineerId);
 
-    return toClaimResponse(job);
+    return jobResponseMapper.toJobResponse(job, null);
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -274,8 +275,8 @@ public class MatchingService {
     log.warn("Escalating job {} — no engineer accepted within timeout", job.getId());
 
     job.setStatus("ESCALATED");
-    job.setEscalatedAt(OffsetDateTime.now());
-    job.setUpdatedAt(OffsetDateTime.now());
+    job.setEscalatedAt(OffsetDateTime.now(clock));
+    job.setUpdatedAt(OffsetDateTime.now(clock));
     jobRepository.save(job);
 
     // Expire all pending match log entries
@@ -289,12 +290,12 @@ public class MatchingService {
   }
 
   // ────────────────────────────────────────────────────────────────────────────
-  // HELPERS
+  // PRIVATE HELPERS
   // ────────────────────────────────────────────────────────────────────────────
 
   /**
    * Parses a location string into [lat, lng]. Supports formats: "POINT(lng lat)",
-   * "SRID=4326;POINT(lng lat)", or "lng,lat".
+   * "SRID=4326;POINT(lng lat)", or "lat,lng".
    */
   private double[] parseLocation(final String location) {
     try {
@@ -310,8 +311,8 @@ public class MatchingService {
         return new double[] {lat, lng};
       } else if (cleaned.contains(",")) {
         final String[] parts = cleaned.split(",");
-        final double lng = Double.parseDouble(parts[0].trim());
-        final double lat = Double.parseDouble(parts[1].trim());
+        final double lat = Double.parseDouble(parts[0].trim());
+        final double lng = Double.parseDouble(parts[1].trim());
         return new double[] {lat, lng};
       }
     } catch (final Exception e) {
@@ -321,72 +322,5 @@ public class MatchingService {
         HttpStatus.BAD_REQUEST,
         "INVALID_LOCATION",
         "Failed to parse property location: " + location);
-  }
-
-  /**
-   * Minimal job response for the claim endpoint. Returns key fields needed by the engineer after
-   * claiming.
-   */
-  private JobResponse toClaimResponse(final Job job) {
-    final Property prop = job.getProperty();
-    final String propSummary =
-        prop.getAddressLine1() + ", " + prop.getCity() + " " + prop.getPostcode();
-    final User eng = job.getEngineer();
-    final String engName = eng == null ? null : eng.getFullName();
-    final UUID engId = eng == null ? null : eng.getId();
-
-    final JobResponse.Pricing pricing =
-        new JobResponse.Pricing(
-            job.getBasePricePence(),
-            job.getPropertyModifierPence(),
-            job.getUrgencyModifierPence(),
-            job.getDiscountPence(),
-            job.getTotalPricePence(),
-            job.getCommissionRate() == null ? 0.15 : job.getCommissionRate().doubleValue(),
-            job.getCommissionPence(),
-            job.getEngineerPayoutPence());
-
-    final JobResponse.Timestamps timestamps =
-        new JobResponse.Timestamps(
-            job.getCreatedAt(),
-            job.getMatchedAt(),
-            job.getAcceptedAt(),
-            job.getEnRouteAt(),
-            job.getStartedAt(),
-            job.getCompletedAt(),
-            job.getCertifiedAt(),
-            job.getCancelledAt());
-
-    return new JobResponse(
-        job.getId(),
-        job.getReferenceNumber(),
-        job.getCustomer().getId(),
-        prop.getId(),
-        propSummary,
-        engId,
-        engName,
-        job.getCertificateType(),
-        job.getStatus(),
-        job.getUrgency(),
-        job.getScheduledTimeSlot(),
-        job.getScheduledDate(),
-        job.getMatchAttempts(),
-        job.getAccessInstructions(),
-        job.getCustomerNotes(),
-        parseAvailability(job.getPreferredAvailability()),
-        job.getCancelledBy(),
-        job.getCancellationReason(),
-        pricing,
-        null, // payment not needed in claim response
-        timestamps);
-  }
-
-  private List<DayAvailability> parseAvailability(final String json) {
-    if (json == null || json.isBlank()) return List.of();
-    try {
-      return objectMapper.readValue(json, new TypeReference<List<DayAvailability>>() {});
-    } catch (final JacksonException e) {
-      return List.of();
-    }
   }
 }

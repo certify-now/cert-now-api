@@ -4,6 +4,7 @@ import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.repos.CustomerProfileRepository;
 import com.uk.certifynow.certify_now.repos.EngineerProfileRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
+import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.List;
 import org.slf4j.Logger;
@@ -29,23 +30,26 @@ public class GdprDataPurgeScheduler {
   private final CustomerProfileRepository customerProfileRepository;
   private final EngineerProfileRepository engineerProfileRepository;
   private final int gracePeriodDays;
+  private final Clock clock;
 
   public GdprDataPurgeScheduler(
       final UserRepository userRepository,
       final CustomerProfileRepository customerProfileRepository,
       final EngineerProfileRepository engineerProfileRepository,
-      @Value("${certifynow.gdpr.grace-period-days:30}") final int gracePeriodDays) {
+      @Value("${certifynow.gdpr.grace-period-days:30}") final int gracePeriodDays,
+      final Clock clock) {
     this.userRepository = userRepository;
     this.customerProfileRepository = customerProfileRepository;
     this.engineerProfileRepository = engineerProfileRepository;
     this.gracePeriodDays = gracePeriodDays;
+    this.clock = clock;
   }
 
   /** Runs daily at 2 AM UTC. Finds and anonymizes users past the grace period. */
   @Scheduled(cron = "0 0 2 * * *")
   @Transactional
   public void purgeExpiredSoftDeletedUsers() {
-    final OffsetDateTime cutoff = OffsetDateTime.now().minusDays(gracePeriodDays);
+    final OffsetDateTime cutoff = OffsetDateTime.now(clock).minusDays(gracePeriodDays);
     final List<User> expiredUsers = userRepository.findAllDeletedBefore(cutoff);
 
     if (expiredUsers.isEmpty()) {
@@ -94,10 +98,9 @@ public class GdprDataPurgeScheduler {
         .findByUserIdIncludingDeleted(userId)
         .ifPresent(
             profile -> {
-              // CustomerProfile doesn't have direct PII fields beyond the user FK,
-              // but clear any that exist
-              customerProfileRepository.save(profile);
-              log.debug("GDPR purge: anonymized customer profile for user {}", userId);
+              // CustomerProfile has no standalone PII fields beyond the user FK —
+              // no fields to clear, no save needed.
+              log.debug("GDPR purge: customer profile checked for user {}", userId);
             });
   }
 

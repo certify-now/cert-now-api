@@ -114,7 +114,14 @@ public class PricingController {
     }
 
     final PriceBreakdown breakdown =
-        pricingService.calculatePrice(certificateType, property, urgency);
+        pricingService.calculatePrice(
+            certificateType,
+            property.getPostcode(),
+            property.getPropertyType(),
+            property.getBedrooms(),
+            property.getGasApplianceCount(),
+            property.getFloorAreaSqm(),
+            urgency);
 
     return ApiResponse.of(breakdown, (String) httpRequest.getAttribute(RequestIdFilter.REQUEST_ID));
   }

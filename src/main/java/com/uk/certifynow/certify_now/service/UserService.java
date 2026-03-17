@@ -6,6 +6,7 @@ import com.uk.certifynow.certify_now.events.BeforeDeleteUser;
 import com.uk.certifynow.certify_now.events.UserRestoredEvent;
 import com.uk.certifynow.certify_now.events.UserSoftDeletedEvent;
 import com.uk.certifynow.certify_now.exception.BusinessException;
+import com.uk.certifynow.certify_now.exception.EntityNotFoundException;
 import com.uk.certifynow.certify_now.model.UpdateMeRequest;
 import com.uk.certifynow.certify_now.model.UserDTO;
 import com.uk.certifynow.certify_now.model.UserMeDTO;
@@ -16,8 +17,9 @@ import com.uk.certifynow.certify_now.repos.RefreshTokenRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
 import com.uk.certifynow.certify_now.service.auth.UserRole;
 import com.uk.certifynow.certify_now.service.auth.UserStatus;
+import com.uk.certifynow.certify_now.service.job.JobStatus;
 import com.uk.certifynow.certify_now.service.mappers.UserMapper;
-import com.uk.certifynow.certify_now.util.NotFoundException;
+import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -35,9 +37,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class UserService {
 
-  private static final List<String> TERMINAL_STATUSES =
-      List.of("COMPLETED", "CERTIFIED", "CANCELLED", "FAILED");
-
   private final UserRepository userRepository;
   private final JobRepository jobRepository;
   private final CustomerProfileRepository customerProfileRepository;
@@ -45,6 +44,7 @@ public class UserService {
   private final RefreshTokenRepository refreshTokenRepository;
   private final ApplicationEventPublisher publisher;
   private final UserMapper userMapper;
+  private final Clock clock;
 
   public UserService(
       final UserRepository userRepository,
@@ -53,7 +53,8 @@ public class UserService {
       final EngineerProfileRepository engineerProfileRepository,
       final RefreshTokenRepository refreshTokenRepository,
       final ApplicationEventPublisher publisher,
-      final UserMapper userMapper) {
+      final UserMapper userMapper,
+      final Clock clock) {
     this.userRepository = userRepository;
     this.jobRepository = jobRepository;
     this.customerProfileRepository = customerProfileRepository;
@@ -61,30 +62,40 @@ public class UserService {
     this.refreshTokenRepository = refreshTokenRepository;
     this.publisher = publisher;
     this.userMapper = userMapper;
+    this.clock = clock;
   }
 
-  @Cacheable("users_all")
+  @Transactional(readOnly = true)
   public List<UserDTO> findAll() {
     final List<User> users = userRepository.findAll(Sort.by("id"));
     return users.stream().map(userMapper::toDTO).toList();
   }
 
+  @Transactional(readOnly = true)
   @Cacheable(value = "users", key = "#id")
   public UserDTO get(final UUID id) {
-    return userRepository.findById(id).map(userMapper::toDTO).orElseThrow(NotFoundException::new);
+    return userRepository
+        .findById(id)
+        .map(userMapper::toDTO)
+        .orElseThrow(() -> new EntityNotFoundException("User not found: " + id));
   }
 
+  @Transactional(readOnly = true)
   @Cacheable(value = "users_email", key = "#email")
   public UserDTO getByEmail(final String email) {
     return userRepository
         .findByEmailIgnoreCase(email)
         .map(userMapper::toDTO)
-        .orElseThrow(NotFoundException::new);
+        .orElseThrow(() -> new EntityNotFoundException("User not found with email: " + email));
   }
 
+  @Transactional(readOnly = true)
   @Cacheable(value = "users_me", key = "#id")
   public UserMeDTO getMe(final UUID id) {
-    return userRepository.findById(id).map(userMapper::toMeDTO).orElseThrow(NotFoundException::new);
+    return userRepository
+        .findById(id)
+        .map(userMapper::toMeDTO)
+        .orElseThrow(() -> new EntityNotFoundException("User not found: " + id));
   }
 
   @Transactional
@@ -104,7 +115,10 @@ public class UserService {
       value = {"users", "users_all", "users_email", "users_me"},
       allEntries = true)
   public void update(final UUID id, final UserDTO userDTO) {
-    final User user = userRepository.findById(id).orElseThrow(NotFoundException::new);
+    final User user =
+        userRepository
+            .findById(id)
+            .orElseThrow(() -> new EntityNotFoundException("User not found: " + id));
     userMapper.updateEntity(userDTO, user);
     userRepository.save(user);
     log.info("User {} updated", id);
@@ -115,7 +129,10 @@ public class UserService {
       value = {"users", "users_all", "users_email", "users_me"},
       allEntries = true)
   public void updateMe(final UUID id, final UpdateMeRequest updateMeRequest) {
-    final User user = userRepository.findById(id).orElseThrow(NotFoundException::new);
+    final User user =
+        userRepository
+            .findById(id)
+            .orElseThrow(() -> new EntityNotFoundException("User not found: " + id));
 
     if (updateMeRequest.getFullName() != null) {
       user.setFullName(updateMeRequest.getFullName().trim());
@@ -144,7 +161,7 @@ public class UserService {
       user.setAvatarUrl(updateMeRequest.getAvatarUrl().trim());
     }
 
-    user.setUpdatedAt(OffsetDateTime.now());
+    user.setUpdatedAt(OffsetDateTime.now(clock));
     userRepository.save(user);
     log.info("User {} updated their profile", id);
   }
@@ -154,7 +171,10 @@ public class UserService {
       value = {"users", "users_all", "users_email", "users_me"},
       allEntries = true)
   public void delete(final UUID id) {
-    final User user = userRepository.findById(id).orElseThrow(NotFoundException::new);
+    final User user =
+        userRepository
+            .findById(id)
+            .orElseThrow(() -> new EntityNotFoundException("User not found: " + id));
     publisher.publishEvent(new BeforeDeleteUser(id));
     userRepository.delete(user);
     log.info("User {} deleted", id);
@@ -173,7 +193,9 @@ public class UserService {
       allEntries = true)
   public void softDelete(final UUID userId, final UUID deletedByUserId) {
     final User user =
-        userRepository.findByIdIncludingDeleted(userId).orElseThrow(NotFoundException::new);
+        userRepository
+            .findByIdIncludingDeleted(userId)
+            .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
 
     if (user.isDeleted()) {
       throw new BusinessException(
@@ -182,15 +204,15 @@ public class UserService {
 
     // Validate: no active (non-terminal) jobs
     final boolean hasActiveCustomerJobs =
-        jobRepository.existsActiveJobsByCustomerId(userId, TERMINAL_STATUSES);
+        jobRepository.existsActiveJobsByCustomerId(userId, JobStatus.TERMINAL_STATUSES);
     final boolean hasActiveEngineerJobs =
-        jobRepository.existsActiveJobsByEngineerId(userId, TERMINAL_STATUSES);
+        jobRepository.existsActiveJobsByEngineerId(userId, JobStatus.TERMINAL_STATUSES);
     if (hasActiveCustomerJobs || hasActiveEngineerJobs) {
       throw new BusinessException(
           HttpStatus.CONFLICT, "ACTIVE_JOBS_EXIST", "Cannot soft-delete user with active jobs");
     }
 
-    final OffsetDateTime now = OffsetDateTime.now();
+    final OffsetDateTime now = OffsetDateTime.now(clock);
     user.setDeletedAt(now);
     user.setDeletedBy(deletedByUserId);
     user.setStatus(UserStatus.DEACTIVATED);
@@ -214,34 +236,33 @@ public class UserService {
             userId, user.getEmail(), "ACCOUNT_DEACTIVATED", initiatedBy, accountAgeInDays, null));
   }
 
-  /**
-   * Restores a soft-deleted user by clearing deletedAt/deletedBy and setting status to ACTIVE.
-   * Cascades restore to associated profile.
-   */
   @Transactional
   @CacheEvict(
       value = {"users", "users_all", "users_email", "users_me"},
       allEntries = true)
-  public void restore(final UUID userId, final UUID restoredByUserId) {
+  public UserDTO restore(final UUID userId, final UUID restoredByUserId) {
     final User user =
-        userRepository.findByIdIncludingDeleted(userId).orElseThrow(NotFoundException::new);
+        userRepository
+            .findByIdIncludingDeleted(userId)
+            .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
 
     if (!user.isDeleted()) {
       throw new BusinessException(HttpStatus.CONFLICT, "NOT_DELETED", "User is not soft-deleted");
     }
 
-    final OffsetDateTime now = OffsetDateTime.now();
+    final OffsetDateTime now = OffsetDateTime.now(clock);
     user.setDeletedAt(null);
     user.setDeletedBy(null);
     user.setStatus(UserStatus.ACTIVE);
     user.setUpdatedAt(now);
-    userRepository.save(user);
+    final User saved = userRepository.save(user);
 
-    // Cascade restore to profile
     cascadeRestoreProfile(user, now);
 
     log.info("User {} restored by {}", userId, restoredByUserId);
     publisher.publishEvent(new UserRestoredEvent(userId, restoredByUserId));
+
+    return userMapper.toDTO(saved);
   }
 
   private void cascadeSoftDeleteProfile(

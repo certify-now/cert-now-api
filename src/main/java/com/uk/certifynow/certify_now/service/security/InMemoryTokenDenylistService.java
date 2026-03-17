@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 /**
@@ -46,6 +47,13 @@ public class InMemoryTokenDenylistService implements TokenDenylistService {
     }
 
     return true;
+  }
+
+  /** Periodically removes entries whose natural expiry has already passed. */
+  @Scheduled(fixedRate = 300_000)
+  public void evictExpired() {
+    final Instant now = Instant.now(clock);
+    denylistedJtis.entrySet().removeIf(e -> e.getValue().isBefore(now));
   }
 
   /** Test helper to reset denylist state between scenarios. */

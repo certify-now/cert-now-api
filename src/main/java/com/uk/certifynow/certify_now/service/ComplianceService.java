@@ -3,22 +3,66 @@ package com.uk.certifynow.certify_now.service;
 import com.uk.certifynow.certify_now.model.ComplianceHealthDTO;
 import com.uk.certifynow.certify_now.model.PropertyComplianceItemDTO;
 import com.uk.certifynow.certify_now.model.PropertyDTO;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Computes per-property and aggregate compliance status from certificate expiry data. All business
  * logic for compliance lives here — not in the controller or frontend.
  */
+@Transactional(readOnly = true)
 @Service
 public class ComplianceService {
 
   /** Certs expiring within this many days are flagged EXPIRING_SOON. */
   private static final int EXPIRY_WARNING_DAYS = 30;
+
+  /**
+   * Describes a single certificate category — captures inputs and computed status. Used to replace
+   * repetitive gas/EICR branches with a uniform loop.
+   */
+  record CertCheck(
+      String type,
+      Boolean hasSupply,
+      Boolean hasCert,
+      LocalDate expiryDate,
+      Integer daysUntilExpiry,
+      Boolean hasCertPdf,
+      String addAction,
+      String uploadAction,
+      String renewLabel,
+      String overdueLabel,
+      String status) {
+
+    String nextAction() {
+      return switch (status) {
+        case "MISSING" -> {
+          if (Boolean.TRUE.equals(hasCert)
+              && expiryDate != null
+              && !Boolean.TRUE.equals(hasCertPdf)) {
+            yield uploadAction;
+          }
+          yield addAction;
+        }
+        case "EXPIRING_SOON" -> renewLabel + daysUntilExpiry + " days";
+        case "EXPIRED" -> overdueLabel;
+        default -> null;
+      };
+    }
+  }
+
+  private final Clock clock;
+
+  public ComplianceService(final Clock clock) {
+    this.clock = clock;
+  }
 
   // ── Per-certificate status ─────────────────────────────────────────────────
 
@@ -36,7 +80,7 @@ public class ComplianceService {
     if (!Boolean.TRUE.equals(hasCert) || expiryDate == null) {
       return "MISSING";
     }
-    LocalDate today = LocalDate.now();
+    LocalDate today = LocalDate.now(clock);
     if (expiryDate.isBefore(today)) {
       return "EXPIRED";
     }
@@ -51,7 +95,7 @@ public class ComplianceService {
     if (!"COMPLIANT".equals(certStatus) && !"EXPIRING_SOON".equals(certStatus)) {
       return null;
     }
-    return (int) ChronoUnit.DAYS.between(LocalDate.now(), expiryDate);
+    return (int) ChronoUnit.DAYS.between(LocalDate.now(clock), expiryDate);
   }
 
   // ── Per-property score ─────────────────────────────────────────────────────
@@ -112,36 +156,40 @@ public class ComplianceService {
    * rather than re-register.
    */
   public List<String> computeNextActions(PropertyDTO dto, String gasStatus, String eicrStatus) {
-    List<String> actions = new ArrayList<>();
+    final List<CertCheck> checks =
+        List.of(
+            new CertCheck(
+                "GAS",
+                dto.getHasGasSupply(),
+                dto.getHasGasCertificate(),
+                dto.getGasExpiryDate(),
+                dto.getGasDaysUntilExpiry(),
+                dto.getHasGasCertPdf(),
+                "Add Gas Safety Certificate",
+                "Upload Gas Safety Certificate",
+                "Renew Gas Safety - ",
+                "Gas Safety Certificate Overdue",
+                gasStatus),
+            new CertCheck(
+                "EICR",
+                dto.getHasElectric(),
+                dto.getHasEicr(),
+                dto.getEicrExpiryDate(),
+                dto.getEicrDaysUntilExpiry(),
+                dto.getHasEicrCertPdf(),
+                "Add EICR",
+                "Upload EICR",
+                "Renew EICR - ",
+                "EICR Overdue",
+                eicrStatus));
 
-    if ("MISSING".equals(gasStatus)) {
-      if (Boolean.TRUE.equals(dto.getHasGasCertificate())
-          && dto.getGasExpiryDate() != null
-          && !Boolean.TRUE.equals(dto.getHasGasCertPdf())) {
-        actions.add("Upload Gas Safety Certificate");
-      } else {
-        actions.add("Add Gas Safety Certificate");
+    final List<String> actions = new ArrayList<>();
+    for (final CertCheck check : checks) {
+      final String action = check.nextAction();
+      if (action != null) {
+        actions.add(action);
       }
-    } else if ("EXPIRING_SOON".equals(gasStatus)) {
-      actions.add("Renew Gas Safety - " + dto.getGasDaysUntilExpiry() + " days");
-    } else if ("EXPIRED".equals(gasStatus)) {
-      actions.add("Gas Safety Certificate Overdue");
     }
-
-    if ("MISSING".equals(eicrStatus)) {
-      if (Boolean.TRUE.equals(dto.getHasEicr())
-          && dto.getEicrExpiryDate() != null
-          && !Boolean.TRUE.equals(dto.getHasEicrCertPdf())) {
-        actions.add("Upload EICR");
-      } else {
-        actions.add("Add EICR");
-      }
-    } else if ("EXPIRING_SOON".equals(eicrStatus)) {
-      actions.add("Renew EICR - " + dto.getEicrDaysUntilExpiry() + " days");
-    } else if ("EXPIRED".equals(eicrStatus)) {
-      actions.add("EICR Overdue");
-    }
-
     return actions;
   }
 
@@ -151,20 +199,37 @@ public class ComplianceService {
    * Populates all computed compliance fields on the DTO in-place. Call this after mapping the
    * entity to DTO.
    */
-  public void enrich(PropertyDTO dto) {
-    String gasStatus =
-        computeCertStatus(
-            dto.getHasGasSupply(), dto.getHasGasCertificate(), dto.getGasExpiryDate());
-    dto.setGasStatus(gasStatus);
-    dto.setGasDaysUntilExpiry(computeDaysUntilExpiry(gasStatus, dto.getGasExpiryDate()));
+  public void enrich(final PropertyDTO dto) {
+    record EnrichSpec(
+        Boolean hasSupply,
+        Boolean hasCert,
+        LocalDate expiryDate,
+        BiConsumer<PropertyDTO, String> statusSetter,
+        BiConsumer<PropertyDTO, Integer> daysSetter) {}
 
-    String eicrStatus =
-        computeCertStatus(dto.getHasElectric(), dto.getHasEicr(), dto.getEicrExpiryDate());
-    dto.setEicrStatus(eicrStatus);
-    dto.setEicrDaysUntilExpiry(computeDaysUntilExpiry(eicrStatus, dto.getEicrExpiryDate()));
+    final List<EnrichSpec> specs =
+        List.of(
+            new EnrichSpec(
+                dto.getHasGasSupply(),
+                dto.getHasGasCertificate(),
+                dto.getGasExpiryDate(),
+                PropertyDTO::setGasStatus,
+                PropertyDTO::setGasDaysUntilExpiry),
+            new EnrichSpec(
+                dto.getHasElectric(),
+                dto.getHasEicr(),
+                dto.getEicrExpiryDate(),
+                PropertyDTO::setEicrStatus,
+                PropertyDTO::setEicrDaysUntilExpiry));
 
-    dto.setComplianceStatus(deriveOverallStatus(gasStatus, eicrStatus));
-    dto.setNextActions(computeNextActions(dto, gasStatus, eicrStatus));
+    for (final EnrichSpec spec : specs) {
+      final String status = computeCertStatus(spec.hasSupply(), spec.hasCert(), spec.expiryDate());
+      spec.statusSetter().accept(dto, status);
+      spec.daysSetter().accept(dto, computeDaysUntilExpiry(status, spec.expiryDate()));
+    }
+
+    dto.setComplianceStatus(deriveOverallStatus(dto.getGasStatus(), dto.getEicrStatus()));
+    dto.setNextActions(computeNextActions(dto, dto.getGasStatus(), dto.getEicrStatus()));
   }
 
   // ── Aggregate health ──────────────────────────────────────────────────────

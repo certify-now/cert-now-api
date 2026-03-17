@@ -13,9 +13,12 @@ import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -72,33 +75,22 @@ public class AdminSoftDeleteController {
     return ApiResponse.of(userService.get(id), requestId(httpRequest));
   }
 
-  @PutMapping("/users/{id}/soft-delete")
-  @Operation(
-      summary = "Soft-delete a user",
-      description =
-          "Soft-deletes a user by setting deletedAt/deletedBy. Cascades to profile. "
-              + "Validates no active jobs exist.")
-  public ApiResponse<Void> softDeleteUser(
-      @PathVariable final UUID id,
-      final Authentication authentication,
-      final HttpServletRequest httpRequest) {
+  @DeleteMapping("/users/{id}")
+  public ResponseEntity<Void> softDeleteUser(
+      @PathVariable final UUID id, final Authentication authentication) {
     final UUID adminId = extractUserId(authentication);
     userService.softDelete(id, adminId);
-    return ApiResponse.of(null, requestId(httpRequest));
+    return ResponseEntity.noContent().build(); // 204
   }
 
-  @PutMapping("/users/{id}/restore")
-  @Operation(
-      summary = "Restore a soft-deleted user",
-      description =
-          "Restores a soft-deleted user by clearing deletedAt/deletedBy and their profile.")
-  public ApiResponse<Void> restoreUser(
+  @PostMapping("/users/{id}/restore")
+  public ApiResponse<UserDTO> restoreUser(
       @PathVariable final UUID id,
       final Authentication authentication,
       final HttpServletRequest httpRequest) {
     final UUID adminId = extractUserId(authentication);
-    userService.restore(id, adminId);
-    return ApiResponse.of(null, requestId(httpRequest));
+    UserDTO restored = userService.restore(id, adminId);
+    return ApiResponse.of(restored, requestId(httpRequest)); // test checks body("data.id", ...)
   }
 
   // ── Property soft-delete endpoints ──────────────────────────────────────────
@@ -130,17 +122,14 @@ public class AdminSoftDeleteController {
     return ApiResponse.of(null, requestId(httpRequest));
   }
 
-  @PutMapping("/properties/{id}/restore")
-  @Operation(
-      summary = "Restore a soft-deleted property",
-      description = "Restores a soft-deleted property by clearing deletedAt/deletedBy.")
-  public ApiResponse<Void> restoreProperty(
+  @PostMapping("/properties/{id}/restore")
+  public ApiResponse<PropertyDTO> restoreProperty(
       @PathVariable final UUID id,
       final Authentication authentication,
       final HttpServletRequest httpRequest) {
     final UUID adminId = extractUserId(authentication);
-    propertyService.restore(id, adminId);
-    return ApiResponse.of(null, requestId(httpRequest));
+    PropertyDTO restored = propertyService.restore(id, adminId);
+    return ApiResponse.of(restored, requestId(httpRequest));
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────

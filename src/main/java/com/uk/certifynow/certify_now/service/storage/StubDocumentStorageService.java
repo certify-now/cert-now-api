@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 
 /**
@@ -40,6 +41,22 @@ public class StubDocumentStorageService implements DocumentStorageService {
       return url;
     } catch (IOException e) {
       throw new UncheckedIOException("Failed to store PDF for certificateId=" + certificateId, e);
+    }
+  }
+
+  @Override
+  @Nullable
+  public byte[] retrieve(final UUID certificateId) {
+    final Path target = STORAGE_ROOT.resolve(certificateId + ".pdf");
+    if (!Files.exists(target)) {
+      log.warn("PDF not found on filesystem for certificateId={}", certificateId);
+      return null;
+    }
+    try {
+      return Files.readAllBytes(target);
+    } catch (IOException e) {
+      throw new UncheckedIOException(
+          "Failed to retrieve PDF for certificateId=" + certificateId, e);
     }
   }
 }

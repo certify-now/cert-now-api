@@ -11,13 +11,13 @@ import com.uk.certifynow.certify_now.domain.embeddable.ClientDetails;
 import com.uk.certifynow.certify_now.domain.embeddable.EpcPropertyDetails;
 import com.uk.certifynow.certify_now.domain.embeddable.OccupierDetails;
 import com.uk.certifynow.certify_now.events.CertificateIssuedEvent;
-import com.uk.certifynow.certify_now.events.job.JobStatusChangedEvent;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.exception.EntityNotFoundException;
 import com.uk.certifynow.certify_now.repos.CertificateRepository;
 import com.uk.certifynow.certify_now.repos.EpcAssessmentRepository;
 import com.uk.certifynow.certify_now.repos.JobRepository;
 import com.uk.certifynow.certify_now.repos.JobStatusHistoryRepository;
+import com.uk.certifynow.certify_now.service.job.JobService;
 import com.uk.certifynow.certify_now.rest.dto.inspection.EpcBookingDetailsRequest;
 import com.uk.certifynow.certify_now.rest.dto.inspection.EpcClientDetailsRequest;
 import com.uk.certifynow.certify_now.rest.dto.inspection.EpcDocumentsRequest;
@@ -61,6 +61,7 @@ public class EpcInspectionService {
   private final JobStatusHistoryRepository historyRepository;
   private final ApplicationEventPublisher publisher;
   private final Clock clock;
+  private final JobService jobService;
 
   public EpcInspectionService(
       final EpcAssessmentRepository epcAssessmentRepository,
@@ -68,13 +69,15 @@ public class EpcInspectionService {
       final CertificateRepository certificateRepository,
       final JobStatusHistoryRepository historyRepository,
       final ApplicationEventPublisher publisher,
-      final Clock clock) {
+      final Clock clock,
+      final JobService jobService) {
     this.epcAssessmentRepository = epcAssessmentRepository;
     this.jobRepository = jobRepository;
     this.certificateRepository = certificateRepository;
     this.historyRepository = historyRepository;
     this.publisher = publisher;
     this.clock = clock;
+    this.jobService = jobService;
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -133,22 +136,11 @@ public class EpcInspectionService {
     // 8. Supersede any existing active EPC certificates for this property
     supersedePreviousCertificates(job, certificate);
 
-    // 9. Transition job to CERTIFIED within this transaction (atomic).
-    // The status change, history record, and events are all committed as one unit —
-    // no post-commit listener is needed for the job status.
-    job.setStatus(JobStatus.CERTIFIED.name());
-    job.setCertifiedAt(OffsetDateTime.now(clock));
-    job.setUpdatedAt(OffsetDateTime.now(clock));
-    jobRepository.save(job);
+    // 9. Delegate job certification to JobService (validates transition, records history,
+    //    publishes JobStatusChangedEvent) — consistent with GasSafetyRecordService.
+    jobService.certifyJob(jobId);
 
-    // 10. Record COMPLETED → CERTIFIED status history entry.
-    recordHistory(
-        job, JobStatus.COMPLETED.name(), JobStatus.CERTIFIED.name(), engineerId, "SYSTEM");
-
-    // 11. Publish status-changed event and CertificateIssuedEvent.
-    publisher.publishEvent(
-        new JobStatusChangedEvent(
-            jobId, JobStatus.COMPLETED.name(), JobStatus.CERTIFIED.name(), engineerId, "SYSTEM"));
+    // 10. Publish CertificateIssuedEvent after certification.
     publisher.publishEvent(
         new CertificateIssuedEvent(jobId, certificate.getId(), job.getProperty().getId(), "EPC"));
 

@@ -68,7 +68,7 @@ public class PricingService {
   @Cacheable(
       value = "pricing-calc",
       key =
-          "#certificateType + ':' + #propertyType + ':'"
+          "#certificateType + ':' + #postcode + ':' + #propertyType + ':'"
               + " + (#bedrooms != null ? #bedrooms : 0) + ':'"
               + " + (#gasApplianceCount != null ? #gasApplianceCount : 0) + ':'"
               + " + (#floorAreaSqm != null ? #floorAreaSqm : 0) + ':'"
@@ -240,7 +240,7 @@ public class PricingService {
   }
 
   @Transactional(readOnly = true)
-  @Cacheable(value = "certificate-types", key = "T(java.time.LocalDate).now(@clock).toString()")
+  @Cacheable(value = "certificate-types", key = "T(java.time.LocalDate).now().toString()")
   public CertificateTypesResponse getCertificateTypes() {
     final List<PricingRule> activeRules = pricingRuleRepository.findAllActiveNationalForToday();
 

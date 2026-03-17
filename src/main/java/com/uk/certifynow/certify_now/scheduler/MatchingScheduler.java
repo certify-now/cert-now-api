@@ -49,6 +49,8 @@ public class MatchingScheduler {
   public void processUnmatchedJobs() {
     // Always fetch page 0: broadcastToEligible transitions jobs out of CREATED,
     // so processed items fall off the result set naturally.
+    // Guard: if every job in a batch throws, none are removed from page 0 — break to avoid
+    // spinning indefinitely when the whole batch is persistently failing.
     Page<Job> page;
     do {
       page =
@@ -59,12 +61,18 @@ public class MatchingScheduler {
       log.info(
           "processUnmatchedJobs: processing batch of {} unbroadcast jobs",
           page.getNumberOfElements());
+      int successCount = 0;
       for (final Job job : page.getContent()) {
         try {
           matchingService.broadcastToEligible(job);
+          successCount++;
         } catch (final Exception e) {
           log.error("processUnmatchedJobs: failed to broadcast job {}", job.getId(), e);
         }
+      }
+      if (successCount == 0) {
+        log.warn("processUnmatchedJobs: no jobs transitioned in this batch — stopping to avoid loop");
+        return;
       }
     } while (page.hasNext());
   }
@@ -78,6 +86,7 @@ public class MatchingScheduler {
     final OffsetDateTime cutoff = OffsetDateTime.now(clock).minusMinutes(broadcastExpiryMinutes);
     // Always fetch page 0: escalateJob transitions jobs out of AWAITING_ACCEPTANCE,
     // so processed items fall off the result set naturally.
+    // Guard: break if no jobs transition to avoid infinite loop on persistent failures.
     Page<Job> page;
     do {
       page =
@@ -90,12 +99,18 @@ public class MatchingScheduler {
           "processExpiredBroadcasts: processing batch of {} jobs past {}min broadcast window",
           page.getNumberOfElements(),
           broadcastExpiryMinutes);
+      int successCount = 0;
       for (final Job job : page.getContent()) {
         try {
           matchingService.escalateJob(job);
+          successCount++;
         } catch (final Exception e) {
           log.error("processExpiredBroadcasts: failed to escalate job {}", job.getId(), e);
         }
+      }
+      if (successCount == 0) {
+        log.warn("processExpiredBroadcasts: no jobs transitioned in this batch — stopping to avoid loop");
+        return;
       }
     } while (page.hasNext());
   }

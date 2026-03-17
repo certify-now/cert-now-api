@@ -2,10 +2,14 @@ package com.uk.certifynow.certify_now.service.auth;
 
 import com.uk.certifynow.certify_now.domain.RefreshToken;
 import com.uk.certifynow.certify_now.domain.User;
+import com.uk.certifynow.certify_now.events.UserLoggedOutEvent;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.service.security.JwtTokenProvider;
 import com.uk.certifynow.certify_now.service.security.TokenDenylistService;
+import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,14 +32,17 @@ public class SessionService {
   private final JwtTokenProvider jwtTokenProvider;
   private final RefreshTokenService refreshTokenService;
   private final TokenDenylistService tokenDenylistService;
+  private final ApplicationEventPublisher eventPublisher;
 
   public SessionService(
       final JwtTokenProvider jwtTokenProvider,
       final RefreshTokenService refreshTokenService,
-      final TokenDenylistService tokenDenylistService) {
+      final TokenDenylistService tokenDenylistService,
+      final ApplicationEventPublisher eventPublisher) {
     this.jwtTokenProvider = jwtTokenProvider;
     this.refreshTokenService = refreshTokenService;
     this.tokenDenylistService = tokenDenylistService;
+    this.eventPublisher = eventPublisher;
   }
 
   /**
@@ -112,6 +119,11 @@ public class SessionService {
           HttpStatus.FORBIDDEN, "ACCESS_DENIED", "Token does not belong to user");
     }
 
+    final Long sessionDurationSeconds =
+        token.getCreatedAt() != null
+            ? ChronoUnit.SECONDS.between(token.getCreatedAt(), OffsetDateTime.now())
+            : null;
+
     refreshTokenService.revoke(token);
 
     // Denylist the access token's jti so it is immediately invalid (Fix 1)
@@ -129,6 +141,9 @@ public class SessionService {
             .warn("Could not denylist jti on logout for userId={}", userId, ex);
       }
     }
+
+    eventPublisher.publishEvent(
+        new UserLoggedOutEvent(userId, sessionDurationSeconds, token.getDeviceInfo()));
   }
 
   /**

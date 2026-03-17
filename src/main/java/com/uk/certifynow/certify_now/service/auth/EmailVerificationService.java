@@ -2,6 +2,7 @@ package com.uk.certifynow.certify_now.service.auth;
 
 import com.uk.certifynow.certify_now.domain.EmailVerificationToken;
 import com.uk.certifynow.certify_now.domain.User;
+import com.uk.certifynow.certify_now.events.EmailVerifiedEvent;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.repos.EmailVerificationTokenRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
@@ -10,11 +11,13 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +38,7 @@ public class EmailVerificationService {
   private final UserRepository userRepository;
   private final EmailVerificationTokenRepository tokenRepository;
   private final EmailService emailService;
+  private final ApplicationEventPublisher eventPublisher;
   private final Clock clock;
 
   @Value("${app.email-verification.token-expiry-hours:24}")
@@ -47,10 +51,12 @@ public class EmailVerificationService {
       final UserRepository userRepository,
       final EmailVerificationTokenRepository tokenRepository,
       final EmailService emailService,
+      final ApplicationEventPublisher eventPublisher,
       final Clock clock) {
     this.userRepository = userRepository;
     this.tokenRepository = tokenRepository;
     this.emailService = emailService;
+    this.eventPublisher = eventPublisher;
     this.clock = clock;
   }
 
@@ -134,6 +140,14 @@ public class EmailVerificationService {
     }
 
     userRepository.save(user);
+
+    final Long secondsSinceRegistration =
+        user.getCreatedAt() != null
+            ? ChronoUnit.SECONDS.between(user.getCreatedAt(), OffsetDateTime.now(clock))
+            : null;
+    eventPublisher.publishEvent(
+        new EmailVerifiedEvent(user.getId(), user.getEmail(), secondsSinceRegistration));
+
     return user;
   }
 

@@ -112,7 +112,12 @@ public class RegistrationService {
     createConsents(user, ipAddress);
 
     eventPublisher.publishEvent(
-        new UserRegisteredEvent(user.getId(), user.getEmail(), user.getRole().name()));
+        new UserRegisteredEvent(
+            user.getId(),
+            user.getEmail(),
+            user.getRole().name(),
+            user.getAuthProvider() != null ? user.getAuthProvider().name() : null,
+            Boolean.TRUE.equals(user.getEmailVerified())));
 
     return Optional.of(user);
   }

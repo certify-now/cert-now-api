@@ -127,6 +127,17 @@ public interface JobRepository extends JpaRepository<Job, UUID> {
       String status, OffsetDateTime cutoff, Pageable pageable);
 
   /**
+   * Jobs in ESCALATED status whose last admin alert was sent before the given cutoff, or that have
+   * never had an alert sent ({@code lastAdminAlertAt IS NULL} — covers jobs escalated before the
+   * reminder system was introduced). Used by the reminder scheduler.
+   */
+  @Query(
+      "SELECT j FROM Job j WHERE j.status = 'ESCALATED' "
+          + "AND (j.lastAdminAlertAt IS NULL OR j.lastAdminAlertAt < :cutoff)")
+  Page<Job> findEscalatedJobsDueForReminder(
+      @Param("cutoff") OffsetDateTime cutoff, Pageable pageable);
+
+  /**
    * Atomic claim: conditionally update job to MATCHED only if it is currently AWAITING_ACCEPTANCE.
    * Returns the number of rows updated (1 = success, 0 = already claimed).
    */

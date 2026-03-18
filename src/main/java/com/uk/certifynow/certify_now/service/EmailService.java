@@ -43,4 +43,46 @@ public interface EmailService {
    * @param ipAddress the IP address of the duplicate attempt (for the recipient's awareness)
    */
   void sendDuplicateRegistrationNotification(String toEmail, String ipAddress);
+
+  /**
+   * Send an escalation alert to an admin when a job cannot be matched to any engineer and requires
+   * manual intervention.
+   *
+   * @param toEmail admin email address
+   * @param jobId UUID of the escalated job
+   * @param referenceNumber human-readable job reference (e.g. CN-0042)
+   * @param certificateType type of certificate required (e.g. GAS_SAFETY)
+   * @param urgency urgency level (e.g. STANDARD, URGENT)
+   * @param totalPricePence total job price in pence
+   */
+  void sendJobEscalationAlert(
+      String toEmail,
+      String jobId,
+      String referenceNumber,
+      String certificateType,
+      String urgency,
+      int totalPricePence);
+
+  /**
+   * Send a follow-up reminder to an admin for a job that has remained escalated without being
+   * resolved.
+   *
+   * @param toEmail admin email address
+   * @param jobId UUID of the escalated job
+   * @param referenceNumber human-readable job reference (e.g. CN-0042)
+   * @param certificateType type of certificate required (e.g. GAS_SAFETY)
+   * @param urgency urgency level (e.g. STANDARD, URGENT)
+   * @param totalPricePence total job price in pence
+   * @param reminderCount how many admin alerts have been sent so far (2 = first reminder)
+   * @param minutesEscalated how long the job has been in ESCALATED status
+   */
+  void sendJobEscalationReminder(
+      String toEmail,
+      String jobId,
+      String referenceNumber,
+      String certificateType,
+      String urgency,
+      int totalPricePence,
+      int reminderCount,
+      long minutesEscalated);
 }

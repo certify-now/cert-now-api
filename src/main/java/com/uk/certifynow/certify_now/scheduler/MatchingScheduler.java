@@ -34,6 +34,9 @@ public class MatchingScheduler {
   @Value("${certifynow.matching.broadcast-expiry-minutes:15}")
   private int broadcastExpiryMinutes;
 
+  @Value("${certifynow.matching.escalation-reminder-interval-minutes:15}")
+  private int escalationReminderIntervalMinutes;
+
   public MatchingScheduler(
       final JobRepository jobRepository, final MatchingService matchingService, final Clock clock) {
     this.jobRepository = jobRepository;
@@ -112,6 +115,46 @@ public class MatchingScheduler {
       if (successCount == 0) {
         log.warn(
             "processExpiredBroadcasts: no jobs transitioned in this batch — stopping to avoid loop");
+        return;
+      }
+    } while (page.hasNext());
+  }
+
+  /**
+   * Re-alerts admins for jobs that remain in ESCALATED status beyond the reminder interval. Runs on
+   * a fixed schedule; each pass processes only jobs whose {@code lastAdminAlertAt} is older than
+   * {@code escalation-reminder-interval-minutes}. Stops automatically once a job leaves ESCALATED
+   * status (admin assigns an engineer, job is cancelled, etc.).
+   */
+  @Scheduled(fixedRateString = "${certifynow.matching.escalation-reminder-check-interval-ms:60000}")
+  public void processEscalationReminders() {
+    final OffsetDateTime cutoff =
+        OffsetDateTime.now(clock).minusMinutes(escalationReminderIntervalMinutes);
+
+    Page<Job> page;
+    do {
+      page = jobRepository.findEscalatedJobsDueForReminder(cutoff, PageRequest.of(0, BATCH_SIZE));
+      if (page.isEmpty()) {
+        return;
+      }
+      log.info(
+          "processEscalationReminders: {} job(s) due for re-alert (interval={}min)",
+          page.getNumberOfElements(),
+          escalationReminderIntervalMinutes);
+
+      int successCount = 0;
+      for (final Job job : page.getContent()) {
+        try {
+          matchingService.sendEscalationReminderAndRecord(job);
+          successCount++;
+        } catch (final Exception e) {
+          log.error(
+              "processEscalationReminders: failed to send reminder for job {}", job.getId(), e);
+        }
+      }
+      if (successCount == 0) {
+        log.warn(
+            "processEscalationReminders: no jobs updated in this batch — stopping to avoid loop");
         return;
       }
     } while (page.hasNext());

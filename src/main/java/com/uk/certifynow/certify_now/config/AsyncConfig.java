@@ -42,4 +42,20 @@ public class AsyncConfig {
     executor.initialize();
     return executor;
   }
+
+  /**
+   * General-purpose async executor used by the matching engine and any {@code @Async} methods that
+   * do not explicitly name an executor. Named "taskExecutor" so Spring picks it up automatically
+   * for unqualified {@code @Async} calls, silencing the multi-bean ambiguity warning.
+   */
+  @Bean(name = {"matchingTaskExecutor", "taskExecutor"})
+  public Executor matchingTaskExecutor() {
+    final ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+    executor.setCorePoolSize(2);
+    executor.setMaxPoolSize(8);
+    executor.setQueueCapacity(100);
+    executor.setThreadNamePrefix("matching-");
+    executor.initialize();
+    return executor;
+  }
 }

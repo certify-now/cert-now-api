@@ -55,6 +55,9 @@ public class Job {
   @Column(nullable = false)
   private Integer matchAttempts;
 
+  @Column(columnDefinition = "integer not null default 0")
+  private Integer adminAlertCount;
+
   @Column(nullable = false)
   private Integer propertyModifierPence;
 
@@ -82,6 +85,8 @@ public class Job {
   @Column private OffsetDateTime broadcastAt;
 
   @Column private OffsetDateTime escalatedAt;
+
+  @Column private OffsetDateTime lastAdminAlertAt;
 
   @Column private OffsetDateTime matchedAt;
 

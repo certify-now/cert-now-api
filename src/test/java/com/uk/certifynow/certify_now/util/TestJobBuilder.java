@@ -72,6 +72,7 @@ public final class TestJobBuilder {
     j.setUrgency("STANDARD");
     j.setReferenceNumber("CN-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
     j.setMatchAttempts(0);
+    j.setAdminAlertCount(0);
     j.setBasePricePence(9900);
     j.setPropertyModifierPence(0);
     j.setUrgencyModifierPence(0);

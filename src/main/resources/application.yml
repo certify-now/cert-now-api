@@ -65,6 +65,8 @@ certifynow:
     broadcast-expiry-minutes: 15
     unmatched-job-check-interval-ms: 30000
     expired-broadcast-check-interval-ms: 30000
+    escalation-reminder-interval-minutes: 1      # re-alert every N minutes while job is ESCALATED
+    escalation-reminder-check-interval-ms: 60000  # how often the scheduler polls for due reminders
 
 app:
   pricing:
@@ -76,3 +78,7 @@ app:
     max-refresh-tokens-per-user: 5
   email-verification:
     token-expiry-hours: 24
+  admin:
+    email: admin@certnow.co.uk
+  slack:
+    webhook-url: ""  # override in profile-specific yml or via SLACK_WEBHOOK_URL env var

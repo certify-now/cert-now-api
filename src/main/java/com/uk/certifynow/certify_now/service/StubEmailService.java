@@ -49,4 +49,39 @@ public class StubEmailService implements EmailService {
         toEmail,
         ipAddress);
   }
+
+  @Override
+  public void sendJobEscalationAlert(
+      final String toEmail,
+      final String jobId,
+      final String referenceNumber,
+      final String certificateType,
+      final String urgency,
+      final int totalPricePence) {
+    logger.warn(
+        "📧 [STUB] Job escalation alert → to={}, ref={}, type={}, urgency={}, price={}p",
+        toEmail,
+        referenceNumber,
+        certificateType,
+        urgency,
+        totalPricePence);
+  }
+
+  @Override
+  public void sendJobEscalationReminder(
+      final String toEmail,
+      final String jobId,
+      final String referenceNumber,
+      final String certificateType,
+      final String urgency,
+      final int totalPricePence,
+      final int reminderCount,
+      final long minutesEscalated) {
+    logger.warn(
+        "📧 [STUB] Job escalation reminder #{} → to={}, ref={}, escalated for {}min",
+        reminderCount,
+        toEmail,
+        referenceNumber,
+        minutesEscalated);
+  }
 }

@@ -224,6 +224,189 @@ public class SmtpEmailService implements EmailService {
     sendHtmlEmail(toEmail, subject, body);
   }
 
+  @Override
+  public void sendJobEscalationAlert(
+      final String toEmail,
+      final String jobId,
+      final String referenceNumber,
+      final String certificateType,
+      final String urgency,
+      final int totalPricePence) {
+    Assert.hasText(toEmail, "toEmail must not be blank");
+    Assert.hasText(jobId, "jobId must not be blank");
+
+    final String formattedPrice = String.format("£%.2f", totalPricePence / 100.0);
+    final String subject = "⚠️ Job Escalated — " + referenceNumber + " requires admin attention";
+    final String escalatedAt = ZonedDateTime.now(ZoneOffset.UTC).format(TIMESTAMP_FMT);
+
+    final String body =
+        """
+        <p style="margin:0 0 16px 0;">Hello Admin,</p>
+        <p style="margin:0 0 20px 0;">
+          A job has been <strong style="color:#DC2626;">escalated</strong> because no eligible
+          engineer was found or no engineer accepted within the broadcast window.
+          Immediate attention is required.
+        </p>
+
+        <!-- Job details table -->
+        <table role="presentation" cellspacing="0" cellpadding="0" width="100%%"
+               style="margin:0 0 24px 0;border:1px solid #E5E7EB;border-radius:8px;overflow:hidden;">
+          <tr style="background:#F9FAFB;">
+            <td style="padding:10px 16px;font-size:13px;font-weight:600;color:#374151;
+                       border-bottom:1px solid #E5E7EB;width:40%%;">Job Reference</td>
+            <td style="padding:10px 16px;font-size:13px;color:#1F2937;
+                       border-bottom:1px solid #E5E7EB;font-weight:700;">%s</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 16px;font-size:13px;font-weight:600;color:#374151;
+                       border-bottom:1px solid #E5E7EB;">Certificate Type</td>
+            <td style="padding:10px 16px;font-size:13px;color:#1F2937;
+                       border-bottom:1px solid #E5E7EB;">%s</td>
+          </tr>
+          <tr style="background:#F9FAFB;">
+            <td style="padding:10px 16px;font-size:13px;font-weight:600;color:#374151;
+                       border-bottom:1px solid #E5E7EB;">Urgency</td>
+            <td style="padding:10px 16px;font-size:13px;color:#1F2937;
+                       border-bottom:1px solid #E5E7EB;">%s</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 16px;font-size:13px;font-weight:600;color:#374151;
+                       border-bottom:1px solid #E5E7EB;">Total Price</td>
+            <td style="padding:10px 16px;font-size:13px;color:#1F2937;
+                       border-bottom:1px solid #E5E7EB;">%s</td>
+          </tr>
+          <tr style="background:#F9FAFB;">
+            <td style="padding:10px 16px;font-size:13px;font-weight:600;color:#374151;">Escalated At</td>
+            <td style="padding:10px 16px;font-size:13px;color:#1F2937;">%s</td>
+          </tr>
+        </table>
+
+        <p style="margin:0 0 20px 0;font-size:13px;color:#6B7280;">
+          <strong>Job ID:</strong> <code style="font-size:12px;background:#F3F4F6;
+          padding:2px 6px;border-radius:4px;">%s</code>
+        </p>
+
+        <p style="margin:0 0 8px 0;font-size:14px;font-weight:600;color:#DC2626;">
+          Action required:
+        </p>
+        <ul style="margin:0 0 24px 0;padding-left:20px;font-size:14px;color:#374151;line-height:1.8;">
+          <li>Review the job in the admin dashboard</li>
+          <li>Manually assign an available engineer, or</li>
+          <li>Contact the customer to rebook</li>
+        </ul>
+
+        <p style="margin:0;font-size:13px;color:#6B7280;">
+          Need help? Contact the engineering team or reply to this email.
+        </p>
+        """
+            .formatted(
+                escapeHtml(referenceNumber),
+                escapeHtml(certificateType),
+                escapeHtml(urgency),
+                escapeHtml(formattedPrice),
+                escapeHtml(escalatedAt),
+                escapeHtml(jobId));
+
+    sendHtmlEmail(toEmail, subject, body);
+  }
+
+  @Override
+  public void sendJobEscalationReminder(
+      final String toEmail,
+      final String jobId,
+      final String referenceNumber,
+      final String certificateType,
+      final String urgency,
+      final int totalPricePence,
+      final int reminderCount,
+      final long minutesEscalated) {
+    Assert.hasText(toEmail, "toEmail must not be blank");
+    Assert.hasText(jobId, "jobId must not be blank");
+
+    final String formattedPrice = String.format("£%.2f", totalPricePence / 100.0);
+    final String formattedAge = formatEscalatedAge(minutesEscalated);
+    final String subject =
+        "🔴 Reminder #"
+            + reminderCount
+            + " — "
+            + referenceNumber
+            + " still needs attention ("
+            + formattedAge
+            + ")";
+
+    final String body =
+        """
+        <p style="margin:0 0 16px 0;">Hello Admin,</p>
+        <p style="margin:0 0 20px 0;">
+          This is <strong>reminder #%d</strong>. The job below has been
+          <strong style="color:#DC2626;">escalated for %s</strong> and has not yet been resolved.
+          Please take action as soon as possible.
+        </p>
+
+        <!-- Job details table -->
+        <table role="presentation" cellspacing="0" cellpadding="0" width="100%%"
+               style="margin:0 0 24px 0;border:1px solid #E5E7EB;border-radius:8px;overflow:hidden;">
+          <tr style="background:#FEF2F2;">
+            <td style="padding:10px 16px;font-size:13px;font-weight:600;color:#374151;
+                       border-bottom:1px solid #E5E7EB;width:40%%;">Job Reference</td>
+            <td style="padding:10px 16px;font-size:13px;color:#1F2937;
+                       border-bottom:1px solid #E5E7EB;font-weight:700;">%s</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 16px;font-size:13px;font-weight:600;color:#374151;
+                       border-bottom:1px solid #E5E7EB;">Certificate Type</td>
+            <td style="padding:10px 16px;font-size:13px;color:#1F2937;
+                       border-bottom:1px solid #E5E7EB;">%s</td>
+          </tr>
+          <tr style="background:#FEF2F2;">
+            <td style="padding:10px 16px;font-size:13px;font-weight:600;color:#374151;
+                       border-bottom:1px solid #E5E7EB;">Urgency</td>
+            <td style="padding:10px 16px;font-size:13px;color:#1F2937;
+                       border-bottom:1px solid #E5E7EB;">%s</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 16px;font-size:13px;font-weight:600;color:#374151;
+                       border-bottom:1px solid #E5E7EB;">Total Price</td>
+            <td style="padding:10px 16px;font-size:13px;color:#1F2937;
+                       border-bottom:1px solid #E5E7EB;">%s</td>
+          </tr>
+          <tr style="background:#FEF2F2;">
+            <td style="padding:10px 16px;font-size:13px;font-weight:600;color:#374151;">Time Escalated</td>
+            <td style="padding:10px 16px;font-size:13px;color:#DC2626;font-weight:600;">%s</td>
+          </tr>
+        </table>
+
+        <p style="margin:0 0 20px 0;font-size:13px;color:#6B7280;">
+          <strong>Job ID:</strong> <code style="font-size:12px;background:#F3F4F6;
+          padding:2px 6px;border-radius:4px;">%s</code>
+        </p>
+
+        <p style="margin:0 0 8px 0;font-size:14px;font-weight:600;color:#DC2626;">
+          Immediate action required:
+        </p>
+        <ul style="margin:0 0 24px 0;padding-left:20px;font-size:14px;color:#374151;line-height:1.8;">
+          <li>Review the job in the admin dashboard</li>
+          <li>Manually assign an available engineer, or</li>
+          <li>Contact the customer to rebook</li>
+        </ul>
+
+        <p style="margin:0;font-size:13px;color:#6B7280;">
+          You will continue to receive reminders until this job is resolved.
+        </p>
+        """
+            .formatted(
+                reminderCount,
+                escapeHtml(formattedAge),
+                escapeHtml(referenceNumber),
+                escapeHtml(certificateType),
+                escapeHtml(urgency),
+                escapeHtml(formattedPrice),
+                escapeHtml(formattedAge),
+                escapeHtml(jobId));
+
+    sendHtmlEmail(toEmail, subject, body);
+  }
+
   private void sendHtmlEmail(final String toEmail, final String subject, final String htmlBody) {
     Assert.hasText(toEmail, "toEmail must not be blank");
     Assert.hasText(subject, "subject must not be blank");
@@ -392,5 +575,14 @@ public class SmtpEmailService implements EmailService {
         .replace(">", "&gt;")
         .replace("\"", "&quot;")
         .replace("'", "&#x27;");
+  }
+
+  /** Converts minutes into a human-readable string, e.g. "45 minutes" or "2 hours 30 minutes". */
+  private String formatEscalatedAge(final long minutes) {
+    if (minutes < 60) return minutes + " minute" + (minutes == 1 ? "" : "s");
+    final long hours = minutes / 60;
+    final long remainder = minutes % 60;
+    final String hourPart = hours + " hour" + (hours == 1 ? "" : "s");
+    return remainder == 0 ? hourPart : hourPart + " " + remainder + " min";
   }
 }

@@ -28,7 +28,7 @@ public class MatchingJobListener {
     this.jobRepository = jobRepository;
   }
 
-  @Async
+  @Async("matchingTaskExecutor")
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
   public void onJobCreated(final JobCreatedEvent event) {
     log.info(

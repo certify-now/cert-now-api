@@ -19,6 +19,7 @@ import com.uk.certifynow.certify_now.repos.EngineerProfileRepository;
 import com.uk.certifynow.certify_now.repos.JobMatchLogRepository;
 import com.uk.certifynow.certify_now.repos.JobRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
+import com.uk.certifynow.certify_now.service.AdminAlertService;
 import com.uk.certifynow.certify_now.service.auth.EngineerApplicationStatus;
 import com.uk.certifynow.certify_now.service.job.JobResponseMapper;
 import com.uk.certifynow.certify_now.util.TestConstants;
@@ -50,6 +51,7 @@ class MatchingServiceTest {
   @Mock private UserRepository userRepository;
   @Mock private ApplicationEventPublisher publisher;
   @Mock private JobResponseMapper jobResponseMapper;
+  @Mock private AdminAlertService adminAlertService;
 
   private MatchingService matchingService;
 
@@ -63,7 +65,8 @@ class MatchingServiceTest {
             userRepository,
             publisher,
             clock,
-            jobResponseMapper);
+            jobResponseMapper,
+            adminAlertService);
   }
 
   // ─── findCandidates ───────────────────────────────────────────────────────────

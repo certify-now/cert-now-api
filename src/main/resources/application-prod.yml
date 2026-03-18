@@ -33,3 +33,7 @@ app:
     support: ${APP_EMAIL_SUPPORT}
   jwt:
     secret: ${JWT_SECRET}
+  admin:
+    email: admin@certnow.co.uk
+  slack:
+    webhook-url: ${SLACK_WEBHOOK_URL}

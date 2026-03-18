@@ -13,9 +13,11 @@ import com.uk.certifynow.certify_now.repos.JobMatchLogRepository;
 import com.uk.certifynow.certify_now.repos.JobRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
 import com.uk.certifynow.certify_now.rest.dto.job.JobResponse;
+import com.uk.certifynow.certify_now.service.AdminAlertService;
 import com.uk.certifynow.certify_now.service.job.JobResponseMapper;
 import com.uk.certifynow.certify_now.service.job.JobStatus;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -47,6 +49,7 @@ public class MatchingService {
   private final ApplicationEventPublisher publisher;
   private final Clock clock;
   private final JobResponseMapper jobResponseMapper;
+  private final AdminAlertService adminAlertService;
 
   @Value("${certifynow.matching.broadcast-expiry-minutes:15}")
   private int broadcastExpiryMinutes;
@@ -58,7 +61,8 @@ public class MatchingService {
       final UserRepository userRepository,
       final ApplicationEventPublisher publisher,
       final Clock clock,
-      final JobResponseMapper jobResponseMapper) {
+      final JobResponseMapper jobResponseMapper,
+      final AdminAlertService adminAlertService) {
     this.jobRepository = jobRepository;
     this.engineerProfileRepository = engineerProfileRepository;
     this.matchLogRepository = matchLogRepository;
@@ -66,6 +70,7 @@ public class MatchingService {
     this.publisher = publisher;
     this.clock = clock;
     this.jobResponseMapper = jobResponseMapper;
+    this.adminAlertService = adminAlertService;
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -274,19 +279,70 @@ public class MatchingService {
   public void escalateJob(final Job job) {
     log.warn("Escalating job {} — no engineer accepted within timeout", job.getId());
 
+    final OffsetDateTime now = OffsetDateTime.now(clock);
     job.setStatus("ESCALATED");
-    job.setEscalatedAt(OffsetDateTime.now(clock));
-    job.setUpdatedAt(OffsetDateTime.now(clock));
+    job.setEscalatedAt(now);
+    job.setLastAdminAlertAt(now);
+    job.setAdminAlertCount(1);
+    job.setUpdatedAt(now);
     jobRepository.save(job);
 
     // Expire all pending match log entries
     matchLogRepository.expireAllPendingForJob(job.getId());
 
-    // TODO: Wire to admin notification system when built
     log.warn(
         "Job {} escalated — admin attention required. Was broadcast at {}",
         job.getId(),
         job.getBroadcastAt());
+
+    // Fire email + Slack alerts asynchronously so the matching transaction is not blocked.
+    adminAlertService.sendJobEscalationAlert(job);
+  }
+
+  /**
+   * Called by the reminder scheduler for jobs that remain in ESCALATED status longer than the
+   * configured reminder interval. Re-loads the job inside a transaction to guard against concurrent
+   * resolution, increments the alert counter, persists the new {@code lastAdminAlertAt} timestamp,
+   * then fires the async reminder notifications.
+   */
+  @Transactional
+  public void sendEscalationReminderAndRecord(final Job jobRef) {
+    final Job job =
+        jobRepository
+            .findById(jobRef.getId())
+            .orElseThrow(() -> new EntityNotFoundException("Job not found: " + jobRef.getId()));
+
+    if (!"ESCALATED".equals(job.getStatus())) {
+      log.info(
+          "sendEscalationReminderAndRecord: job {} is no longer ESCALATED (status={}) — skipping",
+          job.getId(),
+          job.getStatus());
+      return;
+    }
+
+    final OffsetDateTime now = OffsetDateTime.now(clock);
+
+    if (job.getAdminAlertCount() == null) {
+      log.warn("adminAlertCount is null for escalated job {} — defaulting to 1", job.getId());
+    }
+    final int currentCount = job.getAdminAlertCount() != null ? job.getAdminAlertCount() : 1;
+    final int newCount = currentCount + 1;
+
+    final long minutesEscalated =
+        job.getEscalatedAt() != null ? Duration.between(job.getEscalatedAt(), now).toMinutes() : 0;
+
+    job.setAdminAlertCount(newCount);
+    job.setLastAdminAlertAt(now);
+    job.setUpdatedAt(now);
+    jobRepository.save(job);
+
+    log.warn(
+        "Job {} still ESCALATED after {}min — dispatching reminder #{}",
+        job.getId(),
+        minutesEscalated,
+        newCount);
+
+    adminAlertService.sendJobEscalationReminder(job, newCount, minutesEscalated);
   }
 
   // ────────────────────────────────────────────────────────────────────────────

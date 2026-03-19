@@ -7,9 +7,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.lang.Nullable;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -29,6 +31,11 @@ public class SecurityConfig {
 
   @Value("${app.cors.allowed-origin-patterns:http://localhost:*}")
   private String allowedOriginPatterns;
+
+  /** Null in non-dev profiles — only registered when the {@code dev} profile is active. */
+  @Autowired(required = false)
+  @Nullable
+  private DevAuthFilter devAuthFilter;
 
   @Bean
   public PasswordEncoder passwordEncoder() {
@@ -191,6 +198,11 @@ public class SecurityConfig {
                         (request, response, accessDeniedException) ->
                             writeAccessDenied(request, response, objectMapper)))
         .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
+    if (devAuthFilter != null) {
+      http.addFilterBefore(devAuthFilter, jwtAuthenticationFilter.getClass());
+    }
+
     return http.build();
   }
 

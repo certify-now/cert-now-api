@@ -1,6 +1,5 @@
 package com.uk.certifynow.certify_now.domain;
 
-import jakarta.persistence.Basic;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -102,28 +101,33 @@ public class Property implements SoftDeletable {
 
   @Column private LocalDate gasExpiryDate;
 
-  @Basic(fetch = FetchType.LAZY)
-  @Column(columnDefinition = "bytea")
-  private byte[] gasCertPdf;
-
-  @Column(length = 255)
-  private String gasCertPdfName;
-
   // ── EICR certificate fields ───────────────────────────────────────────────
 
   @Column private Boolean hasEicr;
 
   @Column private LocalDate eicrExpiryDate;
 
-  @Basic(fetch = FetchType.LAZY)
-  @Column(columnDefinition = "bytea")
-  private byte[] eicrCertPdf;
+  // ── Current certificate FK references (denormalised for fast queries) ─────
+  // EAGER: these are always accessed during DTO mapping and compliance enrichment.
+  // The certificates are small rows with no collections, so eager loading is appropriate.
 
-  @Column(length = 255)
-  private String eicrCertPdfName;
+  @ManyToOne(fetch = FetchType.EAGER)
+  @JoinColumn(name = "current_gas_certificate_id")
+  private Certificate currentGasCertificate;
+
+  @ManyToOne(fetch = FetchType.EAGER)
+  @JoinColumn(name = "current_eicr_certificate_id")
+  private Certificate currentEicrCertificate;
+
+  @ManyToOne(fetch = FetchType.EAGER)
+  @JoinColumn(name = "current_epc_certificate_id")
+  private Certificate currentEpcCertificate;
 
   @OneToMany(mappedBy = "property")
-  private Set<Certificate> propertyCertificates = new HashSet<>();
+  private Set<Certificate> certificates = new HashSet<>();
+
+  @OneToMany(mappedBy = "property")
+  private Set<ComplianceDocument> complianceDocuments = new HashSet<>();
 
   @OneToMany(mappedBy = "property")
   private Set<Job> propertyJobs = new HashSet<>();

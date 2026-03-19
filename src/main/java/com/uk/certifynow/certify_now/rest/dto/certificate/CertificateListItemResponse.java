@@ -19,4 +19,6 @@ public record CertificateListItemResponse(
     boolean canDownload,
     boolean canShare,
     boolean canRenew,
-    EngineerSummaryResponse issuedBy) {}
+    EngineerSummaryResponse issuedBy,
+    /** Non-null when status is SUPERSEDED — the ID of the certificate that replaced this one. */
+    UUID supersededById) {}

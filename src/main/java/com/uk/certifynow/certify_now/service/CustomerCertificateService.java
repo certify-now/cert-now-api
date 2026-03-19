@@ -83,8 +83,11 @@ public class CustomerCertificateService {
 
     final LocalDate today = LocalDate.now(clock);
     final List<Certificate> rawCerts =
-        certificateRepository.findByPropertyOwnerIdWithFilters(
-            customerId, filters.type(), filters.propertyId());
+        filters.includeHistory()
+            ? certificateRepository.findByPropertyOwnerIdWithHistory(
+                customerId, filters.type(), filters.propertyId())
+            : certificateRepository.findByPropertyOwnerIdWithFilters(
+                customerId, filters.type(), filters.propertyId());
 
     // Compute dynamic status and build list items
     final List<CertificateListItemResponse> items = new ArrayList<>();
@@ -213,7 +216,7 @@ public class CustomerCertificateService {
         cert.getIssuedAt(),
         cert.getExpiryAt(),
         daysUntilExpiry(cert.getExpiryAt(), today),
-        cert.getDocumentUrl(),
+        getPrimaryDocumentUrl(cert),
         cert.getShareToken(),
         buildShareUrl(cert.getShareToken()),
         canDownload,
@@ -244,7 +247,11 @@ public class CustomerCertificateService {
           "EPC certificates are not downloadable — use the government EPC register.");
     }
 
-    final byte[] pdfBytes = documentStorageService.retrieve(cert.getId());
+    final var primaryDoc = cert.getPrimaryDocument();
+    if (primaryDoc == null) {
+      throw new NotFoundException("PDF document not found for this certificate");
+    }
+    final byte[] pdfBytes = documentStorageService.retrieveByUrl(primaryDoc.getStorageUrl());
     if (pdfBytes == null) {
       throw new NotFoundException("PDF document not found for this certificate");
     }
@@ -477,7 +484,7 @@ public class CustomerCertificateService {
   private boolean canDownload(
       final Certificate cert, final UUID requestingUserId, final UserRole role) {
     if ("EPC".equals(cert.getCertificateType())) return false;
-    if (cert.getDocumentUrl() == null) return false;
+    if (cert.getPrimaryDocument() == null) return false;
     return isOwner(cert, requestingUserId)
         || role.isAdmin()
         || isIssuingEngineer(cert, requestingUserId);
@@ -525,7 +532,7 @@ public class CustomerCertificateService {
       final UUID requestingUserId) {
     final boolean canDl =
         !"EPC".equals(cert.getCertificateType())
-            && cert.getDocumentUrl() != null
+            && cert.getPrimaryDocument() != null
             && isOwner(cert, requestingUserId);
     return new CertificateListItemResponse(
         cert.getId(),
@@ -537,13 +544,14 @@ public class CustomerCertificateService {
         cert.getIssuedAt(),
         cert.getExpiryAt(),
         daysUntilExpiry(cert.getExpiryAt(), today),
-        cert.getDocumentUrl(),
+        getPrimaryDocumentUrl(cert),
         cert.getShareToken(),
         buildShareUrl(cert.getShareToken()),
         canDl,
         true,
         "EXPIRED".equals(dynamicStatus) || "EXPIRING_SOON".equals(dynamicStatus),
-        toEngineerSummary(cert));
+        toEngineerSummary(cert),
+        cert.getSupersededBy() != null ? cert.getSupersededBy().getId() : null);
   }
 
   private CertificateListItemResponse toMissingListItem(
@@ -564,6 +572,7 @@ public class CustomerCertificateService {
         false,
         false,
         true,
+        null,
         null);
   }
 
@@ -582,6 +591,11 @@ public class CustomerCertificateService {
     final var engineer = cert.getIssuedByEngineer();
     // Gas safe number is on the GasSafetyRecord (engineerGasSafeNumber); fall back to null
     return new EngineerSummaryResponse(engineer.getId(), engineer.getFullName(), null);
+  }
+
+  private static String getPrimaryDocumentUrl(final Certificate cert) {
+    final var primary = cert.getPrimaryDocument();
+    return primary != null ? primary.getStorageUrl() : null;
   }
 
   private static String buildShareUrl(final String shareToken) {
@@ -643,7 +657,7 @@ public class CustomerCertificateService {
   }
 
   private static Meta buildMeta(final List<CertificateListItemResponse> items) {
-    int valid = 0, expired = 0, expiringSoon = 0, missing = 0;
+    int valid = 0, expired = 0, expiringSoon = 0, missing = 0, superseded = 0;
     final Map<String, Integer> byType = new HashMap<>();
     for (final CertificateListItemResponse item : items) {
       switch (item.status() == null ? "" : item.status()) {
@@ -651,14 +665,16 @@ public class CustomerCertificateService {
         case "EXPIRED" -> expired++;
         case "EXPIRING_SOON" -> expiringSoon++;
         case "MISSING" -> missing++;
-        default -> {
-          /* SUPERSEDED etc */
-        }
+        case "SUPERSEDED" -> superseded++;
+        default -> { /* unknown */ }
       }
       if (item.certificateType() != null) {
         byType.merge(item.certificateType(), 1, Integer::sum);
       }
     }
-    return new Meta(items.size(), new Breakdown(valid, expired, expiringSoon, missing), byType);
+    return new Meta(
+        items.size(),
+        new Breakdown(valid, expired, expiringSoon, missing, superseded),
+        byType);
   }
 }

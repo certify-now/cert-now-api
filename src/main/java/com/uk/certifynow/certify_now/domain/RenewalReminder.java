@@ -51,8 +51,12 @@ public class RenewalReminder {
   private String certificateType;
 
   @ManyToOne(fetch = FetchType.LAZY)
-  @JoinColumn(name = "certificate_id", nullable = false)
+  @JoinColumn(name = "certificate_id")
   private Certificate certificate;
+
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "compliance_document_id")
+  private ComplianceDocument complianceDocument;
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "customer_id", nullable = false)

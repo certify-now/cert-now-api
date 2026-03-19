@@ -7,5 +7,6 @@ public record CertificatesListResponse(List<CertificateListItemResponse> data, M
 
   public record Meta(int totalCertificates, Breakdown breakdown, Map<String, Integer> byType) {}
 
-  public record Breakdown(int valid, int expired, int expiringSoon, int missing) {}
+  public record Breakdown(
+      int valid, int expired, int expiringSoon, int missing, int superseded) {}
 }

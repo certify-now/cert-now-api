@@ -1,8 +1,10 @@
 package com.uk.certifynow.certify_now.model;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.uk.certifynow.certify_now.service.PropertyType;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -77,27 +79,19 @@ public class PropertyDTO {
 
   @NotNull
   @Size(max = 255)
-  @Pattern(
-      regexp = "^(FLAT|TERRACED|SEMI_DETACHED|DETACHED|BUNGALOW|MAISONETTE|COMMERCIAL|OTHER|HMO)$",
-      message = "Invalid property type")
-  private String propertyType;
+  @Enumerated(EnumType.STRING)
+  private PropertyType propertyType;
 
   private String complianceStatus;
 
   @Size(max = 255)
   private String location;
 
-  // ── Gas Safety certificate fields ──────────────────────────────────────────
 
   private Boolean hasGasCertificate;
 
   @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
   private LocalDate gasExpiryDate;
-
-  /** true when a Gas Safety PDF has been uploaded (read-only). */
-  private Boolean hasGasCertPdf;
-
-  private String gasCertPdfName;
 
   // ── EICR certificate fields ───────────────────────────────────────────────
 
@@ -106,12 +100,24 @@ public class PropertyDTO {
   @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
   private LocalDate eicrExpiryDate;
 
-  /** true when an EICR PDF has been uploaded (read-only). */
-  private Boolean hasEicrCertPdf;
-
-  private String eicrCertPdfName;
-
   private UUID owner;
+
+  // ── Current certificate FK references (read-only, populated by server) ────
+
+  @Schema(
+      description = "ID of the current valid Gas Safety certificate",
+      accessMode = Schema.AccessMode.READ_ONLY)
+  private UUID currentGasCertificateId;
+
+  @Schema(
+      description = "ID of the current valid EICR certificate",
+      accessMode = Schema.AccessMode.READ_ONLY)
+  private UUID currentEicrCertificateId;
+
+  @Schema(
+      description = "ID of the current valid EPC certificate",
+      accessMode = Schema.AccessMode.READ_ONLY)
+  private UUID currentEpcCertificateId;
 
   // ── Computed compliance fields (read-only, populated by ComplianceService) ──
 
@@ -137,13 +143,32 @@ public class PropertyDTO {
       accessMode = Schema.AccessMode.READ_ONLY)
   private Integer eicrDaysUntilExpiry;
 
+  // ── EPC certificate fields (mapped from currentEpcCertificate) ────────────
+
+  @Schema(
+      description = "EPC energy band rating, e.g. 'D' (mapped from government registry record)",
+      accessMode = Schema.AccessMode.READ_ONLY)
+  private String epcRating;
+
+  @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
+  @Schema(
+      description = "EPC expiry date (registration date + 10 years)",
+      accessMode = Schema.AccessMode.READ_ONLY)
+  private LocalDate epcExpiryDate;
+
+  @Schema(
+      description =
+          "EPC compliance status: COMPLIANT, EXPIRING_SOON, EXPIRED, MISSING — always applicable",
+      accessMode = Schema.AccessMode.READ_ONLY)
+  private String epcStatus;
+
+  @Schema(
+      description = "Days until EPC expires (null if missing or expired)",
+      accessMode = Schema.AccessMode.READ_ONLY)
+  private Integer epcDaysUntilExpiry;
+
   @Schema(
       description = "List of recommended next actions for this property",
       accessMode = Schema.AccessMode.READ_ONLY)
   private List<String> nextActions;
-
-  /** Byte arrays are never sent to the client — only the name/flag fields are. */
-  @JsonIgnore private byte[] gasCertPdfBytes;
-
-  @JsonIgnore private byte[] eicrCertPdfBytes;
 }

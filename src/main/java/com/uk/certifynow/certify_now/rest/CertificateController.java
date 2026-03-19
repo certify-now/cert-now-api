@@ -51,12 +51,14 @@ public class CertificateController {
       description =
           "Returns all certificates for properties owned by the authenticated customer."
               + " Includes dynamically computed compliance status and missing certificate entries."
+              + " Set include_history=true to also return superseded (replaced) certificates"
+              + " for a full compliance audit trail."
               + " Requires CUSTOMER role.")
   public ApiResponse<CertificatesListResponse> getMyCertificates(
       @Parameter(description = "Filter by type: GAS_SAFETY, EICR, EPC, PAT")
           @RequestParam(required = false)
           final String type,
-      @Parameter(description = "Filter by status: VALID, EXPIRED, EXPIRING_SOON, MISSING")
+      @Parameter(description = "Filter by status: VALID, EXPIRED, EXPIRING_SOON, MISSING, SUPERSEDED")
           @RequestParam(required = false)
           final String status,
       @Parameter(description = "Filter by property UUID")
@@ -65,12 +67,15 @@ public class CertificateController {
       @Parameter(description = "Sort: expiry_asc, expiry_desc, issued_desc (default: smart sort)")
           @RequestParam(required = false)
           final String sort,
+      @Parameter(description = "Include superseded (replaced) certificates for full history view")
+          @RequestParam(name = "include_history", defaultValue = "false")
+          final boolean includeHistory,
       final Authentication authentication,
       final HttpServletRequest httpRequest) {
 
     final UUID customerId = extractUserId(authentication);
     final GetCertificatesRequest filters =
-        new GetCertificatesRequest(type, status, propertyId, sort);
+        new GetCertificatesRequest(type, status, propertyId, sort, includeHistory);
     return ApiResponse.of(
         customerCertificateService.getCustomerCertificates(customerId, filters),
         requestId(httpRequest));

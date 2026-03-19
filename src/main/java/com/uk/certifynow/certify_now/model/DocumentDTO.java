@@ -15,39 +15,28 @@ public class DocumentDTO {
   private UUID id;
 
   @NotNull
-  @JsonProperty("isVirusScanned")
-  private Boolean isVirusScanned;
-
-  private Boolean virusScanClean;
-
-  @NotNull private OffsetDateTime createdAt;
-
-  @NotNull private Long fileSizeBytes;
-
-  private UUID relatedId;
-
-  @Size(max = 50)
-  private String relatedEntity;
-
-  @NotNull
-  @Size(max = 100)
-  private String mimeType;
-
-  @NotNull
-  @Size(max = 100)
-  private String s3Bucket;
-
-  @NotNull
-  @Size(max = 512)
-  private String s3Key;
-
-  @NotNull
-  @Size(max = 255)
-  private String documentType;
+  @Size(max = 1024)
+  private String storageUrl;
 
   @NotNull
   @Size(max = 255)
   private String fileName;
 
-  @NotNull private UUID owner;
+  @NotNull
+  @Size(max = 100)
+  private String mimeType;
+
+  @NotNull private Long fileSizeBytes;
+
+  @NotNull
+  @JsonProperty("isVirusScanned")
+  private Boolean isVirusScanned;
+
+  private Boolean virusScanClean;
+
+  @NotNull private UUID uploadedBy;
+
+  private OffsetDateTime createdAt;
+
+  private OffsetDateTime updatedAt;
 }

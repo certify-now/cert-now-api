@@ -6,5 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface DocumentRepository extends JpaRepository<Document, UUID> {
 
-  Document findFirstByOwnerId(UUID id);
+  Document findFirstByUploadedById(UUID uploadedById);
 }

@@ -47,6 +47,27 @@ public interface CertificateRepository extends JpaRepository<Certificate, UUID> 
       @Param("type") String type,
       @Param("propertyId") UUID propertyId);
 
+  /**
+   * Returns ALL certificates (including superseded) for properties owned by the given customer.
+   * Used when the customer explicitly requests their full certificate history.
+   * Also eagerly fetches supersededBy so callers can resolve the replacement chain without N+1.
+   */
+  @Query(
+      """
+      SELECT c FROM Certificate c
+      JOIN FETCH c.property p
+      LEFT JOIN FETCH c.issuedByEngineer e
+      LEFT JOIN FETCH c.supersededBy sc
+      WHERE p.owner.id = :ownerId
+        AND (:type IS NULL OR c.certificateType = :type)
+        AND (:propertyId IS NULL OR p.id = :propertyId)
+      ORDER BY c.issuedAt DESC
+      """)
+  List<Certificate> findByPropertyOwnerIdWithHistory(
+      @Param("ownerId") UUID ownerId,
+      @Param("type") String type,
+      @Param("propertyId") UUID propertyId);
+
   /** Fetches a single certificate with all detail associations loaded in one query to avoid N+1. */
   @Query(
       """
@@ -82,7 +103,7 @@ public interface CertificateRepository extends JpaRepository<Certificate, UUID> 
   Optional<Certificate> findByIdWithProperty(@Param("id") UUID id);
 
   /**
-   * Batch-loads all ACTIVE certificates for multiple properties in a single query. Used by
+   * Batch-loads all non-superseded certificates for multiple properties in a single query. Used by
    * CustomerCertificateService to avoid N×type per-property lookups. The caller partitions by
    * (propertyId, certificateType) and filters by expiry date in memory.
    */
@@ -90,7 +111,7 @@ public interface CertificateRepository extends JpaRepository<Certificate, UUID> 
       """
       SELECT c FROM Certificate c
       WHERE c.property.id IN :propertyIds
-        AND c.status = 'ACTIVE'
+        AND c.status <> 'SUPERSEDED'
       """)
   List<Certificate> findAllActiveCertsByPropertyIds(@Param("propertyIds") List<UUID> propertyIds);
 

@@ -3,9 +3,11 @@ package com.uk.certifynow.certify_now.service.pdf;
 import com.openhtmltopdf.outputdevice.helper.BaseRendererBuilder;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
 import com.uk.certifynow.certify_now.domain.Certificate;
+import com.uk.certifynow.certify_now.domain.Document;
 import com.uk.certifynow.certify_now.domain.GasSafetyRecord;
 import com.uk.certifynow.certify_now.exception.EntityNotFoundException;
 import com.uk.certifynow.certify_now.repos.CertificateRepository;
+import com.uk.certifynow.certify_now.repos.DocumentRepository;
 import com.uk.certifynow.certify_now.repos.GasSafetyRecordRepository;
 import com.uk.certifynow.certify_now.service.storage.DocumentStorageService;
 import java.io.ByteArrayOutputStream;
@@ -66,6 +68,7 @@ public class GasSafetyCertificatePdfService implements CertificatePdfService {
 
   private final CertificateRepository certificateRepository;
   private final GasSafetyRecordRepository gasSafetyRecordRepository;
+  private final DocumentRepository documentRepository;
   private final QrCodeService qrCodeService;
   private final GasSafetyCertificatePdfModelMapper mapper;
   private final DocumentStorageService storageService;
@@ -83,11 +86,13 @@ public class GasSafetyCertificatePdfService implements CertificatePdfService {
   public GasSafetyCertificatePdfService(
       final CertificateRepository certificateRepository,
       final GasSafetyRecordRepository gasSafetyRecordRepository,
+      final DocumentRepository documentRepository,
       final QrCodeService qrCodeService,
       final GasSafetyCertificatePdfModelMapper mapper,
       final DocumentStorageService storageService) {
     this.certificateRepository = certificateRepository;
     this.gasSafetyRecordRepository = gasSafetyRecordRepository;
+    this.documentRepository = documentRepository;
     this.qrCodeService = qrCodeService;
     this.mapper = mapper;
     this.storageService = storageService;
@@ -156,14 +161,29 @@ public class GasSafetyCertificatePdfService implements CertificatePdfService {
     final String html = renderHtml(model);
     final byte[] pdfBytes = buildPdfBytes(html);
 
-    final String documentUrl = storageService.store(certificateId, "GAS_SAFETY", pdfBytes);
+    final String storageUrl = storageService.store(certificateId, "GAS_SAFETY", pdfBytes);
 
-    cert.setDocumentUrl(documentUrl);
-    record.setQrCodeUrl(documentUrl);
+    if (cert.getIssuedByEngineer() == null) {
+      throw new EntityNotFoundException(
+          "Cannot create Document: certificate " + certificateId + " has no issuing engineer");
+    }
+
+    final Document document = new Document();
+    document.setStorageUrl(storageUrl);
+    document.setFileName("gas-safety-certificate-" + certificateId + ".pdf");
+    document.setMimeType("application/pdf");
+    document.setFileSizeBytes((long) pdfBytes.length);
+    document.setIsVirusScanned(false);
+    document.setUploadedBy(cert.getIssuedByEngineer());
+    final Document savedDocument = documentRepository.save(document);
+
+    cert.addDocument(savedDocument, true, 0);
+
+    record.setQrCodeUrl(storageUrl);
     record.setVerificationUrl(verificationUrl);
 
     log.info(
-        "Gas safety certificate PDF stored: certificateId={} url={}", certificateId, documentUrl);
+        "Gas safety certificate PDF stored: certificateId={} url={}", certificateId, storageUrl);
   }
 
   /**

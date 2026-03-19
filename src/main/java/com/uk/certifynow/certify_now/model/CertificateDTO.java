@@ -29,20 +29,20 @@ public class CertificateDTO {
   @NotNull private OffsetDateTime updatedAt;
 
   @Size(max = 64)
-  private String documentHash;
-
-  @Size(max = 64)
   private String shareToken;
 
   @Size(max = 100)
   private String certificateNumber;
 
-  @Size(max = 512)
-  private String documentUrl;
-
   @NotNull
   @Size(max = 255)
   private String certificateType;
+
+  @Size(max = 20)
+  private String source;
+
+  @Size(max = 512)
+  private String epcRegistryUrl;
 
   @Size(max = 255)
   private String epcRating;

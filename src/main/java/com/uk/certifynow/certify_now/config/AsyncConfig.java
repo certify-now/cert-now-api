@@ -70,4 +70,19 @@ public class AsyncConfig {
     executor.initialize();
     return executor;
   }
+
+  /**
+   * Dedicated thread pool for async EPC lookups triggered after property creation. Kept small
+   * because the government EPC API has rate limits and lookups are low-frequency.
+   */
+  @Bean(name = "epcTaskExecutor")
+  public Executor epcTaskExecutor() {
+    final ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+    executor.setCorePoolSize(1);
+    executor.setMaxPoolSize(3);
+    executor.setQueueCapacity(50);
+    executor.setThreadNamePrefix("epc-lookup-");
+    executor.initialize();
+    return executor;
+  }
 }

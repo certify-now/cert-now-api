@@ -7,6 +7,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -16,6 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Computes per-property and aggregate compliance status from certificate expiry data. All business
  * logic for compliance lives here — not in the controller or frontend.
+ *
+ * <p>Statuses are expressed as {@link ComplianceStatus} values serialised to their name strings in
+ * the API response. Raw string literals are never used in this class.
  */
 @Transactional(readOnly = true)
 @Service
@@ -23,40 +27,6 @@ public class ComplianceService {
 
   /** Certs expiring within this many days are flagged EXPIRING_SOON. */
   private static final int EXPIRY_WARNING_DAYS = 30;
-
-  /**
-   * Describes a single certificate category — captures inputs and computed status. Used to replace
-   * repetitive gas/EICR branches with a uniform loop.
-   */
-  record CertCheck(
-      String type,
-      Boolean hasSupply,
-      Boolean hasCert,
-      LocalDate expiryDate,
-      Integer daysUntilExpiry,
-      Boolean hasCertPdf,
-      String addAction,
-      String uploadAction,
-      String renewLabel,
-      String overdueLabel,
-      String status) {
-
-    String nextAction() {
-      return switch (status) {
-        case "MISSING" -> {
-          if (Boolean.TRUE.equals(hasCert)
-              && expiryDate != null
-              && !Boolean.TRUE.equals(hasCertPdf)) {
-            yield uploadAction;
-          }
-          yield addAction;
-        }
-        case "EXPIRING_SOON" -> renewLabel + daysUntilExpiry + " days";
-        case "EXPIRED" -> overdueLabel;
-        default -> null;
-      };
-    }
-  }
 
   private final Clock clock;
 
@@ -67,32 +37,49 @@ public class ComplianceService {
   // ── Per-certificate status ─────────────────────────────────────────────────
 
   /**
-   * Derives the compliance status for a single certificate category.
+   * Derives the compliance status for a single obligation backed by a supply flag. Used for Gas
+   * Safety and EICR where the property may not have the relevant utility.
    *
    * @param hasSupply whether this utility (gas/electric) is present at the property
-   * @param hasCert whether the landlord has declared they hold a valid certificate
+   * @param hasCert whether a valid certificate is on record
    * @param expiryDate the certificate's expiry date
    */
-  public String computeCertStatus(Boolean hasSupply, Boolean hasCert, LocalDate expiryDate) {
+  public ComplianceStatus computeCertStatus(
+      final Boolean hasSupply, final Boolean hasCert, final LocalDate expiryDate) {
     if (!Boolean.TRUE.equals(hasSupply)) {
-      return "NOT_APPLICABLE";
+      return ComplianceStatus.NOT_APPLICABLE;
     }
+    return computeExpiryStatus(hasCert, expiryDate);
+  }
+
+  /**
+   * Derives the compliance status for an obligation that always applies (e.g. EPC).
+   *
+   * @param hasCert whether a certificate is on record
+   * @param expiryDate the certificate's expiry date
+   */
+  public ComplianceStatus computeEpcStatus(final Boolean hasCert, final LocalDate expiryDate) {
+    return computeExpiryStatus(hasCert, expiryDate);
+  }
+
+  private ComplianceStatus computeExpiryStatus(final Boolean hasCert, final LocalDate expiryDate) {
     if (!Boolean.TRUE.equals(hasCert) || expiryDate == null) {
-      return "MISSING";
+      return ComplianceStatus.MISSING;
     }
-    LocalDate today = LocalDate.now(clock);
+    final LocalDate today = LocalDate.now(clock);
     if (expiryDate.isBefore(today)) {
-      return "EXPIRED";
+      return ComplianceStatus.EXPIRED;
     }
     if (expiryDate.isBefore(today.plusDays(EXPIRY_WARNING_DAYS))) {
-      return "EXPIRING_SOON";
+      return ComplianceStatus.EXPIRING_SOON;
     }
-    return "COMPLIANT";
+    return ComplianceStatus.COMPLIANT;
   }
 
   /** Computes days until the certificate expires, or null if not applicable / already expired. */
-  public Integer computeDaysUntilExpiry(String certStatus, LocalDate expiryDate) {
-    if (!"COMPLIANT".equals(certStatus) && !"EXPIRING_SOON".equals(certStatus)) {
+  public Integer computeDaysUntilExpiry(
+      final ComplianceStatus certStatus, final LocalDate expiryDate) {
+    if (certStatus != ComplianceStatus.COMPLIANT && certStatus != ComplianceStatus.EXPIRING_SOON) {
       return null;
     }
     return (int) ChronoUnit.DAYS.between(LocalDate.now(clock), expiryDate);
@@ -101,16 +88,22 @@ public class ComplianceService {
   // ── Per-property score ─────────────────────────────────────────────────────
 
   /**
-   * Assigns a 0-100 compliance score for a single property based on its cert statuses.
+   * Assigns a 0–100 compliance score for a single property based on its cert statuses.
    * NOT_APPLICABLE certs are excluded from the average.
    */
-  public int computePropertyScore(String gasStatus, String eicrStatus) {
-    List<Integer> scores = new ArrayList<>();
-    if (gasStatus != null && !"NOT_APPLICABLE".equals(gasStatus)) {
+  public int computePropertyScore(
+      final ComplianceStatus gasStatus,
+      final ComplianceStatus eicrStatus,
+      final ComplianceStatus epcStatus) {
+    final List<Integer> scores = new ArrayList<>();
+    if (gasStatus != null && gasStatus != ComplianceStatus.NOT_APPLICABLE) {
       scores.add(scoreForStatus(gasStatus));
     }
-    if (eicrStatus != null && !"NOT_APPLICABLE".equals(eicrStatus)) {
+    if (eicrStatus != null && eicrStatus != ComplianceStatus.NOT_APPLICABLE) {
       scores.add(scoreForStatus(eicrStatus));
+    }
+    if (epcStatus != null && epcStatus != ComplianceStatus.NOT_APPLICABLE) {
+      scores.add(scoreForStatus(epcStatus));
     }
     if (scores.isEmpty()) {
       return 100;
@@ -118,9 +111,9 @@ public class ComplianceService {
     return scores.stream().mapToInt(Integer::intValue).sum() / scores.size();
   }
 
-  private int scoreForStatus(String status) {
+  private int scoreForStatus(final ComplianceStatus status) {
     return switch (status) {
-      case "COMPLIANT", "EXPIRING_SOON" -> 100;
+      case COMPLIANT, EXPIRING_SOON -> 100;
       default -> 0;
     };
   }
@@ -129,68 +122,29 @@ public class ComplianceService {
 
   /**
    * Derives a single overall compliance status for the property from the individual cert statuses.
-   * Values: COMPLIANT | EXPIRING_SOON | EXPIRED | MISSING
+   * Priority order: EXPIRED > EXPIRING_SOON > MISSING > COMPLIANT.
    */
-  public String deriveOverallStatus(String gasStatus, String eicrStatus) {
-    Set<String> relevant = new java.util.HashSet<>();
-    if (gasStatus != null && !"NOT_APPLICABLE".equals(gasStatus)) {
+  public ComplianceStatus deriveOverallStatus(
+      final ComplianceStatus gasStatus,
+      final ComplianceStatus eicrStatus,
+      final ComplianceStatus epcStatus) {
+    final Set<ComplianceStatus> relevant = new java.util.HashSet<>();
+    if (gasStatus != null && gasStatus != ComplianceStatus.NOT_APPLICABLE) {
       relevant.add(gasStatus);
     }
-    if (eicrStatus != null && !"NOT_APPLICABLE".equals(eicrStatus)) {
+    if (eicrStatus != null && eicrStatus != ComplianceStatus.NOT_APPLICABLE) {
       relevant.add(eicrStatus);
     }
+    if (epcStatus != null && epcStatus != ComplianceStatus.NOT_APPLICABLE) {
+      relevant.add(epcStatus);
+    }
     if (relevant.isEmpty()) {
-      return "NOT_APPLICABLE";
+      return ComplianceStatus.NOT_APPLICABLE;
     }
-    if (relevant.contains("EXPIRED")) return "EXPIRED";
-    if (relevant.contains("EXPIRING_SOON")) return "EXPIRING_SOON";
-    if (relevant.contains("MISSING")) return "MISSING";
-    return "COMPLIANT";
-  }
-
-  // ── Next actions ───────────────────────────────────────────────────────────
-
-  /**
-   * Builds a prioritised list of actionable next steps for the landlord. Business rule: if the
-   * landlord declared a cert + expiry date but hasn't uploaded a PDF, we prompt them to upload
-   * rather than re-register.
-   */
-  public List<String> computeNextActions(PropertyDTO dto, String gasStatus, String eicrStatus) {
-    final List<CertCheck> checks =
-        List.of(
-            new CertCheck(
-                "GAS",
-                dto.getHasGasSupply(),
-                dto.getHasGasCertificate(),
-                dto.getGasExpiryDate(),
-                dto.getGasDaysUntilExpiry(),
-                dto.getHasGasCertPdf(),
-                "Add Gas Safety Certificate",
-                "Upload Gas Safety Certificate",
-                "Renew Gas Safety - ",
-                "Gas Safety Certificate Overdue",
-                gasStatus),
-            new CertCheck(
-                "EICR",
-                dto.getHasElectric(),
-                dto.getHasEicr(),
-                dto.getEicrExpiryDate(),
-                dto.getEicrDaysUntilExpiry(),
-                dto.getHasEicrCertPdf(),
-                "Add EICR",
-                "Upload EICR",
-                "Renew EICR - ",
-                "EICR Overdue",
-                eicrStatus));
-
-    final List<String> actions = new ArrayList<>();
-    for (final CertCheck check : checks) {
-      final String action = check.nextAction();
-      if (action != null) {
-        actions.add(action);
-      }
-    }
-    return actions;
+    if (relevant.contains(ComplianceStatus.EXPIRED)) return ComplianceStatus.EXPIRED;
+    if (relevant.contains(ComplianceStatus.EXPIRING_SOON)) return ComplianceStatus.EXPIRING_SOON;
+    if (relevant.contains(ComplianceStatus.MISSING)) return ComplianceStatus.MISSING;
+    return ComplianceStatus.COMPLIANT;
   }
 
   // ── Enrich a DTO ──────────────────────────────────────────────────────────
@@ -198,6 +152,9 @@ public class ComplianceService {
   /**
    * Populates all computed compliance fields on the DTO in-place. Call this after mapping the
    * entity to DTO.
+   *
+   * <p>Gas and EICR are gated by supply flags (NOT_APPLICABLE when the utility is absent). EPC
+   * always applies — all UK rental properties require one.
    */
   public void enrich(final PropertyDTO dto) {
     record EnrichSpec(
@@ -222,44 +179,73 @@ public class ComplianceService {
                 PropertyDTO::setEicrStatus,
                 PropertyDTO::setEicrDaysUntilExpiry));
 
+    ComplianceStatus gasStatus = null;
+    ComplianceStatus eicrStatus = null;
+
     for (final EnrichSpec spec : specs) {
-      final String status = computeCertStatus(spec.hasSupply(), spec.hasCert(), spec.expiryDate());
-      spec.statusSetter().accept(dto, status);
+      final ComplianceStatus status =
+          computeCertStatus(spec.hasSupply(), spec.hasCert(), spec.expiryDate());
+      spec.statusSetter().accept(dto, status.name());
       spec.daysSetter().accept(dto, computeDaysUntilExpiry(status, spec.expiryDate()));
+      if (spec.statusSetter() == (BiConsumer<PropertyDTO, String>) PropertyDTO::setGasStatus) {
+        gasStatus = status;
+      } else {
+        eicrStatus = status;
+      }
     }
 
-    dto.setComplianceStatus(deriveOverallStatus(dto.getGasStatus(), dto.getEicrStatus()));
-    dto.setNextActions(computeNextActions(dto, dto.getGasStatus(), dto.getEicrStatus()));
+    // Capture gas/EICR statuses for overall derivation
+    gasStatus = ComplianceStatus.valueOf(dto.getGasStatus());
+    eicrStatus = ComplianceStatus.valueOf(dto.getEicrStatus());
+
+    // EPC — always applicable, derived from the current EPC certificate FK.
+    // Unlike gas/EICR there is no "missing" state: EPC is sourced entirely from the government
+    // registry. The government API does not distinguish between "never lodged" and "last one
+    // expired and not renewed" — it simply returns nothing. Both cases mean no valid EPC exists,
+    // so we treat them identically as EXPIRED (non-compliant).
+    // A null epcExpiryDate on an existing cert means the registry lookup found nothing.
+    final boolean hasEpcCert = dto.getCurrentEpcCertificateId() != null;
+    final ComplianceStatus epcStatus =
+        (!hasEpcCert || dto.getEpcExpiryDate() == null)
+            ? ComplianceStatus.EXPIRED
+            : computeEpcStatus(true, dto.getEpcExpiryDate());
+    dto.setEpcStatus(epcStatus.name());
+    dto.setEpcDaysUntilExpiry(computeDaysUntilExpiry(epcStatus, dto.getEpcExpiryDate()));
+
+    dto.setComplianceStatus(deriveOverallStatus(gasStatus, eicrStatus, epcStatus).name());
+    dto.setNextActions(Collections.emptyList());
   }
 
   // ── Aggregate health ──────────────────────────────────────────────────────
 
   /**
    * Computes the aggregate ComplianceHealthDTO from an already-enriched list of properties. Expects
-   * enrich() to have been called on each DTO first.
-   *
-   * <p>overallScore = average of all property cert scores (COMPLIANT/EXPIRING_SOON = 100,
-   * EXPIRED/MISSING = 0, NOT_APPLICABLE excluded). This answers "what % of my certificate
-   * obligations are legally valid right now?"
+   * {@link #enrich(PropertyDTO)} to have been called on each DTO first.
    */
-  public ComplianceHealthDTO computeHealth(List<PropertyDTO> properties) {
+  public ComplianceHealthDTO computeHealth(final List<PropertyDTO> properties) {
     int total = properties.size();
     int compliantCount = 0;
     int expiringSoonCount = 0;
     int nonCompliantCount = 0;
     int totalScore = 0;
-    List<PropertyComplianceItemDTO> items = new ArrayList<>();
+    final List<PropertyComplianceItemDTO> items = new ArrayList<>();
 
-    for (PropertyDTO p : properties) {
-      int score = computePropertyScore(p.getGasStatus(), p.getEicrStatus());
+    for (final PropertyDTO p : properties) {
+      final ComplianceStatus gas = p.getGasStatus() != null ? safeValueOf(p.getGasStatus()) : null;
+      final ComplianceStatus eicr =
+          p.getEicrStatus() != null ? safeValueOf(p.getEicrStatus()) : null;
+      final ComplianceStatus epc = p.getEpcStatus() != null ? safeValueOf(p.getEpcStatus()) : null;
+
+      final int score = computePropertyScore(gas, eicr, epc);
       totalScore += score;
 
-      String status = p.getComplianceStatus();
-      if ("COMPLIANT".equals(status)) {
+      final String status = p.getComplianceStatus();
+      if (ComplianceStatus.COMPLIANT.name().equals(status)) {
         compliantCount++;
-      } else if ("EXPIRING_SOON".equals(status)) {
+      } else if (ComplianceStatus.EXPIRING_SOON.name().equals(status)) {
         expiringSoonCount++;
-      } else if ("EXPIRED".equals(status) || "MISSING".equals(status)) {
+      } else if (ComplianceStatus.EXPIRED.name().equals(status)
+          || ComplianceStatus.MISSING.name().equals(status)) {
         nonCompliantCount++;
       }
 
@@ -273,7 +259,7 @@ public class ComplianceService {
               score));
     }
 
-    int overallScore = total > 0 ? totalScore / total : 100;
+    final int overallScore = total > 0 ? totalScore / total : 100;
     return new ComplianceHealthDTO(
         overallScore,
         total,
@@ -284,9 +270,17 @@ public class ComplianceService {
         items);
   }
 
-  private String computeSummaryLabel(int nonCompliantCount, int expiringSoonCount) {
+  private String computeSummaryLabel(final int nonCompliantCount, final int expiringSoonCount) {
     if (nonCompliantCount > 0) return "AT_RISK";
     if (expiringSoonCount > 0) return "ATTENTION_NEEDED";
     return "ON_TRACK";
+  }
+
+  private ComplianceStatus safeValueOf(final String name) {
+    try {
+      return ComplianceStatus.valueOf(name);
+    } catch (IllegalArgumentException ex) {
+      return null;
+    }
   }
 }

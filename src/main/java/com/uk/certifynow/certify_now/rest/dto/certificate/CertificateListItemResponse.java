@@ -10,6 +10,7 @@ public record CertificateListItemResponse(
     PropertySummaryResponse property,
     String status,
     String result,
+    String epcRating,
     LocalDate issuedAt,
     LocalDate expiresAt,
     Long daysUntilExpiry,
@@ -19,4 +20,6 @@ public record CertificateListItemResponse(
     boolean canDownload,
     boolean canShare,
     boolean canRenew,
-    EngineerSummaryResponse issuedBy) {}
+    EngineerSummaryResponse issuedBy,
+    /** Non-null when status is SUPERSEDED — the ID of the certificate that replaced this one. */
+    UUID supersededById) {}

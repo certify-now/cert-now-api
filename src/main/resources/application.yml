@@ -65,7 +65,7 @@ certifynow:
     broadcast-expiry-minutes: 15
     unmatched-job-check-interval-ms: 30000
     expired-broadcast-check-interval-ms: 30000
-    escalation-reminder-interval-minutes: 1      # re-alert every N minutes while job is ESCALATED
+    escalation-reminder-interval-minutes: 15     # re-alert every N minutes while job is ESCALATED
     escalation-reminder-check-interval-ms: 60000  # how often the scheduler polls for due reminders
 
 app:
@@ -82,3 +82,9 @@ app:
     email: admin@certnow.co.uk
   slack:
     webhook-url: ""  # override in profile-specific yml or via SLACK_WEBHOOK_URL env var
+  ideal-postcodes:
+    api-key: ${IDEAL_POSTCODES_API_KEY:}
+    base-url: https://api.ideal-postcodes.co.uk/v1
+  epc:
+    base-url: https://api.get-energy-performance-data.communities.gov.uk
+    api-key: ${EPC_API_KEY:}

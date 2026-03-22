@@ -25,7 +25,8 @@ public interface CertificateMapper {
   @Mapping(target = "supersededBy", ignore = true)
   @Mapping(target = "id", ignore = true)
   @Mapping(target = "supersededByCertificates", ignore = true)
-  @Mapping(target = "certificateRenewalReminders", ignore = true)
+  @Mapping(target = "renewalReminders", ignore = true)
+  @Mapping(target = "documents", ignore = true)
   void updateEntity(CertificateDTO dto, @MappingTarget Certificate entity);
 
   default UUID mapUserToUuid(User user) {

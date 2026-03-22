@@ -21,6 +21,9 @@ public interface PropertyRepository extends JpaRepository<Property, UUID> {
 
   List<Property> findByOwnerIdAndIsActiveTrue(UUID ownerId, Sort sort);
 
+  @Query("SELECT p FROM Property p JOIN FETCH p.owner WHERE p.id = :id AND p.owner.id = :ownerId")
+  Optional<Property> findByIdAndOwnerId(@Param("id") UUID id, @Param("ownerId") UUID ownerId);
+
   boolean existsByOwnerIdAndAddressLine1IgnoreCaseAndPostcodeIgnoreCase(
       UUID ownerId, String addressLine1, String postcode);
 

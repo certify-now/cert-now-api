@@ -57,50 +57,44 @@ public class DocumentService {
 
   private DocumentDTO mapToDTO(final Document document, final DocumentDTO documentDTO) {
     documentDTO.setId(document.getId());
+    documentDTO.setStorageUrl(document.getStorageUrl());
+    documentDTO.setFileName(document.getFileName());
+    documentDTO.setMimeType(document.getMimeType());
+    documentDTO.setFileSizeBytes(document.getFileSizeBytes());
     documentDTO.setIsVirusScanned(document.getIsVirusScanned());
     documentDTO.setVirusScanClean(document.getVirusScanClean());
+    documentDTO.setUploadedBy(
+        document.getUploadedBy() == null ? null : document.getUploadedBy().getId());
     documentDTO.setCreatedAt(document.getCreatedAt());
-    documentDTO.setFileSizeBytes(document.getFileSizeBytes());
-    documentDTO.setRelatedId(document.getRelatedId());
-    documentDTO.setRelatedEntity(document.getRelatedEntity());
-    documentDTO.setMimeType(document.getMimeType());
-    documentDTO.setS3Bucket(document.getS3Bucket());
-    documentDTO.setS3Key(document.getS3Key());
-    documentDTO.setDocumentType(document.getDocumentType());
-    documentDTO.setFileName(document.getFileName());
-    documentDTO.setOwner(document.getOwner() == null ? null : document.getOwner().getId());
+    documentDTO.setUpdatedAt(document.getUpdatedAt());
     return documentDTO;
   }
 
   private Document mapToEntity(final DocumentDTO documentDTO, final Document document) {
-    document.setIsVirusScanned(documentDTO.getIsVirusScanned());
-    document.setVirusScanClean(documentDTO.getVirusScanClean());
-    document.setCreatedAt(documentDTO.getCreatedAt());
-    document.setFileSizeBytes(documentDTO.getFileSizeBytes());
-    document.setRelatedId(documentDTO.getRelatedId());
-    document.setRelatedEntity(documentDTO.getRelatedEntity());
-    document.setMimeType(documentDTO.getMimeType());
-    document.setS3Bucket(documentDTO.getS3Bucket());
-    document.setS3Key(documentDTO.getS3Key());
-    document.setDocumentType(documentDTO.getDocumentType());
+    document.setStorageUrl(documentDTO.getStorageUrl());
     document.setFileName(documentDTO.getFileName());
-    final User owner =
-        documentDTO.getOwner() == null
+    document.setMimeType(documentDTO.getMimeType());
+    document.setFileSizeBytes(documentDTO.getFileSizeBytes());
+    document.setIsVirusScanned(
+        documentDTO.getIsVirusScanned() != null ? documentDTO.getIsVirusScanned() : false);
+    document.setVirusScanClean(documentDTO.getVirusScanClean());
+    final User uploadedBy =
+        documentDTO.getUploadedBy() == null
             ? null
             : userRepository
-                .findById(documentDTO.getOwner())
-                .orElseThrow(() -> new NotFoundException("owner not found"));
-    document.setOwner(owner);
+                .findById(documentDTO.getUploadedBy())
+                .orElseThrow(() -> new NotFoundException("uploadedBy user not found"));
+    document.setUploadedBy(uploadedBy);
     return document;
   }
 
   @EventListener(BeforeDeleteUser.class)
   public void on(final BeforeDeleteUser event) {
     final ReferencedException referencedException = new ReferencedException();
-    final Document ownerDocument = documentRepository.findFirstByOwnerId(event.getId());
-    if (ownerDocument != null) {
-      referencedException.setKey("user.document.owner.referenced");
-      referencedException.addParam(ownerDocument.getId());
+    final Document uploadedByDocument = documentRepository.findFirstByUploadedById(event.getId());
+    if (uploadedByDocument != null) {
+      referencedException.setKey("user.document.uploadedBy.referenced");
+      referencedException.addParam(uploadedByDocument.getId());
       throw referencedException;
     }
   }

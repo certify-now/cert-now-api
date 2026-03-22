@@ -56,7 +56,7 @@ public class Job {
   private Integer matchAttempts;
 
   @Column(columnDefinition = "integer not null default 0")
-  private Integer adminAlertCount;
+  private Integer adminAlertCount = 0;
 
   @Column(nullable = false)
   private Integer propertyModifierPence;

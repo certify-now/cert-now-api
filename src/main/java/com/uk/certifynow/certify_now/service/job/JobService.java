@@ -208,6 +208,7 @@ public class JobService {
     job.setStatus(JobStatus.CREATED.name());
     job.setReferenceNumber(referenceNumberGenerator.generate());
     job.setMatchAttempts(0);
+    job.setAdminAlertCount(0);
     job.setAccessInstructions(request.accessInstructions());
     job.setCustomerNotes(request.customerNotes());
     if (request.preferredAvailability() != null && !request.preferredAvailability().isEmpty()) {

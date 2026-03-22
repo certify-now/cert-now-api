@@ -2,7 +2,7 @@ package com.uk.certifynow.certify_now.service.storage;
 
 import java.util.UUID;
 
-/** Abstraction over object storage (S3, GCS, local filesystem). */
+/** Abstraction over object storage (MinIO, S3, local filesystem). */
 public interface DocumentStorageService {
 
   /**
@@ -16,10 +16,25 @@ public interface DocumentStorageService {
   String store(UUID certificateId, String certificateType, byte[] content);
 
   /**
-   * Retrieves the PDF bytes for the given certificate.
+   * Stores an arbitrary file (image or PDF) uploaded by a landlord and returns its public URL.
    *
-   * @param certificateId the certificate to retrieve
-   * @return the PDF bytes, or {@code null} if no document exists for this certificate
+   * <p>Unlike {@link #store}, this method accepts any MIME type and uses the document's own UUID as
+   * the storage key prefix so the object path is stable before the entity is persisted.
+   *
+   * @param documentId the pre-generated UUID for the {@code Document} entity
+   * @param filename original filename (used as the object key suffix)
+   * @param content the raw file bytes
+   * @param mimeType MIME type, e.g. {@code "application/pdf"} or {@code "image/jpeg"}
+   * @return a publicly accessible URL for the stored file
    */
-  byte[] retrieve(UUID certificateId);
+  String storeRaw(UUID documentId, String filename, byte[] content, String mimeType);
+
+  /**
+   * Retrieves the raw bytes for a document given its full storage URL.
+   *
+   * @param storageUrl the URL returned by {@link #store} (or persisted in {@code
+   *     Document.storageUrl})
+   * @return the document bytes, or {@code null} if no document exists at this URL
+   */
+  byte[] retrieveByUrl(String storageUrl);
 }

@@ -72,6 +72,7 @@ public class GlobalExceptionHandler {
     if (message.contains("not-null")
         || message.contains("null value")
         || message.contains("not null")) {
+      log.error("NOT NULL constraint violation — check entity defaults: {}", rawMessage);
       return build(
           request,
           HttpStatus.BAD_REQUEST,
@@ -101,13 +102,6 @@ public class GlobalExceptionHandler {
         List.of());
   }
 
-  @ExceptionHandler(HttpMessageNotReadableException.class)
-  public ResponseEntity<Map<String, Object>> handleBadJson(
-      final HttpMessageNotReadableException ex, final HttpServletRequest request) {
-    return build(
-        request, HttpStatus.BAD_REQUEST, "BAD_REQUEST", "Malformed request payload", List.of());
-  }
-
   @ExceptionHandler(Exception.class)
   public ResponseEntity<Map<String, Object>> handleFallback(
       final Exception ex, final HttpServletRequest request) {
@@ -118,6 +112,19 @@ public class GlobalExceptionHandler {
         "INTERNAL_ERROR",
         "Unexpected server error",
         List.of());
+  }
+
+  @ExceptionHandler(HttpMessageNotReadableException.class)
+  public ResponseEntity<Map<String, Object>> handleBadJson(
+      final HttpMessageNotReadableException ex, final HttpServletRequest request) {
+    log.warn("Malformed request payload: {}", ex.getMessage());
+    final String detail = ex.getMostSpecificCause().getMessage();
+    return build(
+        request,
+        HttpStatus.BAD_REQUEST,
+        "BAD_REQUEST",
+        "Malformed request payload",
+        detail != null ? List.of(detail) : List.of());
   }
 
   private Map<String, String> toFieldError(final FieldError fieldError) {

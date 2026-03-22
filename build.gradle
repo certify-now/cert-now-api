@@ -45,6 +45,11 @@ dependencies {
     implementation('io.github.wimdeblauwe:error-handling-spring-boot-starter:5.0.1')
     implementation('org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.1')
     implementation('commons-codec:commons-codec:1.16.0')  // For SHA-256 hashing
+    // MinIO Java SDK — S3-compatible object storage (Apache 2.0)
+    implementation('io.minio:minio:8.6.0')
+    // PostGIS / Hibernate Spatial — geospatial queries for engineer radius matching
+    implementation('org.hibernate.orm:hibernate-spatial')
+    implementation('org.locationtech.jts:jts-core:1.19.0')
     // MapStruct for compile-time DTO mapping (Apache 2.0)
     implementation('org.mapstruct:mapstruct:1.6.3')
     annotationProcessor('org.mapstruct:mapstruct-processor:1.6.3')

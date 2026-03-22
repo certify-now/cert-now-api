@@ -268,7 +268,7 @@ public class PricingService {
 
   // Canonical display order and static metadata for certificate types
   private static final List<String> CERTIFICATE_TYPE_ORDER =
-      List.of("GAS_SAFETY", "EICR", "EPC", "PAT");
+      List.of("GAS_SAFETY", "EICR", "EPC", "PAT", "BOILER_SERVICE");
 
   private record CertificateTypeMeta(String name, String description) {}
 
@@ -277,7 +277,9 @@ public class PricingService {
           "GAS_SAFETY", new CertificateTypeMeta("Gas Safety", "Annual gas safety inspection"),
           "EICR", new CertificateTypeMeta("EICR", "Electrical safety inspection"),
           "EPC", new CertificateTypeMeta("EPC", "Energy performance certificate"),
-          "PAT", new CertificateTypeMeta("PAT", "Portable appliance testing"));
+          "PAT", new CertificateTypeMeta("PAT", "Portable appliance testing"),
+          "BOILER_SERVICE",
+              new CertificateTypeMeta("Boiler Service", "Annual boiler service & inspection"));
 
   // ═══════════════════════════════════════════════════════
   // ADMIN — WRITE (all evict caches)

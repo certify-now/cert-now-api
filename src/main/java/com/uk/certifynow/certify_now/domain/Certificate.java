@@ -1,5 +1,6 @@
 package com.uk.certifynow.certify_now.domain;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -46,19 +47,19 @@ public class Certificate {
   private OffsetDateTime updatedAt;
 
   @Column(length = 64)
-  private String documentHash;
-
-  @Column(length = 64)
   private String shareToken;
 
   @Column(length = 100)
   private String certificateNumber;
 
-  @Column(length = 512)
-  private String documentUrl;
-
   @Column(nullable = false)
   private String certificateType;
+
+  @Column(nullable = false, length = 20)
+  private String source = "PLATFORM";
+
+  @Column(length = 512)
+  private String epcRegistryUrl;
 
   @Column private String epcRating;
 
@@ -90,5 +91,25 @@ public class Certificate {
   private Set<Certificate> supersededByCertificates = new HashSet<>();
 
   @OneToMany(mappedBy = "certificate")
-  private Set<RenewalReminder> certificateRenewalReminders = new HashSet<>();
+  private Set<RenewalReminder> renewalReminders = new HashSet<>();
+
+  @OneToMany(mappedBy = "certificate", cascade = CascadeType.ALL, orphanRemoval = true)
+  private Set<CertificateDocument> documents = new HashSet<>();
+
+  public void addDocument(Document document, boolean isPrimary, int displayOrder) {
+    CertificateDocument cd = new CertificateDocument();
+    cd.setCertificate(this);
+    cd.setDocument(document);
+    cd.setIsPrimary(isPrimary);
+    cd.setDisplayOrder(displayOrder);
+    this.documents.add(cd);
+  }
+
+  public Document getPrimaryDocument() {
+    return this.documents.stream()
+        .filter(CertificateDocument::getIsPrimary)
+        .map(CertificateDocument::getDocument)
+        .findFirst()
+        .orElse(null);
+  }
 }

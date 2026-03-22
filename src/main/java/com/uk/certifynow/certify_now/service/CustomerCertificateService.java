@@ -1,13 +1,18 @@
 package com.uk.certifynow.certify_now.service;
 
 import com.uk.certifynow.certify_now.domain.Certificate;
+import com.uk.certifynow.certify_now.domain.Document;
 import com.uk.certifynow.certify_now.domain.EicrInspection;
 import com.uk.certifynow.certify_now.domain.GasSafetyRecord;
 import com.uk.certifynow.certify_now.domain.Property;
+import com.uk.certifynow.certify_now.domain.User;
+import com.uk.certifynow.certify_now.events.BeforeDeleteCertificate;
 import com.uk.certifynow.certify_now.repos.CertificateRepository;
+import com.uk.certifynow.certify_now.repos.DocumentRepository;
 import com.uk.certifynow.certify_now.repos.EicrInspectionRepository;
 import com.uk.certifynow.certify_now.repos.GasSafetyRecordRepository;
 import com.uk.certifynow.certify_now.repos.PropertyRepository;
+import com.uk.certifynow.certify_now.repos.UserRepository;
 import com.uk.certifynow.certify_now.rest.dto.certificate.CertificateDetailResponse;
 import com.uk.certifynow.certify_now.rest.dto.certificate.CertificateDetailResponse.ApplianceSummary;
 import com.uk.certifynow.certify_now.rest.dto.certificate.CertificateDetailResponse.EicrInspectionSummary;
@@ -23,9 +28,12 @@ import com.uk.certifynow.certify_now.rest.dto.certificate.GetCertificatesRequest
 import com.uk.certifynow.certify_now.rest.dto.certificate.MissingCertificateResponse;
 import com.uk.certifynow.certify_now.rest.dto.certificate.PropertySummaryResponse;
 import com.uk.certifynow.certify_now.rest.dto.certificate.ShareCertificateResponse;
+import com.uk.certifynow.certify_now.rest.dto.certificate.UpdateCertificateRequest;
+import com.uk.certifynow.certify_now.rest.dto.certificate.UploadCertificateRequest;
 import com.uk.certifynow.certify_now.service.auth.UserRole;
 import com.uk.certifynow.certify_now.service.storage.DocumentStorageService;
 import com.uk.certifynow.certify_now.util.NotFoundException;
+import java.io.IOException;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -39,9 +47,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Slf4j
 @Service
@@ -58,7 +68,10 @@ public class CustomerCertificateService {
   private final GasSafetyRecordRepository gasSafetyRecordRepository;
   private final EicrInspectionRepository eicrInspectionRepository;
   private final DocumentStorageService documentStorageService;
+  private final DocumentRepository documentRepository;
+  private final UserRepository userRepository;
   private final Clock clock;
+  private final ApplicationEventPublisher eventPublisher;
 
   public CustomerCertificateService(
       final CertificateRepository certificateRepository,
@@ -66,13 +79,102 @@ public class CustomerCertificateService {
       final GasSafetyRecordRepository gasSafetyRecordRepository,
       final EicrInspectionRepository eicrInspectionRepository,
       final DocumentStorageService documentStorageService,
-      final Clock clock) {
+      final DocumentRepository documentRepository,
+      final UserRepository userRepository,
+      final Clock clock,
+      final ApplicationEventPublisher eventPublisher) {
     this.certificateRepository = certificateRepository;
     this.propertyRepository = propertyRepository;
     this.gasSafetyRecordRepository = gasSafetyRecordRepository;
     this.eicrInspectionRepository = eicrInspectionRepository;
     this.documentStorageService = documentStorageService;
+    this.documentRepository = documentRepository;
+    this.userRepository = userRepository;
     this.clock = clock;
+    this.eventPublisher = eventPublisher;
+  }
+
+  // ── POST /upload ──────────────────────────────────────────────────────────
+
+  @Transactional
+  public CertificateListItemResponse uploadCertificate(
+      final UUID customerId, final UploadCertificateRequest request, final MultipartFile file) {
+
+    final Property property =
+        propertyRepository
+            .findByIdAndOwnerId(request.propertyId(), customerId)
+            .orElseThrow(() -> new NotFoundException("Property not found"));
+
+    final LocalDate today = LocalDate.now(clock);
+    final LocalDate issuedAt = request.issuedAt() != null ? request.issuedAt() : today;
+
+    final String certType =
+        "CUSTOM".equals(request.certType())
+                && request.customTypeName() != null
+                && !request.customTypeName().isBlank()
+            ? request.customTypeName().trim()
+            : request.certType();
+
+    final String status = calculateStatus(request.expiresAt(), "VALID", today);
+
+    final Certificate cert = new Certificate();
+    cert.setCertificateType(certType);
+    cert.setProperty(property);
+    cert.setIssuedAt(issuedAt);
+    cert.setExpiryAt(request.expiresAt());
+    cert.setStatus(status);
+    cert.setSource("PLATFORM");
+    cert.setCreatedAt(OffsetDateTime.now(clock));
+    cert.setUpdatedAt(OffsetDateTime.now(clock));
+
+    if (request.notes() != null && !request.notes().isBlank()) {
+      cert.setResult(request.notes());
+    }
+
+    certificateRepository.save(cert);
+
+    if (file != null && !file.isEmpty()) {
+      final User uploader =
+          userRepository
+              .findById(customerId)
+              .orElseThrow(() -> new NotFoundException("User not found"));
+
+      final String originalName =
+          file.getOriginalFilename() != null ? file.getOriginalFilename() : "upload";
+      final String mimeType =
+          file.getContentType() != null ? file.getContentType() : "application/octet-stream";
+
+      final byte[] bytes;
+      try {
+        bytes = file.getBytes();
+      } catch (IOException e) {
+        throw new RuntimeException("Failed to read uploaded file", e);
+      }
+      final String storageUrl =
+          documentStorageService.storeRaw(UUID.randomUUID(), originalName, bytes, mimeType);
+
+      Document doc = new Document();
+      doc.setFileName(originalName);
+      doc.setMimeType(mimeType);
+      doc.setFileSizeBytes(file.getSize());
+      doc.setStorageUrl(storageUrl);
+      doc.setIsVirusScanned(false);
+      doc.setUploadedBy(uploader);
+      doc = documentRepository.save(doc);
+
+      cert.addDocument(doc, true, 0);
+      certificateRepository.save(cert);
+    }
+
+    log.info(
+        "Certificate uploaded by customer: customerId={} certId={} type={} propertyId={}",
+        customerId,
+        cert.getId(),
+        certType,
+        property.getId());
+
+    final String dynamicStatus = calculateStatus(cert.getExpiryAt(), cert.getStatus(), today);
+    return toListItem(cert, dynamicStatus, today, customerId);
   }
 
   // ── GET /my-certificates ─────────────────────────────────────────────────
@@ -83,8 +185,11 @@ public class CustomerCertificateService {
 
     final LocalDate today = LocalDate.now(clock);
     final List<Certificate> rawCerts =
-        certificateRepository.findByPropertyOwnerIdWithFilters(
-            customerId, filters.type(), filters.propertyId());
+        filters.includeHistory()
+            ? certificateRepository.findByPropertyOwnerIdWithHistory(
+                customerId, filters.type(), filters.propertyId())
+            : certificateRepository.findByPropertyOwnerIdWithFilters(
+                customerId, filters.type(), filters.propertyId());
 
     // Compute dynamic status and build list items
     final List<CertificateListItemResponse> items = new ArrayList<>();
@@ -213,7 +318,7 @@ public class CustomerCertificateService {
         cert.getIssuedAt(),
         cert.getExpiryAt(),
         daysUntilExpiry(cert.getExpiryAt(), today),
-        cert.getDocumentUrl(),
+        getPrimaryDocumentUrl(cert),
         cert.getShareToken(),
         buildShareUrl(cert.getShareToken()),
         canDownload,
@@ -244,7 +349,11 @@ public class CustomerCertificateService {
           "EPC certificates are not downloadable — use the government EPC register.");
     }
 
-    final byte[] pdfBytes = documentStorageService.retrieve(cert.getId());
+    final var primaryDoc = cert.getPrimaryDocument();
+    if (primaryDoc == null) {
+      throw new NotFoundException("PDF document not found for this certificate");
+    }
+    final byte[] pdfBytes = documentStorageService.retrieveByUrl(primaryDoc.getStorageUrl());
     if (pdfBytes == null) {
       throw new NotFoundException("PDF document not found for this certificate");
     }
@@ -261,6 +370,45 @@ public class CustomerCertificateService {
 
   /** Pairs the raw bytes with filename metadata for the controller. */
   public record CertificateDownloadPair(byte[] bytes, CertificateDownloadResponse meta) {}
+
+  /** Holds the raw bytes, MIME type, and filename for an uploaded document. */
+  public record DocumentContent(byte[] bytes, String mimeType, String filename) {}
+
+  // ── GET /{id}/document ────────────────────────────────────────────────────
+
+  @Transactional(readOnly = true)
+  public DocumentContent getCertificateDocument(
+      final UUID certId, final UUID requestingUserId, final UserRole role) {
+
+    final Certificate cert =
+        certificateRepository
+            .findByIdWithProperty(certId)
+            .orElseThrow(() -> new NotFoundException("Certificate not found"));
+
+    verifyAccess(cert, requestingUserId, role);
+
+    final var primaryDoc = cert.getPrimaryDocument();
+    if (primaryDoc == null) {
+      throw new NotFoundException("No document attached to this certificate");
+    }
+
+    final byte[] bytes = documentStorageService.retrieveByUrl(primaryDoc.getStorageUrl());
+    if (bytes == null) {
+      throw new NotFoundException("Document file not found in storage");
+    }
+
+    final String mimeType =
+        primaryDoc.getMimeType() != null ? primaryDoc.getMimeType() : "application/octet-stream";
+    final String filename =
+        primaryDoc.getFileName() != null ? primaryDoc.getFileName() : "document";
+
+    log.info(
+        "Certificate document served: certId={} userId={} filename={}",
+        certId,
+        requestingUserId,
+        filename);
+    return new DocumentContent(bytes, mimeType, filename);
+  }
 
   // ── POST /{id}/share ──────────────────────────────────────────────────────
 
@@ -306,6 +454,59 @@ public class CustomerCertificateService {
     cert.setShareTokenCreated(null);
     certificateRepository.save(cert);
     log.info("Share token revoked for certId={} by userId={}", certId, requestingUserId);
+  }
+
+  // ── DELETE /{id} ─────────────────────────────────────────────────────────
+
+  @Transactional
+  public void deleteCertificate(final UUID certId, final UUID customerId) {
+    final Certificate cert =
+        certificateRepository
+            .findByIdWithProperty(certId)
+            .orElseThrow(() -> new NotFoundException("Certificate not found"));
+
+    verifyOwnership(cert, customerId);
+
+    // Publishes event so guards (e.g. RenewalReminderService) can block deletion
+    // if anything references this certificate.
+    eventPublisher.publishEvent(new BeforeDeleteCertificate(certId));
+
+    certificateRepository.delete(cert);
+    log.info("Certificate deleted: certId={} customerId={}", certId, customerId);
+  }
+
+  // ── PATCH /{id} ───────────────────────────────────────────────────────────
+
+  @Transactional
+  public CertificateListItemResponse updateCertificate(
+      final UUID certId, final UUID customerId, final UpdateCertificateRequest request) {
+
+    final Certificate cert =
+        certificateRepository
+            .findByIdWithProperty(certId)
+            .orElseThrow(() -> new NotFoundException("Certificate not found"));
+
+    verifyOwnership(cert, customerId);
+
+    if (request.issuedAt() != null) {
+      cert.setIssuedAt(request.issuedAt());
+    }
+    if (request.expiresAt() != null) {
+      cert.setExpiryAt(request.expiresAt());
+    }
+    if (request.notes() != null) {
+      cert.setResult(request.notes().isBlank() ? null : request.notes());
+    }
+    if (request.customTypeName() != null && !request.customTypeName().isBlank()) {
+      cert.setCertificateType(request.customTypeName().trim());
+    }
+    cert.setUpdatedAt(OffsetDateTime.now(clock));
+    certificateRepository.save(cert);
+
+    final LocalDate today = LocalDate.now(clock);
+    final String dynamicStatus = calculateStatus(cert.getExpiryAt(), cert.getStatus(), today);
+    log.info("Certificate updated: certId={} customerId={}", certId, customerId);
+    return toListItem(cert, dynamicStatus, today, customerId);
   }
 
   // ── GET /missing ──────────────────────────────────────────────────────────
@@ -460,6 +661,9 @@ public class CustomerCertificateService {
     if ("SUPERSEDED".equals(entityStatus)) {
       return "SUPERSEDED";
     }
+    if ("EXPIRED".equals(entityStatus) && expiryAt == null) {
+      return "EXPIRED";
+    }
     if (expiryAt == null) {
       return "VALID";
     }
@@ -477,7 +681,7 @@ public class CustomerCertificateService {
   private boolean canDownload(
       final Certificate cert, final UUID requestingUserId, final UserRole role) {
     if ("EPC".equals(cert.getCertificateType())) return false;
-    if (cert.getDocumentUrl() == null) return false;
+    if (cert.getPrimaryDocument() == null) return false;
     return isOwner(cert, requestingUserId)
         || role.isAdmin()
         || isIssuingEngineer(cert, requestingUserId);
@@ -525,7 +729,7 @@ public class CustomerCertificateService {
       final UUID requestingUserId) {
     final boolean canDl =
         !"EPC".equals(cert.getCertificateType())
-            && cert.getDocumentUrl() != null
+            && cert.getPrimaryDocument() != null
             && isOwner(cert, requestingUserId);
     return new CertificateListItemResponse(
         cert.getId(),
@@ -534,16 +738,18 @@ public class CustomerCertificateService {
         toPropertySummary(cert.getProperty()),
         dynamicStatus,
         cert.getResult(),
+        cert.getEpcRating(),
         cert.getIssuedAt(),
         cert.getExpiryAt(),
         daysUntilExpiry(cert.getExpiryAt(), today),
-        cert.getDocumentUrl(),
+        getPrimaryDocumentUrl(cert),
         cert.getShareToken(),
         buildShareUrl(cert.getShareToken()),
         canDl,
         true,
         "EXPIRED".equals(dynamicStatus) || "EXPIRING_SOON".equals(dynamicStatus),
-        toEngineerSummary(cert));
+        toEngineerSummary(cert),
+        cert.getSupersededBy() != null ? cert.getSupersededBy().getId() : null);
   }
 
   private CertificateListItemResponse toMissingListItem(
@@ -561,9 +767,11 @@ public class CustomerCertificateService {
         null,
         null,
         null,
+        null,
         false,
         false,
         true,
+        null,
         null);
   }
 
@@ -582,6 +790,11 @@ public class CustomerCertificateService {
     final var engineer = cert.getIssuedByEngineer();
     // Gas safe number is on the GasSafetyRecord (engineerGasSafeNumber); fall back to null
     return new EngineerSummaryResponse(engineer.getId(), engineer.getFullName(), null);
+  }
+
+  private static String getPrimaryDocumentUrl(final Certificate cert) {
+    final var primary = cert.getPrimaryDocument();
+    return primary != null ? primary.getStorageUrl() : null;
   }
 
   private static String buildShareUrl(final String shareToken) {
@@ -643,7 +856,7 @@ public class CustomerCertificateService {
   }
 
   private static Meta buildMeta(final List<CertificateListItemResponse> items) {
-    int valid = 0, expired = 0, expiringSoon = 0, missing = 0;
+    int valid = 0, expired = 0, expiringSoon = 0, missing = 0, superseded = 0;
     final Map<String, Integer> byType = new HashMap<>();
     for (final CertificateListItemResponse item : items) {
       switch (item.status() == null ? "" : item.status()) {
@@ -651,14 +864,16 @@ public class CustomerCertificateService {
         case "EXPIRED" -> expired++;
         case "EXPIRING_SOON" -> expiringSoon++;
         case "MISSING" -> missing++;
+        case "SUPERSEDED" -> superseded++;
         default -> {
-          /* SUPERSEDED etc */
+          /* unknown */
         }
       }
       if (item.certificateType() != null) {
         byType.merge(item.certificateType(), 1, Integer::sum);
       }
     }
-    return new Meta(items.size(), new Breakdown(valid, expired, expiringSoon, missing), byType);
+    return new Meta(
+        items.size(), new Breakdown(valid, expired, expiringSoon, missing, superseded), byType);
   }
 }

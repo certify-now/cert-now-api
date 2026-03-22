@@ -48,7 +48,7 @@ public class SwaggerConfig {
                         .email("support@certifynow.co.uk")
                         .url("https://certifynow.co.uk"))
                 .license(new License().name("Proprietary").url("https://certifynow.co.uk/terms")))
-        .servers(List.of(new Server().url("/").description("API Server")))
+        .servers(List.of(new Server().url("http://localhost:8080").description("Local Dev")))
         .addSecurityItem(new SecurityRequirement().addList("Bearer Authentication"))
         .components(
             new Components()

@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.web.client.RestClient;
 
 @Configuration
 @EnableAsync
@@ -44,6 +45,17 @@ public class AsyncConfig {
   }
 
   /**
+   * Provides a {@link RestClient.Builder} prototype bean. Spring Boot 4 does not auto-configure
+   * this bean when only {@code spring-boot-starter-web} is present, so it must be declared
+   * explicitly. Each call to {@code restClientBuilder()} returns a fresh builder instance (scope is
+   * prototype by default for {@code @Bean} methods returning a builder type).
+   */
+  @Bean
+  public RestClient.Builder restClientBuilder() {
+    return RestClient.builder();
+  }
+
+  /**
    * General-purpose async executor used by the matching engine and any {@code @Async} methods that
    * do not explicitly name an executor. Named "taskExecutor" so Spring picks it up automatically
    * for unqualified {@code @Async} calls, silencing the multi-bean ambiguity warning.
@@ -55,6 +67,21 @@ public class AsyncConfig {
     executor.setMaxPoolSize(8);
     executor.setQueueCapacity(100);
     executor.setThreadNamePrefix("matching-");
+    executor.initialize();
+    return executor;
+  }
+
+  /**
+   * Dedicated thread pool for async EPC lookups triggered after property creation. Kept small
+   * because the government EPC API has rate limits and lookups are low-frequency.
+   */
+  @Bean(name = "epcTaskExecutor")
+  public Executor epcTaskExecutor() {
+    final ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+    executor.setCorePoolSize(1);
+    executor.setMaxPoolSize(3);
+    executor.setQueueCapacity(50);
+    executor.setThreadNamePrefix("epc-lookup-");
     executor.initialize();
     return executor;
   }

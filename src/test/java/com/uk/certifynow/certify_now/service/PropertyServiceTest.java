@@ -1,37 +1,37 @@
-//package com.uk.certifynow.certify_now.service;
+// package com.uk.certifynow.certify_now.service;
 //
-//import static org.assertj.core.api.Assertions.assertThat;
-//import static org.assertj.core.api.Assertions.assertThatThrownBy;
-//import static org.mockito.ArgumentMatchers.any;
-//import static org.mockito.ArgumentMatchers.eq;
-//import static org.mockito.Mockito.verify;
-//import static org.mockito.Mockito.when;
+// import static org.assertj.core.api.Assertions.assertThat;
+// import static org.assertj.core.api.Assertions.assertThatThrownBy;
+// import static org.mockito.ArgumentMatchers.any;
+// import static org.mockito.ArgumentMatchers.eq;
+// import static org.mockito.Mockito.verify;
+// import static org.mockito.Mockito.when;
 //
-//import com.uk.certifynow.certify_now.domain.Property;
-//import com.uk.certifynow.certify_now.domain.User;
-//import com.uk.certifynow.certify_now.events.PropertySoftDeletedEvent;
-//import com.uk.certifynow.certify_now.exception.BusinessException;
-//import com.uk.certifynow.certify_now.model.PropertyDTO;
-//import com.uk.certifynow.certify_now.repos.JobRepository;
-//import com.uk.certifynow.certify_now.repos.PropertyRepository;
-//import com.uk.certifynow.certify_now.repos.UserRepository;
-//import com.uk.certifynow.certify_now.service.mappers.PropertyMapper;
-//import com.uk.certifynow.certify_now.util.TestConstants;
-//import com.uk.certifynow.certify_now.util.TestPropertyBuilder;
-//import com.uk.certifynow.certify_now.util.TestUserBuilder;
-//import java.time.Clock;
-//import java.time.OffsetDateTime;
-//import java.util.Optional;
-//import java.util.UUID;
-//import org.junit.jupiter.api.BeforeEach;
-//import org.junit.jupiter.api.Test;
-//import org.junit.jupiter.api.extension.ExtendWith;
-//import org.mockito.Mock;
-//import org.mockito.junit.jupiter.MockitoExtension;
-//import org.springframework.context.ApplicationEventPublisher;
+// import com.uk.certifynow.certify_now.domain.Property;
+// import com.uk.certifynow.certify_now.domain.User;
+// import com.uk.certifynow.certify_now.events.PropertySoftDeletedEvent;
+// import com.uk.certifynow.certify_now.exception.BusinessException;
+// import com.uk.certifynow.certify_now.model.PropertyDTO;
+// import com.uk.certifynow.certify_now.repos.JobRepository;
+// import com.uk.certifynow.certify_now.repos.PropertyRepository;
+// import com.uk.certifynow.certify_now.repos.UserRepository;
+// import com.uk.certifynow.certify_now.service.mappers.PropertyMapper;
+// import com.uk.certifynow.certify_now.util.TestConstants;
+// import com.uk.certifynow.certify_now.util.TestPropertyBuilder;
+// import com.uk.certifynow.certify_now.util.TestUserBuilder;
+// import java.time.Clock;
+// import java.time.OffsetDateTime;
+// import java.util.Optional;
+// import java.util.UUID;
+// import org.junit.jupiter.api.BeforeEach;
+// import org.junit.jupiter.api.Test;
+// import org.junit.jupiter.api.extension.ExtendWith;
+// import org.mockito.Mock;
+// import org.mockito.junit.jupiter.MockitoExtension;
+// import org.springframework.context.ApplicationEventPublisher;
 //
-//@ExtendWith(MockitoExtension.class)
-//class PropertyServiceTest {
+// @ExtendWith(MockitoExtension.class)
+// class PropertyServiceTest {
 //
 //  private final Clock clock = TestConstants.FIXED_CLOCK;
 //
@@ -142,7 +142,8 @@
 //  @Test
 //  void getForOwner_differentOwner_throwsAccessDenied() {
 //    final User owner = TestUserBuilder.buildActiveCustomer();
-//    final User other = TestUserBuilder.buildActiveCustomer(UUID.randomUUID(), "other@example.com");
+//    final User other = TestUserBuilder.buildActiveCustomer(UUID.randomUUID(),
+// "other@example.com");
 //    final Property property = TestPropertyBuilder.buildWithGas(owner);
 //
 //    when(propertyRepository.findById(property.getId())).thenReturn(Optional.of(property));
@@ -174,4 +175,4 @@
 //        .extracting(e -> ((BusinessException) e).getErrorCode())
 //        .isEqualTo("DUPLICATE_PROPERTY");
 //  }
-//}
+// }

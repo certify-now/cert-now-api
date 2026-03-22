@@ -47,8 +47,7 @@ public class Document {
   @Column(nullable = false)
   private Boolean isVirusScanned = false;
 
-  @Column
-  private Boolean virusScanClean;
+  @Column private Boolean virusScanClean;
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "uploaded_by_id", nullable = false)

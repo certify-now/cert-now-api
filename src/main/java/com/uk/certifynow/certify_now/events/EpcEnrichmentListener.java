@@ -6,10 +6,13 @@ import com.uk.certifynow.certify_now.repos.CertificateRepository;
 import com.uk.certifynow.certify_now.repos.PropertyRepository;
 import com.uk.certifynow.certify_now.service.EpcLookupService;
 import com.uk.certifynow.certify_now.service.EpcLookupService.EpcRecord;
+import com.uk.certifynow.certify_now.service.SseEmitterRegistry;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
@@ -18,6 +21,8 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Looks up EPC data from the government registry after a property is successfully created.
@@ -27,13 +32,14 @@ import org.springframework.transaction.event.TransactionalEventListener;
  * client and the property row is visible to this new transaction.
  *
  * <p>Business rules:
+ *
  * <ul>
- *   <li>No UPRN on the property → nothing to do, EPC remains MISSING on the compliance screen.</li>
- *   <li>EPC found in registry and still valid → {@code Certificate} created with status
- *       {@code ACTIVE}. Expiry = lodgement date + 10 years.</li>
- *   <li>EPC found but already expired → {@code Certificate} created with status {@code EXPIRED}.</li>
- *   <li>No EPC found for this UPRN → {@code Certificate} created with status {@code EXPIRED} and
- *       no expiry date, signalling non-compliance.</li>
+ *   <li>No UPRN on the property → nothing to do, EPC remains MISSING on the compliance screen.
+ *   <li>EPC found in registry and still valid → {@code Certificate} created with status {@code
+ *       ACTIVE}. Expiry = lodgement date + 10 years.
+ *   <li>EPC found but already expired → {@code Certificate} created with status {@code EXPIRED}.
+ *   <li>No EPC found for this UPRN → {@code Certificate} created with status {@code EXPIRED} and no
+ *       expiry date, signalling non-compliance.
  * </ul>
  */
 @Component
@@ -51,16 +57,19 @@ public class EpcEnrichmentListener {
   private final PropertyRepository propertyRepository;
   private final CertificateRepository certificateRepository;
   private final Clock clock;
+  private final SseEmitterRegistry sseEmitterRegistry;
 
   public EpcEnrichmentListener(
       final EpcLookupService epcLookupService,
       final PropertyRepository propertyRepository,
       final CertificateRepository certificateRepository,
-      final Clock clock) {
+      final Clock clock,
+      final SseEmitterRegistry sseEmitterRegistry) {
     this.epcLookupService = epcLookupService;
     this.propertyRepository = propertyRepository;
     this.certificateRepository = certificateRepository;
     this.clock = clock;
+    this.sseEmitterRegistry = sseEmitterRegistry;
   }
 
   @Async("epcTaskExecutor")
@@ -84,6 +93,15 @@ public class EpcEnrichmentListener {
     log.info("EPC enrichment: starting lookup for property={} uprn={}", property.getId(), uprn);
 
     final EpcRecord record = epcLookupService.lookup(uprn);
+
+    if (record == null) {
+      log.info(
+          "EPC enrichment: no EPC found in government registry for property={} uprn={} — leaving as MISSING",
+          property.getId(),
+          uprn);
+      return;
+    }
+
     final Certificate cert = buildCertificate(property, uprn, record);
 
     final Certificate saved = certificateRepository.save(cert);
@@ -97,11 +115,28 @@ public class EpcEnrichmentListener {
         saved.getStatus(),
         saved.getEpcRating(),
         saved.getExpiryAt());
+
+    // Push SSE notification after this transaction commits so the UI refetch always
+    // sees the committed EPC data. TransactionSynchronizationManager fires afterCommit()
+    // on the REQUIRES_NEW transaction, not the original property-creation transaction.
+    final UUID ownerId = event.getOwnerId();
+    final String propertyId = property.getId().toString();
+    TransactionSynchronizationManager.registerSynchronization(
+        new TransactionSynchronization() {
+          @Override
+          public void afterCommit() {
+            sseEmitterRegistry.push(ownerId, "epc-enriched", Map.of("propertyId", propertyId));
+          }
+        });
   }
 
-  private Certificate buildCertificate(final Property property, final String uprn, final EpcRecord record) {
+  private Certificate buildCertificate(
+      final Property property, final String uprn, final EpcRecord record) {
     final OffsetDateTime now = OffsetDateTime.now(clock);
     final LocalDate today = now.toLocalDate();
+
+    final LocalDate expiryDate = record.registrationDate().plusYears(EPC_VALID_YEARS);
+    final boolean active = expiryDate.isAfter(today);
 
     final Certificate cert = new Certificate();
     cert.setProperty(property);
@@ -110,21 +145,10 @@ public class EpcEnrichmentListener {
     cert.setCreatedAt(now);
     cert.setUpdatedAt(now);
     cert.setValidYears(EPC_VALID_YEARS);
-
-    if (record == null) {
-      // No EPC on record — mark as expired/non-compliant
-      cert.setIssuedAt(today);
-      cert.setStatus(STATUS_EXPIRED);
-      log.warn("EPC enrichment: no EPC found in registry for property={} uprn={} — marking as EXPIRED", property.getId(), uprn);
-      return cert;
-    }
-
-    final LocalDate expiryDate = record.registrationDate().plusYears(EPC_VALID_YEARS);
-    final boolean active = expiryDate.isAfter(today);
-
     cert.setIssuedAt(record.registrationDate());
     cert.setExpiryAt(expiryDate);
     cert.setEpcRating(record.energyBand());
+    cert.setCertificateNumber(record.certificateNumber());
     cert.setStatus(active ? STATUS_ACTIVE : STATUS_EXPIRED);
 
     return cert;

@@ -3,10 +3,13 @@ package com.uk.certifynow.certify_now.rest;
 import com.uk.certifynow.certify_now.config.RequestIdFilter;
 import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
 import com.uk.certifynow.certify_now.rest.dto.certificate.CertificateDetailResponse;
+import com.uk.certifynow.certify_now.rest.dto.certificate.CertificateListItemResponse;
 import com.uk.certifynow.certify_now.rest.dto.certificate.CertificatesListResponse;
 import com.uk.certifynow.certify_now.rest.dto.certificate.GetCertificatesRequest;
 import com.uk.certifynow.certify_now.rest.dto.certificate.MissingCertificateResponse;
 import com.uk.certifynow.certify_now.rest.dto.certificate.ShareCertificateResponse;
+import com.uk.certifynow.certify_now.rest.dto.certificate.UpdateCertificateRequest;
+import com.uk.certifynow.certify_now.rest.dto.certificate.UploadCertificateRequest;
 import com.uk.certifynow.certify_now.service.CustomerCertificateService;
 import com.uk.certifynow.certify_now.service.CustomerCertificateService.CertificateDownloadPair;
 import com.uk.certifynow.certify_now.service.auth.UserRole;
@@ -14,8 +17,10 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -25,12 +30,16 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/certificates")
@@ -41,6 +50,37 @@ public class CertificateController {
 
   public CertificateController(final CustomerCertificateService customerCertificateService) {
     this.customerCertificateService = customerCertificateService;
+  }
+
+  // ── POST /api/v1/certificates/upload ─────────────────────────────────────
+
+  @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  @ResponseStatus(HttpStatus.CREATED)
+  @Operation(
+      summary = "Upload a certificate",
+      description =
+          "Saves a landlord-supplied certificate (PAT, Fire Risk, Boiler Service, etc.) for a"
+              + " property. Accepts an optional file attachment (PDF or image). Requires CUSTOMER role.")
+  public ApiResponse<CertificateListItemResponse> uploadCertificate(
+      @RequestParam final UUID propertyId,
+      @RequestParam final String certType,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+          final LocalDate issuedAt,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+          final LocalDate expiresAt,
+      @RequestParam(required = false) final String notes,
+      @RequestParam(required = false) final String customTypeName,
+      @RequestPart(required = false) final MultipartFile file,
+      final Authentication authentication,
+      final HttpServletRequest httpRequest) {
+
+    final UUID customerId = extractUserId(authentication);
+    final UploadCertificateRequest request =
+        new UploadCertificateRequest(
+            propertyId, certType, issuedAt, expiresAt, notes, customTypeName);
+    return ApiResponse.of(
+        customerCertificateService.uploadCertificate(customerId, request, file),
+        requestId(httpRequest));
   }
 
   // ── GET /api/v1/certificates/my-certificates ──────────────────────────────
@@ -58,7 +98,8 @@ public class CertificateController {
       @Parameter(description = "Filter by type: GAS_SAFETY, EICR, EPC, PAT")
           @RequestParam(required = false)
           final String type,
-      @Parameter(description = "Filter by status: VALID, EXPIRED, EXPIRING_SOON, MISSING, SUPERSEDED")
+      @Parameter(
+              description = "Filter by status: VALID, EXPIRED, EXPIRING_SOON, MISSING, SUPERSEDED")
           @RequestParam(required = false)
           final String status,
       @Parameter(description = "Filter by property UUID")
@@ -116,6 +157,45 @@ public class CertificateController {
         customerCertificateService.getCertificateForUser(id, userId, role), requestId(httpRequest));
   }
 
+  // ── DELETE /api/v1/certificates/{id} ─────────────────────────────────────
+
+  @DeleteMapping("/{id}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  @Operation(
+      summary = "Delete a certificate",
+      description =
+          "Permanently removes an uploaded certificate and its document associations."
+              + " Only the property owner may delete their own certificates."
+              + " Deletion is blocked if a renewal reminder is linked to the certificate.")
+  public void deleteCertificate(
+      @Parameter(description = "Certificate UUID") @PathVariable final UUID id,
+      final Authentication authentication) {
+
+    final UUID customerId = extractUserId(authentication);
+    customerCertificateService.deleteCertificate(id, customerId);
+  }
+
+  // ── PATCH /api/v1/certificates/{id} ──────────────────────────────────────
+
+  @PatchMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+  @Operation(
+      summary = "Update an uploaded certificate",
+      description =
+          "Partially updates a customer-uploaded certificate (test date, expiry, provider/notes,"
+              + " custom type name). Only the property owner may update their own certificates."
+              + " Null fields in the request body are ignored (no change).")
+  public ApiResponse<CertificateListItemResponse> updateCertificate(
+      @Parameter(description = "Certificate UUID") @PathVariable final UUID id,
+      @RequestBody final UpdateCertificateRequest request,
+      final Authentication authentication,
+      final HttpServletRequest httpRequest) {
+
+    final UUID customerId = extractUserId(authentication);
+    return ApiResponse.of(
+        customerCertificateService.updateCertificate(id, customerId, request),
+        requestId(httpRequest));
+  }
+
   // ── GET /api/v1/certificates/{id}/download ────────────────────────────────
 
   @GetMapping("/{id}/download")
@@ -138,6 +218,31 @@ public class CertificateController {
     headers.setContentType(MediaType.APPLICATION_PDF);
     headers.setContentDisposition(
         ContentDisposition.attachment().filename(result.meta().filename()).build());
+    headers.setContentLength(result.bytes().length);
+
+    return new ResponseEntity<>(result.bytes(), headers, HttpStatus.OK);
+  }
+
+  // ── GET /api/v1/certificates/{id}/document ────────────────────────────────
+
+  @GetMapping("/{id}/document")
+  @Operation(
+      summary = "Serve certificate document",
+      description =
+          "Streams the attached document (any MIME type) through the API server."
+              + " This avoids exposing internal MinIO URLs to mobile clients."
+              + " Accessible by the property owner, issuing engineer, or an admin.")
+  public ResponseEntity<byte[]> getCertificateDocument(
+      @Parameter(description = "Certificate UUID") @PathVariable final UUID id,
+      final Authentication authentication) {
+
+    final UUID userId = extractUserId(authentication);
+    final UserRole role = extractRole(authentication);
+    final var result = customerCertificateService.getCertificateDocument(id, userId, role);
+
+    final HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.parseMediaType(result.mimeType()));
+    headers.setContentDisposition(ContentDisposition.inline().filename(result.filename()).build());
     headers.setContentLength(result.bytes().length);
 
     return new ResponseEntity<>(result.bytes(), headers, HttpStatus.OK);

@@ -85,21 +85,19 @@ public class MatchingService {
   @Transactional(readOnly = true)
   public List<EngineerProfile> findCandidates(final Job job) {
     final Property property = job.getProperty();
-    final String locationStr = property.getLocation();
 
-    // If property has no geocoded location, fall back to all approved engineers
-    if (locationStr == null || locationStr.isBlank()) {
+    // If property has no PostGIS coordinates, fall back to all approved engineers
+    if (property.getCoordinates() == null) {
       log.warn(
-          "Property {} has no geocoded location — falling back to all APPROVED engineers",
+          "Property {} has no geocoded coordinates — falling back to all APPROVED engineers",
           property.getId());
       return engineerProfileRepository.findByStatus(
           com.uk.certifynow.certify_now.service.auth.EngineerApplicationStatus.APPROVED);
     }
 
-    // Parse location — expected format: "POINT(lng lat)" or "lng,lat"
-    final double[] coords = parseLocation(locationStr);
-    final double lat = coords[0];
-    final double lng = coords[1];
+    // JTS Point stores (longitude, latitude) in x/y respectively
+    final double lat = property.getCoordinates().getY();
+    final double lng = property.getCoordinates().getX();
 
     // PostGIS spatial query: approved engineers within their own service radius
     final List<EngineerProfile> nearby = engineerProfileRepository.findNearbyApproved(lat, lng);
@@ -353,30 +351,4 @@ public class MatchingService {
    * Parses a location string into [lat, lng]. Supports formats: "POINT(lng lat)",
    * "SRID=4326;POINT(lng lat)", or "lat,lng".
    */
-  private double[] parseLocation(final String location) {
-    try {
-      final String cleaned = location.trim();
-      if (cleaned.toUpperCase().contains("POINT")) {
-        // Extract coordinates from POINT(lng lat) format
-        final int start = cleaned.indexOf('(');
-        final int end = cleaned.indexOf(')');
-        final String coords = cleaned.substring(start + 1, end).trim();
-        final String[] parts = coords.split("\\s+");
-        final double lng = Double.parseDouble(parts[0]);
-        final double lat = Double.parseDouble(parts[1]);
-        return new double[] {lat, lng};
-      } else if (cleaned.contains(",")) {
-        final String[] parts = cleaned.split(",");
-        final double lat = Double.parseDouble(parts[0].trim());
-        final double lng = Double.parseDouble(parts[1].trim());
-        return new double[] {lat, lng};
-      }
-    } catch (final Exception e) {
-      log.error("Failed to parse location string: {}", location, e);
-    }
-    throw new BusinessException(
-        HttpStatus.BAD_REQUEST,
-        "INVALID_LOCATION",
-        "Failed to parse property location: " + location);
-  }
 }

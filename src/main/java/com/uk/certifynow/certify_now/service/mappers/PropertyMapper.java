@@ -40,6 +40,7 @@ public interface PropertyMapper {
   @Mapping(target = "currentGasCertificate", ignore = true)
   @Mapping(target = "currentEicrCertificate", ignore = true)
   @Mapping(target = "currentEpcCertificate", ignore = true)
+  @Mapping(target = "coordinates", ignore = true)
   @Mapping(target = "id", ignore = true)
   Property toEntity(PropertyDTO dto);
 
@@ -52,7 +53,7 @@ public interface PropertyMapper {
   @Mapping(target = "deletedAt", ignore = true)
   @Mapping(target = "deletedBy", ignore = true)
   @Mapping(target = "epcRegisterRef", ignore = true)
-  @Mapping(target = "location", ignore = true)
+  @Mapping(target = "coordinates", ignore = true)
   @Mapping(target = "hasGasCertificate", ignore = true)
   @Mapping(target = "gasExpiryDate", ignore = true)
   @Mapping(target = "hasEicr", ignore = true)
@@ -75,6 +76,7 @@ public interface PropertyMapper {
   @Mapping(target = "currentEicrCertificate", ignore = true)
   @Mapping(target = "currentEpcCertificate", ignore = true)
   @Mapping(target = "id", ignore = true)
+  @Mapping(target = "coordinates", ignore = true)
   // Server-managed fields — must not be overwritten by incoming DTO
   @Mapping(target = "isActive", ignore = true)
   @Mapping(target = "complianceStatus", ignore = true)
@@ -90,7 +92,7 @@ public interface PropertyMapper {
   @Mapping(target = "deletedBy", ignore = true)
   @Mapping(target = "uprn", ignore = true)
   @Mapping(target = "epcRegisterRef", ignore = true)
-  @Mapping(target = "location", ignore = true)
+  @Mapping(target = "coordinates", ignore = true)
   @Mapping(target = "hasGasCertificate", ignore = true)
   @Mapping(target = "gasExpiryDate", ignore = true)
   @Mapping(target = "hasEicr", ignore = true)

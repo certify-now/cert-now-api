@@ -1,18 +1,18 @@
-//package com.uk.certifynow.certify_now.service;
+// package com.uk.certifynow.certify_now.service;
 //
-//import static org.assertj.core.api.Assertions.assertThat;
+// import static org.assertj.core.api.Assertions.assertThat;
 //
-//import com.uk.certifynow.certify_now.model.ComplianceHealthDTO;
-//import com.uk.certifynow.certify_now.model.PropertyDTO;
-//import com.uk.certifynow.certify_now.util.TestConstants;
-//import java.time.Clock;
-//import java.time.LocalDate;
-//import java.util.List;
-//import java.util.UUID;
-//import org.junit.jupiter.api.BeforeEach;
-//import org.junit.jupiter.api.Test;
+// import com.uk.certifynow.certify_now.model.ComplianceHealthDTO;
+// import com.uk.certifynow.certify_now.model.PropertyDTO;
+// import com.uk.certifynow.certify_now.util.TestConstants;
+// import java.time.Clock;
+// import java.time.LocalDate;
+// import java.util.List;
+// import java.util.UUID;
+// import org.junit.jupiter.api.BeforeEach;
+// import org.junit.jupiter.api.Test;
 //
-//class ComplianceServiceTest {
+// class ComplianceServiceTest {
 //
 //  private final Clock clock = TestConstants.FIXED_CLOCK;
 //
@@ -177,7 +177,8 @@
 //    dto.setGasDaysUntilExpiry(15);
 //    dto.setHasElectric(false);
 //
-//    final List<String> actions = service.computeNextActions(dto, "EXPIRING_SOON", "NOT_APPLICABLE");
+//    final List<String> actions = service.computeNextActions(dto, "EXPIRING_SOON",
+// "NOT_APPLICABLE");
 //
 //    assertThat(actions).anyMatch(a -> a.contains("15 days"));
 //  }
@@ -195,4 +196,4 @@
 //    dto.setComplianceStatus("UNKNOWN");
 //    return dto;
 //  }
-//}
+// }

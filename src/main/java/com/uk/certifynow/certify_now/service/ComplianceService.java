@@ -37,11 +37,11 @@ public class ComplianceService {
   // ── Per-certificate status ─────────────────────────────────────────────────
 
   /**
-   * Derives the compliance status for a single obligation backed by a supply flag.
-   * Used for Gas Safety and EICR where the property may not have the relevant utility.
+   * Derives the compliance status for a single obligation backed by a supply flag. Used for Gas
+   * Safety and EICR where the property may not have the relevant utility.
    *
-   * @param hasSupply  whether this utility (gas/electric) is present at the property
-   * @param hasCert    whether a valid certificate is on record
+   * @param hasSupply whether this utility (gas/electric) is present at the property
+   * @param hasCert whether a valid certificate is on record
    * @param expiryDate the certificate's expiry date
    */
   public ComplianceStatus computeCertStatus(
@@ -55,7 +55,7 @@ public class ComplianceService {
   /**
    * Derives the compliance status for an obligation that always applies (e.g. EPC).
    *
-   * @param hasCert    whether a certificate is on record
+   * @param hasCert whether a certificate is on record
    * @param expiryDate the certificate's expiry date
    */
   public ComplianceStatus computeEpcStatus(final Boolean hasCert, final LocalDate expiryDate) {
@@ -153,8 +153,8 @@ public class ComplianceService {
    * Populates all computed compliance fields on the DTO in-place. Call this after mapping the
    * entity to DTO.
    *
-   * <p>Gas and EICR are gated by supply flags (NOT_APPLICABLE when the utility is absent).
-   * EPC always applies — all UK rental properties require one.
+   * <p>Gas and EICR are gated by supply flags (NOT_APPLICABLE when the utility is absent). EPC
+   * always applies — all UK rental properties require one.
    */
   public void enrich(final PropertyDTO dto) {
     record EnrichSpec(
@@ -205,22 +205,22 @@ public class ComplianceService {
     // so we treat them identically as EXPIRED (non-compliant).
     // A null epcExpiryDate on an existing cert means the registry lookup found nothing.
     final boolean hasEpcCert = dto.getCurrentEpcCertificateId() != null;
-    final ComplianceStatus epcStatus = (!hasEpcCert || dto.getEpcExpiryDate() == null)
-        ? ComplianceStatus.EXPIRED
-        : computeEpcStatus(true, dto.getEpcExpiryDate());
+    final ComplianceStatus epcStatus =
+        (!hasEpcCert || dto.getEpcExpiryDate() == null)
+            ? ComplianceStatus.EXPIRED
+            : computeEpcStatus(true, dto.getEpcExpiryDate());
     dto.setEpcStatus(epcStatus.name());
     dto.setEpcDaysUntilExpiry(computeDaysUntilExpiry(epcStatus, dto.getEpcExpiryDate()));
 
-    dto.setComplianceStatus(
-        deriveOverallStatus(gasStatus, eicrStatus, epcStatus).name());
+    dto.setComplianceStatus(deriveOverallStatus(gasStatus, eicrStatus, epcStatus).name());
     dto.setNextActions(Collections.emptyList());
   }
 
   // ── Aggregate health ──────────────────────────────────────────────────────
 
   /**
-   * Computes the aggregate ComplianceHealthDTO from an already-enriched list of properties.
-   * Expects {@link #enrich(PropertyDTO)} to have been called on each DTO first.
+   * Computes the aggregate ComplianceHealthDTO from an already-enriched list of properties. Expects
+   * {@link #enrich(PropertyDTO)} to have been called on each DTO first.
    */
   public ComplianceHealthDTO computeHealth(final List<PropertyDTO> properties) {
     int total = properties.size();
@@ -231,12 +231,10 @@ public class ComplianceService {
     final List<PropertyComplianceItemDTO> items = new ArrayList<>();
 
     for (final PropertyDTO p : properties) {
-      final ComplianceStatus gas =
-          p.getGasStatus() != null ? safeValueOf(p.getGasStatus()) : null;
+      final ComplianceStatus gas = p.getGasStatus() != null ? safeValueOf(p.getGasStatus()) : null;
       final ComplianceStatus eicr =
           p.getEicrStatus() != null ? safeValueOf(p.getEicrStatus()) : null;
-      final ComplianceStatus epc =
-          p.getEpcStatus() != null ? safeValueOf(p.getEpcStatus()) : null;
+      final ComplianceStatus epc = p.getEpcStatus() != null ? safeValueOf(p.getEpcStatus()) : null;
 
       final int score = computePropertyScore(gas, eicr, epc);
       totalScore += score;

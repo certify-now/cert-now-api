@@ -84,10 +84,6 @@ public class PropertyDTO {
 
   private String complianceStatus;
 
-  @Size(max = 255)
-  private String location;
-
-
   private Boolean hasGasCertificate;
 
   @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")

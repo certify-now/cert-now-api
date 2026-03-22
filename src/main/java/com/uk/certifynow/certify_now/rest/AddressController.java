@@ -19,7 +19,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/address")
-@Tag(name = "Address Lookup", description = "Address autocomplete and UPRN resolution (proxied from Ideal Postcodes)")
+@Tag(
+    name = "Address Lookup",
+    description = "Address autocomplete and UPRN resolution (proxied from Ideal Postcodes)")
 public class AddressController {
 
   private final AddressLookupService addressLookupService;
@@ -31,10 +33,15 @@ public class AddressController {
   @GetMapping("/autocomplete")
   @Operation(
       summary = "Autocomplete address",
-      description = "Returns up to 10 address suggestions for the given free-text query. Call after ≥3 characters.")
+      description =
+          "Returns up to 10 address suggestions for the given free-text query. Call after ≥3 characters.")
   public ResponseEntity<ApiResponse<List<AddressSuggestionResponse>>> autocomplete(
-      @Parameter(description = "Partial address or postcode", example = "10 Downing", required = true)
-      @RequestParam final String q,
+      @Parameter(
+              description = "Partial address or postcode",
+              example = "10 Downing",
+              required = true)
+          @RequestParam
+          final String q,
       final HttpServletRequest request) {
 
     final List<AddressSuggestionResponse> suggestions = addressLookupService.autocomplete(q.trim());
@@ -44,10 +51,14 @@ public class AddressController {
   @GetMapping("/resolve/{id}")
   @Operation(
       summary = "Resolve address by id",
-      description = "Returns a full structured address including UPRN for a suggestion id returned by the autocomplete endpoint.")
+      description =
+          "Returns a full structured address including UPRN for a suggestion id returned by the autocomplete endpoint.")
   public ResponseEntity<ApiResponse<ResolvedAddressResponse>> resolve(
-      @Parameter(description = "Suggestion id from autocomplete (e.g. paf_10093397)", required = true)
-      @PathVariable final String id,
+      @Parameter(
+              description = "Suggestion id from autocomplete (e.g. paf_10093397)",
+              required = true)
+          @PathVariable
+          final String id,
       final HttpServletRequest request) {
 
     final ResolvedAddressResponse resolved = addressLookupService.resolve(id);

@@ -16,20 +16,20 @@ import org.springframework.stereotype.Service;
  * Local-filesystem document storage for development and testing.
  *
  * <p>Writes PDFs to {@code $TMPDIR/cert-now-pdfs/} and returns a {@code file://} URL. Active when
- * {@code app.storage.provider=stub} (or when the property is absent). Switch to
- * {@code app.storage.provider=minio} in any environment that has a real MinIO / S3 instance.
+ * {@code app.storage.provider=stub} (or when the property is absent). Switch to {@code
+ * app.storage.provider=minio} in any environment that has a real MinIO / S3 instance.
  */
 @Service
-@ConditionalOnProperty(
-    name = "app.storage.provider",
-    havingValue = "stub",
-    matchIfMissing = true)
+@ConditionalOnProperty(name = "app.storage.provider", havingValue = "stub", matchIfMissing = true)
 public class StubDocumentStorageService implements DocumentStorageService {
 
   private static final Logger log = LoggerFactory.getLogger(StubDocumentStorageService.class);
 
   private static final Path STORAGE_ROOT =
       Path.of(System.getProperty("java.io.tmpdir"), "cert-now-pdfs");
+
+  private static final Path UPLOAD_ROOT =
+      Path.of(System.getProperty("java.io.tmpdir"), "cert-now-uploads");
 
   @Override
   public String store(
@@ -47,6 +47,22 @@ public class StubDocumentStorageService implements DocumentStorageService {
       return url;
     } catch (IOException e) {
       throw new UncheckedIOException("Failed to store PDF for certificateId=" + certificateId, e);
+    }
+  }
+
+  @Override
+  public String storeRaw(
+      final UUID documentId, final String filename, final byte[] content, final String mimeType) {
+    try {
+      Files.createDirectories(UPLOAD_ROOT);
+      final String safe = (filename != null && !filename.isBlank()) ? filename : "upload";
+      final Path target = UPLOAD_ROOT.resolve(documentId + "-" + safe);
+      Files.write(target, content);
+      final String url = target.toUri().toString();
+      log.info("Stored uploaded document (stub): documentId={} path={}", documentId, url);
+      return url;
+    } catch (IOException e) {
+      throw new UncheckedIOException("Failed to store document for documentId=" + documentId, e);
     }
   }
 

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,10 +16,10 @@ import org.springframework.web.client.RestClientException;
 /**
  * Client for the UK Government EPC (Energy Performance Certificate) API.
  *
- * <p>API: {@code GET /api/domestic/search?uprn=<uprn>}
- * Auth: Bearer token in Authorization header.
+ * <p>API: {@code GET /api/domestic/search?uprn=<uprn>} Auth: Bearer token in Authorization header.
  *
  * <p>Actual response envelope (camelCase JSON):
+ *
  * <pre>
  * {
  *   "data": [
@@ -32,7 +33,8 @@ import org.springframework.web.client.RestClientException;
  * }
  * </pre>
  *
- * <p>Returns the most recent {@link EpcRecord} for the UPRN, or {@code null} if no EPC is on record.
+ * <p>Returns the most recent {@link EpcRecord} for the UPRN, or {@code null} if no EPC is on
+ * record.
  */
 @Service
 public class EpcLookupService {
@@ -55,10 +57,11 @@ public class EpcLookupService {
    * Looks up the most recent EPC record for the given UPRN.
    *
    * <p>Logging conventions:
+   *
    * <ul>
-   *   <li>{@code INFO}  — EPC found or genuinely not on record (expected empty result)</li>
+   *   <li>{@code INFO} — EPC found or genuinely not on record (expected empty result)
    *   <li>{@code ERROR} — null response body or null {@code data} field (mapping drift / auth
-   *       failure / network issue) — both are actionable failures requiring attention</li>
+   *       failure / network issue) — both are actionable failures requiring attention
    * </ul>
    *
    * @param uprn the Unique Property Reference Number
@@ -86,36 +89,48 @@ public class EpcLookupService {
       }
 
       if (response.data() == null) {
-        // Null data (not empty list) means our field mapping doesn't match the API envelope.
-        // This is a mapping-drift bug, not a valid "no result" case.
         log.error(
-            "EPC API response had a null 'data' field for UPRN={} — possible API contract change."
-                + " Raw response: {}",
-            uprn,
-            response);
+            "EPC API response had a null 'data' field for UPRN={} — possible API contract change",
+            uprn);
         return null;
       }
 
-      if (response.data().isEmpty()) {
+      // The API returns {"data": {"error": "..."}} (a Map, not a List) when no EPC exists for
+      // the UPRN. This is a known quirk — check the type before trying to iterate.
+      if (!(response.data() instanceof List<?> dataList)) {
+        log.info(
+            "No EPC on record in government registry for UPRN={} (API returned non-array data: {})",
+            uprn,
+            response.data());
+        return null;
+      }
+
+      if (dataList.isEmpty()) {
         log.info("No EPC on record in government registry for UPRN={}", uprn);
         return null;
       }
 
-      // data[] is ordered most-recent first
-      final EpcRow row = response.data().get(0);
+      // data[] is ordered most-recent first; each element is a Map of field→value
+      @SuppressWarnings("unchecked")
+      final Map<String, Object> row = (Map<String, Object>) dataList.get(0);
+      final String registrationDateStr = (String) row.get("registrationDate");
+      final String energyBand = (String) row.get("currentEnergyEfficiencyBand");
+      final String certificateNumber = (String) row.get("certificateNumber");
+
       log.info(
-          "EPC found for UPRN={}: band={} registrationDate={}",
+          "EPC found for UPRN={}: band={} registrationDate={} certificateNumber={}",
           uprn,
-          row.currentEnergyEfficiencyBand(),
-          row.registrationDate());
+          energyBand,
+          registrationDateStr,
+          certificateNumber);
 
       try {
-        final LocalDate registrationDate = LocalDate.parse(row.registrationDate());
-        return new EpcRecord(registrationDate, row.currentEnergyEfficiencyBand());
+        final LocalDate registrationDate = LocalDate.parse(registrationDateStr);
+        return new EpcRecord(registrationDate, energyBand, certificateNumber);
       } catch (DateTimeParseException ex) {
         log.error(
             "EPC API returned unparseable registrationDate '{}' for UPRN={} — skipping",
-            row.registrationDate(),
+            registrationDateStr,
             uprn);
         return null;
       }
@@ -136,21 +151,27 @@ public class EpcLookupService {
    * Distilled EPC data needed to create the {@code Certificate} entity.
    *
    * @param registrationDate the date the EPC was lodged at the government registry
-   * @param energyBand       letter band rating, e.g. "D"
+   * @param energyBand letter band rating, e.g. "D"
+   * @param certificateNumber the unique certificate number, e.g. "2711-1106-6149-2191-5120"
    */
-  public record EpcRecord(LocalDate registrationDate, String energyBand) {}
+  public record EpcRecord(
+      LocalDate registrationDate, String energyBand, String certificateNumber) {}
 
   // ── Internal JSON mapping records ─────────────────────────────────────────
 
   /**
-   * No {@code @JsonIgnoreProperties} here intentionally — if the API renames its envelope field
-   * (e.g. {@code data} → {@code results}), Jackson will throw an
-   * {@code UnrecognizedPropertyException} which is caught and logged as ERROR above, rather than
-   * silently deserialising to {@code null}.
+   * The government API returns two different shapes for the {@code data} field:
+   *
+   * <ul>
+   *   <li>A JSON array (deserialised as {@code List<Map>}) when EPCs exist for the UPRN.
+   *   <li>A JSON object {@code {"error": "..."}} (deserialised as {@code Map}) when no EPC is on
+   *       record for the UPRN.
+   * </ul>
+   *
+   * Using {@code Object} lets Jackson deserialise either shape without error. We check {@code
+   * instanceof List} at runtime to distinguish the two cases. {@code @JsonIgnoreProperties} is
+   * added so that unrecognised envelope fields (e.g. pagination) don't break deserialization.
    */
-  private record EpcSearchResponse(List<EpcRow> data) {}
-
-  /** Row-level fields are allowed to grow freely — new fields won't break existing mapping. */
   @JsonIgnoreProperties(ignoreUnknown = true)
-  private record EpcRow(String registrationDate, String currentEnergyEfficiencyBand) {}
+  private record EpcSearchResponse(Object data) {}
 }

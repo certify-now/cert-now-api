@@ -14,14 +14,20 @@ import org.springframework.web.client.RestClient;
 /**
  * Thin proxy around the Ideal Postcodes address API.
  *
- * <p>Keeping the third-party API key server-side prevents it from being extracted from
- * the mobile bundle.
+ * <p>Keeping the third-party API key server-side prevents it from being extracted from the mobile
+ * bundle.
  *
  * <p>Endpoints used:
+ *
  * <ul>
- *   <li>Autocomplete: {@code GET /v1/autocomplete/addresses?q=&lt;query&gt;&api_key=&lt;key&gt;}</li>
- *   <li>Resolve:      {@code GET /v1/autocomplete/addresses/&lt;id&gt;/gbr?api_key=&lt;key&gt;}</li>
+ *   <li>Autocomplete: {@code GET /v1/autocomplete/addresses?q=&lt;query&gt;&api_key=&lt;key&gt;}
+ *   <li>Resolve: {@code GET /v1/autocomplete/addresses/&lt;id&gt;/gbr?api_key=&lt;key&gt;}
+ *   <li>Postcode centroid: {@code GET /v1/postcodes/&lt;postcode&gt;?api_key=&lt;key&gt;}
  * </ul>
+ *
+ * <p>The postcode centroid endpoint is used as a fallback when the user enters an address manually
+ * (i.e. no autocomplete selection), ensuring every property always has coordinates for PostGIS
+ * engineer-radius matching.
  */
 @Service
 public class AddressLookupService {
@@ -40,10 +46,12 @@ public class AddressLookupService {
 
   /** Returns up to 10 address suggestions for the given free-text query. */
   public List<AddressSuggestionResponse> autocomplete(final String query) {
-    final AutocompleteEnvelope envelope = restClient.get()
-        .uri("/autocomplete/addresses?q={q}&api_key={k}", query, apiKey)
-        .retrieve()
-        .body(AutocompleteEnvelope.class);
+    final AutocompleteEnvelope envelope =
+        restClient
+            .get()
+            .uri("/autocomplete/addresses?q={q}&api_key={k}", query, apiKey)
+            .retrieve()
+            .body(AutocompleteEnvelope.class);
 
     if (envelope == null || envelope.result() == null) {
       log.warn("Ideal Postcodes autocomplete returned empty response for query: {}", query);
@@ -55,15 +63,21 @@ public class AddressLookupService {
         .toList();
   }
 
-  /** Resolves a suggestion {@code id} (e.g. {@code paf_10093397}) to a full address with UPRN. */
+  /**
+   * Resolves a suggestion {@code id} (e.g. {@code paf_10093397}) to a full address with UPRN and
+   * coordinates.
+   */
   public ResolvedAddressResponse resolve(final String id) {
-    final ResolveEnvelope envelope = restClient.get()
-        .uri("/autocomplete/addresses/{id}/gbr?api_key={k}", id, apiKey)
-        .retrieve()
-        .body(ResolveEnvelope.class);
+    final ResolveEnvelope envelope =
+        restClient
+            .get()
+            .uri("/autocomplete/addresses/{id}/gbr?api_key={k}", id, apiKey)
+            .retrieve()
+            .body(ResolveEnvelope.class);
 
     if (envelope == null || envelope.result() == null) {
-      throw new IllegalStateException("Ideal Postcodes resolve returned empty response for id: " + id);
+      throw new IllegalStateException(
+          "Ideal Postcodes resolve returned empty response for id: " + id);
     }
 
     final ResolveResult r = envelope.result();
@@ -74,8 +88,46 @@ public class AddressLookupService {
         r.county() != null ? r.county() : "",
         r.postcode(),
         r.countryIso2() != null ? r.countryIso2() : "GB",
-        r.uprn() != null ? r.uprn() : ""
-    );
+        r.uprn() != null ? r.uprn() : "",
+        r.latitude(),
+        r.longitude());
+  }
+
+  /**
+   * Returns the centroid coordinates for a UK postcode.
+   *
+   * <p>Used as a fallback when the user enters an address manually (without autocomplete), so every
+   * property always receives coordinates for radius-based engineer matching. Postcode centroids are
+   * accurate to ~50 m for UK postcodes.
+   *
+   * @param postcode raw UK postcode (spaces allowed, case-insensitive)
+   * @return lat/lng of the postcode centroid, or {@code null} if the lookup fails
+   */
+  public double[] lookupPostcodeCentroid(final String postcode) {
+    try {
+      final PostcodeEnvelope envelope =
+          restClient
+              .get()
+              .uri("/postcodes/{postcode}?api_key={k}", postcode.replace(" ", ""), apiKey)
+              .retrieve()
+              .body(PostcodeEnvelope.class);
+
+      if (envelope == null || envelope.result() == null) {
+        log.warn("Ideal Postcodes centroid returned empty response for postcode: {}", postcode);
+        return null;
+      }
+
+      final PostcodeResult r = envelope.result();
+      if (r.latitude() == null || r.longitude() == null) {
+        log.warn("Ideal Postcodes centroid missing lat/lng for postcode: {}", postcode);
+        return null;
+      }
+
+      return new double[] {r.latitude(), r.longitude()};
+    } catch (Exception ex) {
+      log.error("Postcode centroid lookup failed for {}: {}", postcode, ex.getMessage());
+      return null;
+    }
   }
 
   // ── Internal JSON mapping records ────────────────────────────────────────────
@@ -94,12 +146,20 @@ public class AddressLookupService {
 
   @JsonIgnoreProperties(ignoreUnknown = true)
   private record ResolveResult(
-      @JsonProperty("line_1")        String line1,
-      @JsonProperty("line_2")        String line2,
-      @JsonProperty("post_town")     String postTown,
-      @JsonProperty("county")        String county,
-      @JsonProperty("postcode")      String postcode,
+      @JsonProperty("line_1") String line1,
+      @JsonProperty("line_2") String line2,
+      @JsonProperty("post_town") String postTown,
+      @JsonProperty("county") String county,
+      @JsonProperty("postcode") String postcode,
       @JsonProperty("country_iso_2") String countryIso2,
-      @JsonProperty("uprn")          String uprn
-  ) {}
+      @JsonProperty("uprn") String uprn,
+      @JsonProperty("latitude") Double latitude,
+      @JsonProperty("longitude") Double longitude) {}
+
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  private record PostcodeEnvelope(PostcodeResult result) {}
+
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  private record PostcodeResult(
+      @JsonProperty("latitude") Double latitude, @JsonProperty("longitude") Double longitude) {}
 }

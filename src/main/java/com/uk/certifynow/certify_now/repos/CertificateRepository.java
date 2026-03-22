@@ -49,8 +49,8 @@ public interface CertificateRepository extends JpaRepository<Certificate, UUID> 
 
   /**
    * Returns ALL certificates (including superseded) for properties owned by the given customer.
-   * Used when the customer explicitly requests their full certificate history.
-   * Also eagerly fetches supersededBy so callers can resolve the replacement chain without N+1.
+   * Used when the customer explicitly requests their full certificate history. Also eagerly fetches
+   * supersededBy so callers can resolve the replacement chain without N+1.
    */
   @Query(
       """

@@ -7,6 +7,7 @@ import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
 import com.uk.certifynow.certify_now.rest.dto.property.CreatePropertyRequest;
 import com.uk.certifynow.certify_now.rest.dto.property.UpdatePropertyRequest;
 import com.uk.certifynow.certify_now.service.PropertyService;
+import com.uk.certifynow.certify_now.service.SseEmitterRegistry;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -17,10 +18,12 @@ import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @RestController
 @RequestMapping("/api/v1/properties")
@@ -28,9 +31,12 @@ import org.springframework.web.bind.annotation.*;
 public class PropertyController {
 
   private final PropertyService propertyService;
+  private final SseEmitterRegistry sseEmitterRegistry;
 
-  public PropertyController(final PropertyService propertyService) {
+  public PropertyController(
+      final PropertyService propertyService, final SseEmitterRegistry sseEmitterRegistry) {
     this.propertyService = propertyService;
+    this.sseEmitterRegistry = sseEmitterRegistry;
   }
 
   @PostMapping
@@ -86,6 +92,19 @@ public class PropertyController {
     ensureCustomer(authentication);
     final UUID userId = UUID.fromString((String) authentication.getPrincipal());
     return ApiResponse.of(propertyService.getByOwner(userId, pageable), requestId(request));
+  }
+
+  @GetMapping(value = "/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+  @Operation(
+      summary = "SSE stream for property events",
+      description =
+          "Opens a long-lived Server-Sent Events connection for the authenticated customer."
+              + " Receives an 'epc-enriched' event when async EPC enrichment completes"
+              + " for a newly created property.")
+  public SseEmitter streamEvents(final Authentication authentication) {
+    ensureCustomer(authentication);
+    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
+    return sseEmitterRegistry.register(userId);
   }
 
   @GetMapping("/with-compliance")

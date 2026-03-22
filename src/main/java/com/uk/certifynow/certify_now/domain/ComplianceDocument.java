@@ -46,11 +46,9 @@ public class ComplianceDocument {
   @Column(length = 100)
   private String customTypeName;
 
-  @Column
-  private LocalDate testDate;
+  @Column private LocalDate testDate;
 
-  @Column
-  private LocalDate expiryDate;
+  @Column private LocalDate expiryDate;
 
   @Column(nullable = false, length = 20)
   private String status;
@@ -71,8 +69,7 @@ public class ComplianceDocument {
   @Column(nullable = false)
   private Boolean reminderEnabled = false;
 
-  @Column
-  private Integer reminderDaysBefore;
+  @Column private Integer reminderDaysBefore;
 
   @CreatedDate
   @Column(nullable = false, updatable = false)

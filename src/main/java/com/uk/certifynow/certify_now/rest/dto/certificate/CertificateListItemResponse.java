@@ -10,6 +10,7 @@ public record CertificateListItemResponse(
     PropertySummaryResponse property,
     String status,
     String result,
+    String epcRating,
     LocalDate issuedAt,
     LocalDate expiresAt,
     Long daysUntilExpiry,

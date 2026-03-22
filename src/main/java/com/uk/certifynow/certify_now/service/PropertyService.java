@@ -11,11 +11,11 @@ import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.model.ComplianceHealthDTO;
 import com.uk.certifynow.certify_now.model.MyPropertiesResponse;
 import com.uk.certifynow.certify_now.model.PropertyDTO;
-import com.uk.certifynow.certify_now.rest.dto.property.CreatePropertyRequest;
-import com.uk.certifynow.certify_now.rest.dto.property.UpdatePropertyRequest;
 import com.uk.certifynow.certify_now.repos.JobRepository;
 import com.uk.certifynow.certify_now.repos.PropertyRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
+import com.uk.certifynow.certify_now.rest.dto.property.CreatePropertyRequest;
+import com.uk.certifynow.certify_now.rest.dto.property.UpdatePropertyRequest;
 import com.uk.certifynow.certify_now.service.job.JobStatus;
 import com.uk.certifynow.certify_now.service.mappers.PropertyMapper;
 import com.uk.certifynow.certify_now.util.NotFoundException;
@@ -26,6 +26,10 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.PrecisionModel;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Page;
@@ -40,12 +44,19 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class PropertyService {
 
+  /** WGS84 SRID — must match the geography column definition in PostGIS. */
+  private static final int SRID_WGS84 = 4326;
+
+  private static final GeometryFactory GEO_FACTORY =
+      new GeometryFactory(new PrecisionModel(), SRID_WGS84);
+
   private final PropertyRepository propertyRepository;
   private final UserRepository userRepository;
   private final JobRepository jobRepository;
   private final ApplicationEventPublisher publisher;
   private final PropertyMapper propertyMapper;
   private final ComplianceService complianceService;
+  private final AddressLookupService addressLookupService;
   private final Clock clock;
 
   public PropertyService(
@@ -55,6 +66,7 @@ public class PropertyService {
       final ApplicationEventPublisher publisher,
       final PropertyMapper propertyMapper,
       final ComplianceService complianceService,
+      final AddressLookupService addressLookupService,
       final Clock clock) {
     this.propertyRepository = propertyRepository;
     this.userRepository = userRepository;
@@ -62,6 +74,7 @@ public class PropertyService {
     this.publisher = publisher;
     this.propertyMapper = propertyMapper;
     this.complianceService = complianceService;
+    this.addressLookupService = addressLookupService;
     this.clock = clock;
   }
 
@@ -122,6 +135,7 @@ public class PropertyService {
     property.setOwner(owner);
     property.setIsActive(true);
     property.setComplianceStatus("MISSING");
+    property.setCoordinates(resolveCoordinates(request));
     final OffsetDateTime now = OffsetDateTime.now(clock);
     property.setCreatedAt(now);
     property.setUpdatedAt(now);
@@ -240,10 +254,7 @@ public class PropertyService {
 
   @Transactional
   public PropertyDTO updateEicrMetadata(
-      final UUID id,
-      final Boolean hasEicr,
-      final LocalDate eicrExpiryDate,
-      final UUID userId) {
+      final UUID id, final Boolean hasEicr, final LocalDate eicrExpiryDate, final UUID userId) {
     final Property property = propertyRepository.findById(id).orElseThrow(NotFoundException::new);
     assertOwnership(property, userId);
     if (hasEicr != null) property.setHasEicr(hasEicr);
@@ -263,6 +274,45 @@ public class PropertyService {
       referencedException.addParam(ownerProperty.getId());
       throw referencedException;
     }
+  }
+
+  /**
+   * Resolves WGS84 coordinates for a new property.
+   *
+   * <ol>
+   *   <li>If the request already carries {@code latitude}/{@code longitude} (populated by the
+   *       autocomplete resolve call in the UI), use them directly.
+   *   <li>Otherwise fall back to the Ideal Postcodes postcode centroid endpoint to ensure every
+   *       property always has coordinates for PostGIS engineer-radius queries.
+   * </ol>
+   */
+  private Point resolveCoordinates(final CreatePropertyRequest request) {
+    if (request.latitude() != null && request.longitude() != null) {
+      return buildPoint(request.latitude(), request.longitude());
+    }
+
+    log.debug(
+        "No coordinates in create request for postcode {}; falling back to centroid lookup",
+        request.postcode());
+
+    final double[] centroid = addressLookupService.lookupPostcodeCentroid(request.postcode());
+    if (centroid != null) {
+      return buildPoint(centroid[0], centroid[1]);
+    }
+
+    log.warn(
+        "Could not resolve coordinates for postcode {} — property will be stored without location",
+        request.postcode());
+    return null;
+  }
+
+  /**
+   * Creates a JTS {@link Point} in WGS84 (SRID 4326). Note: JTS uses (longitude, latitude) order.
+   */
+  private static Point buildPoint(final double latitude, final double longitude) {
+    final Point point = GEO_FACTORY.createPoint(new Coordinate(longitude, latitude));
+    point.setSRID(SRID_WGS84);
+    return point;
   }
 
   private void assertOwnership(final Property property, final UUID userId) {

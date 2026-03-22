@@ -91,8 +91,7 @@ public class DocumentService {
   @EventListener(BeforeDeleteUser.class)
   public void on(final BeforeDeleteUser event) {
     final ReferencedException referencedException = new ReferencedException();
-    final Document uploadedByDocument =
-        documentRepository.findFirstByUploadedById(event.getId());
+    final Document uploadedByDocument = documentRepository.findFirstByUploadedById(event.getId());
     if (uploadedByDocument != null) {
       referencedException.setKey("user.document.uploadedBy.referenced");
       referencedException.addParam(uploadedByDocument.getId());

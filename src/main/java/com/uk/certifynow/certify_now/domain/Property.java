@@ -20,6 +20,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.annotations.UuidGenerator;
+import org.locationtech.jts.geom.Point;
 
 @Entity
 @Table(
@@ -93,7 +94,12 @@ public class Property implements SoftDeletable {
   @Column(nullable = false, columnDefinition = "text")
   private String complianceStatus;
 
-  @Column private String location;
+  /**
+   * PostGIS geography point (WGS84). Populated from Ideal Postcodes resolve or postcode centroid
+   * lookup.
+   */
+  @Column(columnDefinition = "geography(Point,4326)")
+  private Point coordinates;
 
   // ── Gas Safety certificate fields ──────────────────────────────────────────
 

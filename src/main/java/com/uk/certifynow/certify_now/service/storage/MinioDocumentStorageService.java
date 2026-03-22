@@ -60,8 +60,7 @@ public class MinioDocumentStorageService implements DocumentStorageService {
           minioClient.bucketExists(
               BucketExistsArgs.builder().bucket(properties.getBucketName()).build());
       if (!exists) {
-        minioClient.makeBucket(
-            MakeBucketArgs.builder().bucket(properties.getBucketName()).build());
+        minioClient.makeBucket(MakeBucketArgs.builder().bucket(properties.getBucketName()).build());
         log.info("Created MinIO bucket: {}", properties.getBucketName());
       }
       minioClient.setBucketPolicy(
@@ -84,19 +83,40 @@ public class MinioDocumentStorageService implements DocumentStorageService {
     final String objectKey = buildObjectKey(certificateId, certificateType);
     try {
       minioClient.putObject(
-          PutObjectArgs.builder()
-              .bucket(properties.getBucketName())
-              .object(objectKey)
-              .stream(new ByteArrayInputStream(content), content.length, -1)
+          PutObjectArgs.builder().bucket(properties.getBucketName()).object(objectKey).stream(
+                  new ByteArrayInputStream(content), content.length, -1)
               .contentType("application/pdf")
               .build());
       final String url = buildPublicUrl(objectKey);
       log.info(
-          "Stored {} certificate PDF: certificateId={} url={}", certificateType, certificateId, url);
+          "Stored {} certificate PDF: certificateId={} url={}",
+          certificateType,
+          certificateId,
+          url);
       return url;
     } catch (Exception e) {
       throw new RuntimeException(
           "Failed to store PDF in MinIO for certificateId=" + certificateId, e);
+    }
+  }
+
+  @Override
+  public String storeRaw(
+      final UUID documentId, final String filename, final byte[] content, final String mimeType) {
+    final String objectKey = "uploads/" + documentId + "/" + sanitize(filename);
+    try {
+      minioClient.putObject(
+          PutObjectArgs.builder().bucket(properties.getBucketName()).object(objectKey).stream(
+                  new ByteArrayInputStream(content), content.length, -1)
+              .contentType(mimeType)
+              .build());
+      final String url = buildPublicUrl(objectKey);
+      log.info(
+          "Stored uploaded document: documentId={} filename={} url={}", documentId, filename, url);
+      return url;
+    } catch (Exception e) {
+      throw new RuntimeException(
+          "Failed to store uploaded document in MinIO for documentId=" + documentId, e);
     }
   }
 
@@ -106,10 +126,7 @@ public class MinioDocumentStorageService implements DocumentStorageService {
     final String objectKey = extractObjectKey(storageUrl);
     try (InputStream stream =
         minioClient.getObject(
-            GetObjectArgs.builder()
-                .bucket(properties.getBucketName())
-                .object(objectKey)
-                .build())) {
+            GetObjectArgs.builder().bucket(properties.getBucketName()).object(objectKey).build())) {
       return stream.readAllBytes();
     } catch (Exception e) {
       // MinIO throws ErrorResponseException with code "NoSuchKey" when the object doesn't exist.
@@ -133,12 +150,15 @@ public class MinioDocumentStorageService implements DocumentStorageService {
         + objectKey;
   }
 
+  /** Strips path separators and control characters to prevent object-key injection. */
+  private static String sanitize(final String filename) {
+    if (filename == null || filename.isBlank()) return "upload";
+    return filename.replaceAll("[^a-zA-Z0-9._\\-]", "_");
+  }
+
   private String extractObjectKey(final String storageUrl) {
     final String prefix =
-        properties.getPublicEndpoint().stripTrailing()
-            + "/"
-            + properties.getBucketName()
-            + "/";
+        properties.getPublicEndpoint().stripTrailing() + "/" + properties.getBucketName() + "/";
     if (!storageUrl.startsWith(prefix)) {
       throw new IllegalArgumentException(
           "storageUrl does not match configured MinIO endpoint/bucket: " + storageUrl);

@@ -88,6 +88,12 @@ public class BookingController {
                 + countStatus(properties, "eicrStatus", "MISSING");
         expiringSoon = countStatus(properties, "eicrStatus", "EXPIRING_SOON");
       }
+      case "EPC" -> {
+        overdue =
+            countStatus(properties, "epcStatus", "EXPIRED")
+                + countStatus(properties, "epcStatus", "MISSING");
+        expiringSoon = countStatus(properties, "epcStatus", "EXPIRING_SOON");
+      }
       default -> {
         overdue = 0;
         expiringSoon = 0;
@@ -108,7 +114,12 @@ public class BookingController {
             .filter(
                 p -> {
                   final String status =
-                      "gasStatus".equals(field) ? p.getGasStatus() : p.getEicrStatus();
+                      switch (field) {
+                        case "gasStatus" -> p.getGasStatus();
+                        case "eicrStatus" -> p.getEicrStatus();
+                        case "epcStatus" -> p.getEpcStatus();
+                        default -> null;
+                      };
                   return value.equals(status);
                 })
             .count();

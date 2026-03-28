@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 public class ProfileFactory {
 
   private static final String DEFAULT_NOTIFICATION_PREFS =
-      "{\"push\": true, \"email\": true, \"sms\": false}";
+      "{\"push\": true, \"email\": true, \"sms\": false, \"reminderDays\": [90, 60, 30]}";
 
   private final Clock clock;
 

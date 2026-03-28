@@ -1,7 +1,12 @@
 package com.uk.certifynow.certify_now.rest;
 
 import com.uk.certifynow.certify_now.config.RequestIdFilter;
+import com.uk.certifynow.certify_now.model.CustomerProfileInfoDTO;
+import com.uk.certifynow.certify_now.model.NotificationPrefsDTO;
+import com.uk.certifynow.certify_now.model.ProfileStatsDTO;
+import com.uk.certifynow.certify_now.model.UpdateCustomerProfileRequest;
 import com.uk.certifynow.certify_now.model.UpdateMeRequest;
+import com.uk.certifynow.certify_now.model.UpdateNotificationPrefsRequest;
 import com.uk.certifynow.certify_now.model.UserMeDTO;
 import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
 import com.uk.certifynow.certify_now.service.UserService;
@@ -67,6 +72,110 @@ public class UserController {
       final HttpServletRequest request) {
     final UUID userId = UUID.fromString((String) authentication.getPrincipal());
     userService.updateMe(userId, updateMeRequest);
+    return ApiResponse.of(null, requestId(request));
+  }
+
+  @GetMapping("/me/stats")
+  @Operation(
+      summary = "Get profile stats",
+      description =
+          "Returns a lightweight summary of the customer's property and compliance counts for the profile screen stats row.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Stats retrieved successfully"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Not authenticated")
+  })
+  public ApiResponse<ProfileStatsDTO> getStats(
+      final Authentication authentication, final HttpServletRequest request) {
+    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
+    return ApiResponse.of(userService.getStats(userId), requestId(request));
+  }
+
+  @GetMapping("/me/customer-profile")
+  @Operation(
+      summary = "Get company info",
+      description = "Returns the customer's company name and letting-agent flag.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Customer profile info retrieved successfully"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Not authenticated")
+  })
+  public ApiResponse<CustomerProfileInfoDTO> getCustomerProfile(
+      final Authentication authentication, final HttpServletRequest request) {
+    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
+    return ApiResponse.of(userService.getCustomerProfileInfo(userId), requestId(request));
+  }
+
+  @PutMapping("/me/customer-profile")
+  @Operation(
+      summary = "Update company info",
+      description = "Updates the customer's company name and/or letting-agent flag.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Customer profile updated successfully"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "Validation error in request body"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Not authenticated")
+  })
+  public ApiResponse<Void> updateCustomerProfile(
+      @Valid @RequestBody final UpdateCustomerProfileRequest req,
+      final Authentication authentication,
+      final HttpServletRequest request) {
+    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
+    userService.updateCustomerProfileInfo(userId, req);
+    return ApiResponse.of(null, requestId(request));
+  }
+
+  @GetMapping("/me/notification-prefs")
+  @Operation(
+      summary = "Get notification preferences",
+      description = "Returns the customer's notification channel toggles and reminder day offsets.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Notification preferences retrieved successfully"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Not authenticated")
+  })
+  public ApiResponse<NotificationPrefsDTO> getNotificationPrefs(
+      final Authentication authentication, final HttpServletRequest request) {
+    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
+    return ApiResponse.of(userService.getNotificationPrefs(userId), requestId(request));
+  }
+
+  @PutMapping("/me/notification-prefs")
+  @Operation(
+      summary = "Update notification preferences",
+      description =
+          "Merges the provided fields into the customer's existing notification preferences.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Notification preferences updated successfully"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "Validation error in request body"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Not authenticated")
+  })
+  public ApiResponse<Void> updateNotificationPrefs(
+      @Valid @RequestBody final UpdateNotificationPrefsRequest req,
+      final Authentication authentication,
+      final HttpServletRequest request) {
+    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
+    userService.updateNotificationPrefs(userId, req);
     return ApiResponse.of(null, requestId(request));
   }
 

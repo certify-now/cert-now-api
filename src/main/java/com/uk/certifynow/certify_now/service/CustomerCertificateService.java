@@ -133,6 +133,26 @@ public class CustomerCertificateService {
 
     certificateRepository.save(cert);
 
+    // Sync the denormalised property fields used by ComplianceService.enrich()
+    // so that GET /properties/with-compliance reflects the new certificate immediately.
+    switch (certType) {
+      case "GAS_SAFETY" -> {
+        property.setHasGasCertificate(true);
+        property.setGasExpiryDate(cert.getExpiryAt());
+        property.setCurrentGasCertificate(cert);
+      }
+      case "EICR" -> {
+        property.setHasEicr(true);
+        property.setEicrExpiryDate(cert.getExpiryAt());
+        property.setCurrentEicrCertificate(cert);
+      }
+      case "EPC" -> property.setCurrentEpcCertificate(cert);
+      default -> {
+        // CUSTOM, BOILER_SERVICE, etc. — no property-level compliance fields to sync
+      }
+    }
+    propertyRepository.save(property);
+
     if (file != null && !file.isEmpty()) {
       final User uploader =
           userRepository

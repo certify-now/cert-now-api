@@ -1,5 +1,6 @@
 package com.uk.certifynow.certify_now.service;
 
+import com.uk.certifynow.certify_now.domain.CustomerProfile;
 import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.events.AccountDeactivatedEvent;
 import com.uk.certifynow.certify_now.events.BeforeDeleteUser;
@@ -7,7 +8,13 @@ import com.uk.certifynow.certify_now.events.UserRestoredEvent;
 import com.uk.certifynow.certify_now.events.UserSoftDeletedEvent;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.exception.EntityNotFoundException;
+import com.uk.certifynow.certify_now.model.CustomerProfileInfoDTO;
+import com.uk.certifynow.certify_now.model.MyPropertiesResponse;
+import com.uk.certifynow.certify_now.model.NotificationPrefsDTO;
+import com.uk.certifynow.certify_now.model.ProfileStatsDTO;
+import com.uk.certifynow.certify_now.model.UpdateCustomerProfileRequest;
 import com.uk.certifynow.certify_now.model.UpdateMeRequest;
+import com.uk.certifynow.certify_now.model.UpdateNotificationPrefsRequest;
 import com.uk.certifynow.certify_now.model.UserDTO;
 import com.uk.certifynow.certify_now.model.UserMeDTO;
 import com.uk.certifynow.certify_now.repos.CustomerProfileRepository;
@@ -23,6 +30,7 @@ import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
@@ -32,6 +40,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 @Slf4j
 @Service
@@ -45,6 +55,8 @@ public class UserService {
   private final ApplicationEventPublisher publisher;
   private final UserMapper userMapper;
   private final Clock clock;
+  private final PropertyService propertyService;
+  private final ObjectMapper objectMapper;
 
   public UserService(
       final UserRepository userRepository,
@@ -54,7 +66,9 @@ public class UserService {
       final RefreshTokenRepository refreshTokenRepository,
       final ApplicationEventPublisher publisher,
       final UserMapper userMapper,
-      final Clock clock) {
+      final Clock clock,
+      final PropertyService propertyService,
+      final ObjectMapper objectMapper) {
     this.userRepository = userRepository;
     this.jobRepository = jobRepository;
     this.customerProfileRepository = customerProfileRepository;
@@ -63,6 +77,8 @@ public class UserService {
     this.publisher = publisher;
     this.userMapper = userMapper;
     this.clock = clock;
+    this.propertyService = propertyService;
+    this.objectMapper = objectMapper;
   }
 
   @Transactional(readOnly = true)
@@ -164,6 +180,92 @@ public class UserService {
     user.setUpdatedAt(OffsetDateTime.now(clock));
     userRepository.save(user);
     log.info("User {} updated their profile", id);
+  }
+
+  @Transactional(readOnly = true)
+  public ProfileStatsDTO getStats(final UUID userId) {
+    final MyPropertiesResponse response = propertyService.getMyPropertiesWithCompliance(userId);
+    final var health = response.getComplianceHealth();
+    final int actionNeeded = health.getNonCompliantCount() + health.getExpiringSoonCount();
+    return new ProfileStatsDTO(
+        health.getTotalProperties(), health.getCompliantCount(), actionNeeded);
+  }
+
+  @Transactional(readOnly = true)
+  public CustomerProfileInfoDTO getCustomerProfileInfo(final UUID userId) {
+    final CustomerProfile profile = requireCustomerProfile(userId);
+    return new CustomerProfileInfoDTO(profile.getCompanyName(), profile.getIsLettingAgent());
+  }
+
+  @Transactional
+  public void updateCustomerProfileInfo(final UUID userId, final UpdateCustomerProfileRequest req) {
+    final CustomerProfile profile = requireCustomerProfile(userId);
+    if (req.getCompanyName() != null) {
+      profile.setCompanyName(req.getCompanyName().isBlank() ? null : req.getCompanyName().trim());
+    }
+    if (req.getIsLettingAgent() != null) {
+      profile.setIsLettingAgent(req.getIsLettingAgent());
+    }
+    profile.setUpdatedAt(OffsetDateTime.now(clock));
+    customerProfileRepository.save(profile);
+    log.info("Customer profile info updated for user {}", userId);
+  }
+
+  @Transactional(readOnly = true)
+  public NotificationPrefsDTO getNotificationPrefs(final UUID userId) {
+    final CustomerProfile profile = requireCustomerProfile(userId);
+    return parseNotificationPrefs(profile.getNotificationPrefs());
+  }
+
+  @Transactional
+  public void updateNotificationPrefs(final UUID userId, final UpdateNotificationPrefsRequest req) {
+    final CustomerProfile profile = requireCustomerProfile(userId);
+    final NotificationPrefsDTO current = parseNotificationPrefs(profile.getNotificationPrefs());
+    if (req.getPush() != null) current.setPush(req.getPush());
+    if (req.getEmail() != null) current.setEmail(req.getEmail());
+    if (req.getSms() != null) current.setSms(req.getSms());
+    if (req.getReminderDays() != null) current.setReminderDays(req.getReminderDays());
+    try {
+      profile.setNotificationPrefs(objectMapper.writeValueAsString(current));
+    } catch (Exception e) {
+      throw new BusinessException(
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          "PREFS_SERIALIZATION_ERROR",
+          "Failed to persist notification preferences");
+    }
+    profile.setUpdatedAt(OffsetDateTime.now(clock));
+    customerProfileRepository.save(profile);
+    log.info("Notification prefs updated for user {}", userId);
+  }
+
+  private CustomerProfile requireCustomerProfile(final UUID userId) {
+    final CustomerProfile profile = customerProfileRepository.findFirstByUserId(userId);
+    if (profile == null) {
+      throw new EntityNotFoundException("Customer profile not found for user: " + userId);
+    }
+    return profile;
+  }
+
+  private NotificationPrefsDTO parseNotificationPrefs(final String json) {
+    try {
+      final Map<String, Object> raw =
+          objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
+      final NotificationPrefsDTO dto = new NotificationPrefsDTO();
+      dto.setPush((Boolean) raw.getOrDefault("push", Boolean.TRUE));
+      dto.setEmail((Boolean) raw.getOrDefault("email", Boolean.TRUE));
+      dto.setSms((Boolean) raw.getOrDefault("sms", Boolean.FALSE));
+      @SuppressWarnings("unchecked")
+      final List<Integer> days =
+          raw.containsKey("reminderDays")
+              ? (List<Integer>) raw.get("reminderDays")
+              : List.of(90, 60, 30);
+      dto.setReminderDays(days);
+      return dto;
+    } catch (Exception e) {
+      log.warn("Could not parse notificationPrefs JSON, returning defaults: {}", e.getMessage());
+      return new NotificationPrefsDTO(
+          Boolean.TRUE, Boolean.TRUE, Boolean.FALSE, List.of(90, 60, 30));
+    }
   }
 
   @Transactional

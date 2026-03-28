@@ -61,7 +61,7 @@ app:
   slack:
     webhook-url: ${SLACK_WEBHOOK_URL:}
   ideal-postcodes:
-    api-key: ${IDEAL_POSTCODES_API_KEY}
+    api-key: ${IDEAL_POSTCODES_API_KEY:}
     base-url: https://api.ideal-postcodes.co.uk/v1
   epc:
-    api-key: ${EPC_API_KEY}
+    api-key: ${EPC_API_KEY:}

@@ -42,6 +42,6 @@ app:
   jwt:
     secret: ${JWT_SECRET}
   admin:
-    email: admin@certnow.co.uk
+    email: ${ADMIN_EMAIL:admin@certnow.co.uk}
   slack:
     webhook-url: ${SLACK_WEBHOOK_URL}

@@ -11,6 +11,7 @@ spring:
       - optional:file:.env[.properties]
       - optional:file:.env.dev[.properties]
   flyway:
+    enabled: false
     locations: classpath:db/migration,classpath:db/dev-seed
   docker:
     compose:
@@ -57,12 +58,10 @@ app:
     support: ${APP_EMAIL_SUPPORT:admin@certnow.co.uk}
   jwt:
     secret: ${JWT_SECRET:dev-secret-key-that-is-at-least-64-bytes-long-for-hs512-algorithm-padding}
-  admin:
-    email: admin@certnow.co.uk
   slack:
     webhook-url: ${SLACK_WEBHOOK_URL:}
   ideal-postcodes:
-    api-key: ${IDEAL_POSTCODES_API_KEY:ak_mmk3w60462oyDgCUaeQr9SNuDRsxg}
+    api-key: ${IDEAL_POSTCODES_API_KEY}
     base-url: https://api.ideal-postcodes.co.uk/v1
   epc:
-    api-key: ${EPC_API_KEY:URQLa82P6VEZZkZvM1cQWMeFAjDDv0chjIZIYYlul8TrQfs1FkKOFvnAjFkIPGMo}
+    api-key: ${EPC_API_KEY}

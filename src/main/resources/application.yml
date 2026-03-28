@@ -11,6 +11,10 @@ logging:
       clean-history-on-start: false
 
 spring:
+  flyway:
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 0
   jpa:
     open-in-view: false
     properties:
@@ -18,8 +22,8 @@ spring:
         jdbc:
           batch_size: 25
   mail:
-    host: smtp.ionos.co.uk
-    port: 587
+    host: ${MAIL_HOST:smtp.ionos.co.uk}
+    port: ${MAIL_PORT:587}
     properties:
       mail:
         smtp:
@@ -109,7 +113,7 @@ app:
   email-verification:
     token-expiry-hours: 24
   admin:
-    email: admin@certnow.co.uk
+    email: ${ADMIN_EMAIL:admin@certnow.co.uk}
   slack:
     webhook-url: ""  # override in profile-specific yml or via SLACK_WEBHOOK_URL env var
   ideal-postcodes:

@@ -73,13 +73,12 @@ public class GasSafetyCertificatePdfService implements CertificatePdfService {
   private final GasSafetyCertificatePdfModelMapper mapper;
   private final DocumentStorageService storageService;
   private final TemplateEngine templateEngine;
-
-  @Value("${app.base-url:http://localhost:8080}")
-  private String appBaseUrl;
+  private final String appBaseUrl;
 
   /**
    * Self-reference through the Spring proxy so {@code @Transactional} on {@link
-   * #attemptGenerateAndStore} is honoured.
+   * #attemptGenerateAndStore} is honoured. Field injection is intentional here — constructor
+   * self-injection would create a circular dependency since the bean isn't fully initialised yet.
    */
   @Lazy @Autowired private GasSafetyCertificatePdfService self;
 
@@ -89,13 +88,15 @@ public class GasSafetyCertificatePdfService implements CertificatePdfService {
       final DocumentRepository documentRepository,
       final QrCodeService qrCodeService,
       final GasSafetyCertificatePdfModelMapper mapper,
-      final DocumentStorageService storageService) {
+      final DocumentStorageService storageService,
+      @Value("${app.base-url:http://localhost:8080}") final String appBaseUrl) {
     this.certificateRepository = certificateRepository;
     this.gasSafetyRecordRepository = gasSafetyRecordRepository;
     this.documentRepository = documentRepository;
     this.qrCodeService = qrCodeService;
     this.mapper = mapper;
     this.storageService = storageService;
+    this.appBaseUrl = appBaseUrl;
     this.templateEngine = buildTemplateEngine();
   }
 

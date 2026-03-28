@@ -6,9 +6,11 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.HashSet;
@@ -19,6 +21,14 @@ import lombok.Setter;
 import org.hibernate.annotations.UuidGenerator;
 
 @Entity
+@Table(
+    indexes = {
+      @Index(name = "idx_certificate_property_id", columnList = "property_id"),
+      @Index(name = "idx_certificate_share_token", columnList = "share_token"),
+      @Index(
+          name = "idx_certificate_property_type_status",
+          columnList = "property_id, certificate_type, status")
+    })
 @Getter
 @Setter
 public class Certificate {

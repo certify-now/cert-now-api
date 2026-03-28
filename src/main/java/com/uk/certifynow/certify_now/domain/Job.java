@@ -5,9 +5,11 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -18,6 +20,14 @@ import lombok.Setter;
 import org.hibernate.annotations.UuidGenerator;
 
 @Entity
+@Table(
+    indexes = {
+      @Index(name = "idx_job_customer_id", columnList = "customer_id"),
+      @Index(name = "idx_job_engineer_id", columnList = "engineer_id"),
+      @Index(name = "idx_job_status", columnList = "status"),
+      @Index(name = "idx_job_status_broadcast_at", columnList = "status, broadcast_at"),
+      @Index(name = "idx_job_property_id", columnList = "property_id")
+    })
 @Getter
 @Setter
 public class Job {

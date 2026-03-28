@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
@@ -27,7 +28,11 @@ import org.locationtech.jts.geom.Point;
     uniqueConstraints =
         @UniqueConstraint(
             name = "uq_property_owner_address_postcode",
-            columnNames = {"owner_id", "address_line1", "postcode"}))
+            columnNames = {"owner_id", "address_line1", "postcode"}),
+    indexes = {
+      @Index(name = "idx_property_owner_id", columnList = "owner_id"),
+      @Index(name = "idx_property_owner_id_is_active", columnList = "owner_id, is_active")
+    })
 @SQLRestriction("deleted_at IS NULL")
 @Getter
 @Setter

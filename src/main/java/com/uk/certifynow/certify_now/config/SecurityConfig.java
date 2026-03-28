@@ -7,7 +7,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -29,13 +28,18 @@ import tools.jackson.databind.ObjectMapper;
 @Configuration
 public class SecurityConfig {
 
-  @Value("${app.cors.allowed-origin-patterns:http://localhost:*}")
-  private String allowedOriginPatterns;
+  private final String allowedOriginPatterns;
 
   /** Null in non-dev profiles — only registered when the {@code dev} profile is active. */
-  @Autowired(required = false)
-  @Nullable
-  private DevAuthFilter devAuthFilter;
+  private final DevAuthFilter devAuthFilter;
+
+  public SecurityConfig(
+      @Value("${app.cors.allowed-origin-patterns:http://localhost:*}")
+          final String allowedOriginPatterns,
+      @Nullable final DevAuthFilter devAuthFilter) {
+    this.allowedOriginPatterns = allowedOriginPatterns;
+    this.devAuthFilter = devAuthFilter;
+  }
 
   @Bean
   public PasswordEncoder passwordEncoder() {

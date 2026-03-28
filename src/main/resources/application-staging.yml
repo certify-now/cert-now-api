@@ -1,4 +1,6 @@
 spring:
+  flyway:
+    enabled: false
   datasource:
     url: ${JDBC_DATABASE_URL}
     username: ${JDBC_DATABASE_USERNAME}
@@ -42,6 +44,6 @@ app:
   jwt:
     secret: ${JWT_SECRET}
   admin:
-    email: admin@certnow.co.uk
+    email: ${ADMIN_EMAIL:admin@certnow.co.uk}
   slack:
     webhook-url: ${SLACK_WEBHOOK_URL:}

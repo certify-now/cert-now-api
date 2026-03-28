@@ -1,29 +1,32 @@
-# Build and Test Workflow
-## Pre-Commit / Pre-PR Checklist
-ALWAYS run these commands locally before committing or pushing to a PR:
-1. **Format code**: `./gradlew --no-daemon spotlessApply`
-2. **Compile**: `./gradlew --no-daemon compileJava`
-3. **Run tests**: `./gradlew --no-daemon test`
-   All three must pass before committing. Do NOT create a PR or push commits without verifying locally first.
+# Build & Test — cert-now-api
+
+## Pre-commit Checklist
+1. `./gradlew --no-daemon spotlessApply` — format (Google Java Format via Spotless)
+2. `./gradlew --no-daemon compileJava` — verify compilation
+3. `./gradlew --no-daemon test` — run full test suite (requires Docker for Testcontainers)
+
 ## Lint / Format
-- Code style: Google Java Format enforced by Spotless
-- Check only: `./gradlew --no-daemon spotlessCheck`
-- Auto-fix: `./gradlew --no-daemon spotlessApply`
-- CI runs `spotlessCheck` — if it fails, run `spotlessApply` locally and commit the changes
+- Formatter: **Google Java Format** enforced by Spotless plugin
+- Run `spotlessApply` to auto-fix; `spotlessCheck` to verify without changes
+- Unused imports are removed automatically on format
+
 ## Testing
-- Full test suite: `./gradlew --no-daemon test`
-- Integration tests use Testcontainers with PostgreSQL 16 (Docker must be running)
-- Test pattern: `@SpringBootTest` + `@Testcontainers` + `@ActiveProfiles("test")`
-- Tests use RestAssured for HTTP calls and JwtTokenProvider for generating auth tokens
-## Key Enums and Values
-- `EngineerTier`: BRONZE, SILVER, GOLD, PLATINUM (NOT "STANDARD")
-- `EngineerApplicationStatus`: APPLICATION_SUBMITTED, ID_VERIFICATION_PENDING, DBS_CHECK_PENDING, INSURANCE_VERIFICATION_PENDING, TRAINING_REQUIRED, APPROVED, REJECTED
+- Unit tests use H2 in-memory DB (`testRuntimeOnly('com.h2database:h2')`)
+- Integration tests use **Testcontainers** (PostgreSQL) — Docker must be running
+- Cucumber BDD tests live under `src/test/resources/features/`
+
+## Key Enums (store as `String` in DB, compare via `.name()`)
+- `JobStatus`: CREATED, AWAITING_ACCEPTANCE, MATCHED, ACCEPTED, EN_ROUTE, IN_PROGRESS, COMPLETED, CERTIFIED, FAILED, CANCELLED, ESCALATED
+- `CertificateStatus`: ACTIVE, EXPIRED, SUPERSEDED
+- `CertificateType`: GAS_SAFETY, EICR, PAT, EPC, FIRE_RISK_ASSESSMENT, BOILER_SERVICE, LEGIONELLA_RISK_ASSESSMENT, CUSTOM
 - `UserRole`: CUSTOMER, ENGINEER, ADMIN
-- `UserStatus`: PENDING_VERIFICATION, ACTIVE, SUSPENDED, DEACTIVATED
+
 ## Jackson Configuration
-- Global snake_case naming via `PropertyNamingStrategies.SNAKE_CASE`
-- No need for `@JsonProperty` annotations on DTOs
-- DTOs are Java records
+- Spring Boot 4.x uses **Jackson 3.x**: import from `tools.jackson.*`, NOT `com.fasterxml.jackson.*`
+- `ObjectMapper` bean is auto-configured; inject it, do not instantiate manually
+
 ## Clock Injection
-- Use `Clock` bean (from `ClockConfig`) injected into services
-- Never use `Instant.now()` or `OffsetDateTime.now()` directly — always use `OffsetDateTime.now(clock)`
+- Never call `OffsetDateTime.now()` or `LocalDate.now()` directly in services/schedulers
+- Inject `java.time.Clock` via constructor: `private final Clock clock;`
+- Use `OffsetDateTime.now(clock)` / `LocalDate.now(clock)` for testable time
+- Tests override with `Clock.fixed(instant, ZoneOffset.UTC)`

@@ -18,6 +18,27 @@ services:
     mem_reservation: 256m
     restart: unless-stopped
 
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9003"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+    ports:
+      - "9002:9000"
+      - "9003:9003"
+    volumes:
+      - minio_prod:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    mem_limit: 512m
+    mem_reservation: 256m
+    restart: unless-stopped
+
   app:
     image: ghcr.io/certify-now/cert-now-api:latest
     ports:
@@ -38,13 +59,22 @@ services:
       APP_EMAIL_FROM: ${APP_EMAIL_FROM}
       APP_EMAIL_REPLY_TO: ${APP_EMAIL_REPLY_TO}
       APP_EMAIL_SUPPORT: ${APP_EMAIL_SUPPORT}
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-cert-now-docs}
     mem_limit: 1200m
     mem_reservation: 768m
     depends_on:
       postgres:
         condition: service_healthy
+      minio:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
   postgres_prod:
+  minio_prod:
   prod_logs:

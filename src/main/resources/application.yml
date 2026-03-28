@@ -69,6 +69,36 @@ certifynow:
     escalation-reminder-check-interval-ms: 60000  # how often the scheduler polls for due reminders
 
 app:
+  certificate-types:
+    uploadable:
+      - type: GAS_SAFETY
+        name: Gas Safety
+        description: Annual gas safety inspection
+        expiry-required: true
+      - type: EICR
+        name: EICR
+        description: Electrical safety inspection
+        expiry-required: true
+      - type: PAT
+        name: PAT Testing
+        description: Portable appliance testing
+        expiry-required: false
+      - type: FIRE_RISK_ASSESSMENT
+        name: Fire Risk Assessment
+        description: Required for HMOs and larger properties
+        expiry-required: false
+      - type: BOILER_SERVICE
+        name: Boiler Service
+        description: Annual service record
+        expiry-required: false
+      - type: LEGIONELLA_RISK_ASSESSMENT
+        name: Legionella Assessment
+        description: Water safety risk check
+        expiry-required: false
+      - type: CUSTOM
+        name: Other (Custom)
+        description: Add your own certificate type
+        expiry-required: false
   pricing:
     commission-rate: 0.15
   jwt:

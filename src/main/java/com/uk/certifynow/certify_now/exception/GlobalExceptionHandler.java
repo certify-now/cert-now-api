@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
@@ -153,6 +154,6 @@ public class GlobalExceptionHandler {
             details == null ? List.of() : details,
             "meta",
             Map.of("request_id", safeRequestId, "timestamp", Instant.now()));
-    return ResponseEntity.status(status).body(body);
+    return ResponseEntity.status(status).contentType(MediaType.APPLICATION_JSON).body(body);
   }
 }

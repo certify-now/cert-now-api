@@ -1,9 +1,11 @@
 package com.uk.certifynow.certify_now.rest;
 
+import com.uk.certifynow.certify_now.config.CertificateTypeProperties;
 import com.uk.certifynow.certify_now.config.RequestIdFilter;
 import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
 import com.uk.certifynow.certify_now.rest.dto.certificate.CertificateDetailResponse;
 import com.uk.certifynow.certify_now.rest.dto.certificate.CertificateListItemResponse;
+import com.uk.certifynow.certify_now.rest.dto.certificate.CertificateTypeResponse;
 import com.uk.certifynow.certify_now.rest.dto.certificate.CertificatesListResponse;
 import com.uk.certifynow.certify_now.rest.dto.certificate.GetCertificatesRequest;
 import com.uk.certifynow.certify_now.rest.dto.certificate.MissingCertificateResponse;
@@ -20,6 +22,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -47,9 +50,36 @@ import org.springframework.web.multipart.MultipartFile;
 public class CertificateController {
 
   private final CustomerCertificateService customerCertificateService;
+  private final CertificateTypeProperties certTypeProperties;
 
-  public CertificateController(final CustomerCertificateService customerCertificateService) {
+  public CertificateController(
+      final CustomerCertificateService customerCertificateService,
+      final CertificateTypeProperties certTypeProperties) {
     this.customerCertificateService = customerCertificateService;
+    this.certTypeProperties = certTypeProperties;
+  }
+
+  // ── GET /api/v1/certificates/types ───────────────────────────────────────
+
+  @GetMapping("/types")
+  @Operation(
+      summary = "List uploadable certificate types",
+      description =
+          "Returns the YAML-configured list of certificate types available for manual upload,"
+              + " including whether an expiry date is mandatory for each type."
+              + " Requires CUSTOMER role.")
+  public ApiResponse<List<CertificateTypeResponse>> getCertificateTypes(
+      final HttpServletRequest httpRequest) {
+
+    final List<CertificateTypeResponse> types =
+        certTypeProperties.getUploadable().stream()
+            .map(
+                d ->
+                    new CertificateTypeResponse(
+                        d.getType(), d.getName(), d.getDescription(), d.isExpiryRequired()))
+            .collect(Collectors.toList());
+
+    return ApiResponse.of(types, requestId(httpRequest));
   }
 
   // ── POST /api/v1/certificates/upload ─────────────────────────────────────

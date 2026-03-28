@@ -117,6 +117,10 @@ public class SecurityConfig {
                     // ═══════════════════════════════════════════════════════
                     .requestMatchers(HttpMethod.GET, "/api/v1/certificates/shared/**")
                     .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/share/**")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/images/**")
+                    .permitAll()
 
                     // ═══════════════════════════════════════════════════════
                     // CUSTOMER CERTIFICATE ENDPOINTS

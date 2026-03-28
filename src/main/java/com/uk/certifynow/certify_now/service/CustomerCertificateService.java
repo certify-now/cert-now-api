@@ -1,11 +1,13 @@
 package com.uk.certifynow.certify_now.service;
 
+import com.uk.certifynow.certify_now.config.ShareProperties;
 import com.uk.certifynow.certify_now.domain.Certificate;
 import com.uk.certifynow.certify_now.domain.CertificateDocument;
 import com.uk.certifynow.certify_now.domain.Document;
 import com.uk.certifynow.certify_now.domain.EicrInspection;
 import com.uk.certifynow.certify_now.domain.GasSafetyRecord;
 import com.uk.certifynow.certify_now.domain.Property;
+import com.uk.certifynow.certify_now.domain.ShareToken;
 import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.events.BeforeDeleteCertificate;
 import com.uk.certifynow.certify_now.repos.CertificateRepository;
@@ -13,6 +15,7 @@ import com.uk.certifynow.certify_now.repos.DocumentRepository;
 import com.uk.certifynow.certify_now.repos.EicrInspectionRepository;
 import com.uk.certifynow.certify_now.repos.GasSafetyRecordRepository;
 import com.uk.certifynow.certify_now.repos.PropertyRepository;
+import com.uk.certifynow.certify_now.repos.ShareTokenRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
 import com.uk.certifynow.certify_now.rest.dto.certificate.CertificateDetailResponse;
 import com.uk.certifynow.certify_now.rest.dto.certificate.CertificateDetailResponse.ApplianceSummary;
@@ -35,7 +38,6 @@ import com.uk.certifynow.certify_now.service.auth.UserRole;
 import com.uk.certifynow.certify_now.service.storage.DocumentStorageService;
 import com.uk.certifynow.certify_now.util.NotFoundException;
 import java.io.IOException;
-import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -62,8 +64,6 @@ public class CustomerCertificateService {
   private static final int EICR_MAX_AGE_YEARS = 5;
   private static final int EPC_MAX_AGE_YEARS = 10;
   private static final int PAT_MAX_AGE_YEARS = 1;
-  private static final SecureRandom SECURE_RANDOM = new SecureRandom();
-
   private final CertificateRepository certificateRepository;
   private final PropertyRepository propertyRepository;
   private final GasSafetyRecordRepository gasSafetyRecordRepository;
@@ -71,6 +71,8 @@ public class CustomerCertificateService {
   private final DocumentStorageService documentStorageService;
   private final DocumentRepository documentRepository;
   private final UserRepository userRepository;
+  private final ShareTokenRepository shareTokenRepository;
+  private final ShareProperties shareProperties;
   private final Clock clock;
   private final ApplicationEventPublisher eventPublisher;
 
@@ -82,6 +84,8 @@ public class CustomerCertificateService {
       final DocumentStorageService documentStorageService,
       final DocumentRepository documentRepository,
       final UserRepository userRepository,
+      final ShareTokenRepository shareTokenRepository,
+      final ShareProperties shareProperties,
       final Clock clock,
       final ApplicationEventPublisher eventPublisher) {
     this.certificateRepository = certificateRepository;
@@ -91,6 +95,8 @@ public class CustomerCertificateService {
     this.documentStorageService = documentStorageService;
     this.documentRepository = documentRepository;
     this.userRepository = userRepository;
+    this.shareTokenRepository = shareTokenRepository;
+    this.shareProperties = shareProperties;
     this.clock = clock;
     this.eventPublisher = eventPublisher;
   }
@@ -337,16 +343,19 @@ public class CustomerCertificateService {
     final boolean canShare = canShare(cert, requestingUserId, role);
     final boolean canRenew = canRenew(cert, dynamicStatus);
 
-    final List<CertificateDetailResponse.DocumentSummary> documents = cert.getDocuments().stream()
-        .filter(cd -> cd.getDocument() != null && cd.getDocument().getStorageUrl() != null)
-        .sorted(Comparator.comparingInt(cd -> cd.getDisplayOrder()))
-        .map(cd -> new CertificateDetailResponse.DocumentSummary(
-            cd.getDocument().getId(),
-            cd.getDocument().getStorageUrl(),
-            cd.getDocument().getFileName(),
-            cd.getDocument().getMimeType(),
-            cd.getDocument().getFileSizeBytes()))
-        .toList();
+    final List<CertificateDetailResponse.DocumentSummary> documents =
+        cert.getDocuments().stream()
+            .filter(cd -> cd.getDocument() != null && cd.getDocument().getStorageUrl() != null)
+            .sorted(Comparator.comparingInt(cd -> cd.getDisplayOrder()))
+            .map(
+                cd ->
+                    new CertificateDetailResponse.DocumentSummary(
+                        cd.getDocument().getId(),
+                        cd.getDocument().getStorageUrl(),
+                        cd.getDocument().getFileName(),
+                        cd.getDocument().getMimeType(),
+                        cd.getDocument().getFileSizeBytes()))
+            .toList();
 
     return new CertificateDetailResponse(
         cert.getId(),
@@ -463,21 +472,40 @@ public class CustomerCertificateService {
 
     verifyOwnership(cert, requestingUserId);
 
-    if (cert.getShareToken() == null) {
-      final byte[] tokenBytes = new byte[32];
-      SECURE_RANDOM.nextBytes(tokenBytes);
-      final StringBuilder hex = new StringBuilder(64);
-      for (final byte b : tokenBytes) {
-        hex.append(String.format("%02x", b));
-      }
-      cert.setShareToken(hex.toString());
-      cert.setShareTokenCreated(OffsetDateTime.now(clock));
+    final OffsetDateTime now = OffsetDateTime.now(clock);
+
+    // Return existing active token (idempotent)
+    final List<ShareToken> active = shareTokenRepository.findActiveByCertificateId(certId, now);
+    final ShareToken shareToken;
+    if (!active.isEmpty()) {
+      shareToken = active.get(0);
+    } else {
+      final User creator =
+          userRepository
+              .findById(requestingUserId)
+              .orElseThrow(() -> new NotFoundException("User not found"));
+
+      final String tokenValue = ShareToken.generateToken();
+      final ShareToken newToken = new ShareToken();
+      newToken.setToken(tokenValue);
+      newToken.setCertificate(cert);
+      newToken.setCreatedBy(creator);
+      newToken.setCreatedAt(now);
+      newToken.setExpiresAt(now.plusDays(shareProperties.getDefaultExpiryDays()));
+      shareTokenRepository.save(newToken);
+      shareToken = newToken;
+
+      // Keep legacy Certificate.shareToken in sync for existing code paths
+      cert.setShareToken(tokenValue);
+      cert.setShareTokenCreated(now);
       certificateRepository.save(cert);
+
       log.info("Share token created for certId={} by userId={}", certId, requestingUserId);
     }
 
+    final String absoluteUrl = shareProperties.getBaseUrl() + "/share/" + shareToken.getToken();
     return new ShareCertificateResponse(
-        "/api/v1/certificates/shared/" + cert.getShareToken(), cert.getShareTokenCreated());
+        absoluteUrl, shareToken.getCreatedAt(), shareToken.getExpiresAt());
   }
 
   // ── DELETE /{id}/share ────────────────────────────────────────────────────
@@ -491,9 +519,13 @@ public class CustomerCertificateService {
 
     verifyOwnership(cert, requestingUserId);
 
+    shareTokenRepository.deleteByCertificateId(certId);
+
+    // Clear legacy field on Certificate
     cert.setShareToken(null);
     cert.setShareTokenCreated(null);
     certificateRepository.save(cert);
+
     log.info("Share token revoked for certId={} by userId={}", certId, requestingUserId);
   }
 
@@ -868,7 +900,7 @@ public class CustomerCertificateService {
   }
 
   private static String buildShareUrl(final String shareToken) {
-    return shareToken != null ? "/api/v1/certificates/shared/" + shareToken : null;
+    return shareToken != null ? "/share/" + shareToken : null;
   }
 
   private static String buildFilename(final Certificate cert) {

@@ -27,7 +27,8 @@ public record CertificateDetailResponse(
     EicrInspectionSummary eicrInspection,
     EpcAssessmentSummary epcAssessment) {
 
-  public record DocumentSummary(UUID id, String url, String fileName, String mimeType, Long fileSizeBytes) {}
+  public record DocumentSummary(
+      UUID id, String url, String fileName, String mimeType, Long fileSizeBytes) {}
 
   public record GasInspectionSummary(int applianceCount, List<ApplianceSummary> appliances) {}
 

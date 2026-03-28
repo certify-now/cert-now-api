@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title th:text="${certType} + ' Certificate — CertNow'">Certificate — CertNow</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: #f0f2f5;
+      color: #1a2433;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 16px 48px;
+    }
+
+    /* ── Header ─────────────────────────────── */
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .logo-img {
+      height: 36px;
+      width: auto;
+      display: block;
+      margin: 0 auto 6px;
+    }
+    .header-subtitle {
+      font-size: 13px;
+      color: #64748b;
+      letter-spacing: 0.2px;
+    }
+
+    /* ── Status Banner ──────────────────────── */
+    .status-banner {
+      width: 100%;
+      max-width: 480px;
+      border-radius: 12px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .status-banner.valid   { background: #dcfce7; border: 1px solid #bbf7d0; }
+    .status-banner.expiring { background: #fef3c7; border: 1px solid #fde68a; }
+    .status-banner.expired { background: #fee2e2; border: 1px solid #fecaca; }
+
+    .status-check {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .valid   .status-check { background: #16a34a; }
+    .expiring .status-check { background: #d97706; }
+    .expired  .status-check { background: #dc2626; }
+
+    .status-check svg { display: block; }
+
+    .status-text-group { display: flex; flex-direction: column; gap: 2px; }
+    .status-title {
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .valid   .status-title { color: #166534; }
+    .expiring .status-title { color: #92400e; }
+    .expired  .status-title { color: #991b1b; }
+
+    .status-sub {
+      font-size: 12px;
+    }
+    .valid   .status-sub { color: #15803d; }
+    .expiring .status-sub { color: #b45309; }
+    .expired  .status-sub { color: #b91c1c; }
+
+    /* ── Card ───────────────────────────────── */
+    .card {
+      background: #ffffff;
+      border-radius: 18px;
+      box-shadow: 0 2px 20px rgba(0,0,0,.07);
+      width: 100%;
+      max-width: 480px;
+      padding: 22px 20px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ── Cert type heading ───────────────────── */
+    .cert-type {
+      font-size: 24px;
+      font-weight: 800;
+      color: #0f172a;
+      line-height: 1.15;
+    }
+
+    /* ── Property block ─────────────────────── */
+    .property-block {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: flex-start;
+      gap: 11px;
+    }
+    .property-icon { flex-shrink: 0; margin-top: 1px; color: #64748b; }
+    .property-address { font-size: 15px; color: #334155; line-height: 1.45; }
+
+    /* ── Dates row ───────────────────────────── */
+    .dates-row {
+      display: flex;
+      gap: 10px;
+    }
+    .date-box {
+      flex: 1;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 10px 14px;
+    }
+    .date-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: #94a3b8;
+      margin-bottom: 4px;
+    }
+    .date-value {
+      font-size: 15px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .date-value.valid   { color: #16a34a; }
+    .date-value.expiring { color: #d97706; }
+    .date-value.expired { color: #dc2626; }
+
+    /* ── Provider row ───────────────────────── */
+    .provider-row {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+    }
+    .provider-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: #f1f5f9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: #64748b;
+    }
+    .provider-label { font-size: 11px; color: #94a3b8; margin-bottom: 2px; font-weight: 500; }
+    .provider-name  { font-size: 14px; font-weight: 600; color: #1e293b; }
+
+    /* ── Divider ─────────────────────────────── */
+    .divider { height: 1px; background: #f1f5f9; margin: 0 -20px; }
+
+    /* ── Documents section ──────────────────── */
+    .docs-section { display: flex; flex-direction: column; gap: 10px; }
+    .docs-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: #94a3b8;
+    }
+    .doc-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .doc-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 11px 12px;
+    }
+
+    .pdf-badge {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: #fee2e2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 11px;
+      font-weight: 800;
+      color: #dc2626;
+      letter-spacing: 0.5px;
+    }
+    .img-badge {
+      background: #ede9fe;
+      color: #7c3aed;
+    }
+
+    .doc-info { flex: 1; min-width: 0; }
+    .doc-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: #1e293b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .doc-size { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+
+    .doc-dl-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: #0d9488;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .doc-dl-btn:hover { background: #0f766e; }
+    .doc-dl-btn svg { display: block; }
+
+    /* ── Download All button ────────────────── */
+    .download-all-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: #0d9488;
+      color: #fff;
+      text-decoration: none;
+      font-size: 16px;
+      font-weight: 700;
+      padding: 15px 24px;
+      border-radius: 14px;
+      min-height: 54px;
+      transition: background 0.15s;
+      margin-top: 2px;
+    }
+    .download-all-btn:hover { background: #0f766e; }
+
+    /* ── Footer ─────────────────────────────── */
+    .footer {
+      margin-top: 20px;
+      text-align: center;
+      max-width: 480px;
+    }
+    .footer-brand { font-size: 13px; color: #94a3b8; }
+    .footer-link { color: #0d9488; text-decoration: none; font-weight: 600; }
+    .footer-link:hover { text-decoration: underline; }
+    .footer-expiry { font-size: 12px; color: #cbd5e1; margin-top: 4px; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <img src="/images/logo2.png" alt="CertNow" class="logo-img" />
+    <div class="header-subtitle">Certificate Verification</div>
+  </div>
+
+  <!-- Status Banner -->
+  <div th:class="'status-banner ' + ${status == 'VALID' ? 'valid' : (status == 'EXPIRING_SOON' ? 'expiring' : 'expired')}">
+    <div class="status-check">
+      <!-- Valid: checkmark -->
+      <svg th:if="${status == 'VALID'}" width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path d="M2.5 7L5.5 10L11.5 4" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <!-- Expiring: exclamation -->
+      <svg th:if="${status == 'EXPIRING_SOON'}" width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path d="M7 4V7.5" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="7" cy="10.5" r="1" fill="white"/>
+      </svg>
+      <!-- Expired: X -->
+      <svg th:if="${status == 'EXPIRED'}" width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path d="M4 4L10 10M10 4L4 10" stroke="white" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="status-text-group">
+      <div class="status-title"
+           th:text="${status == 'VALID' ? 'Valid Certificate' : (status == 'EXPIRING_SOON' ? 'Expiring Soon' : 'Certificate Expired')}">
+        Valid Certificate
+      </div>
+      <div class="status-sub"
+           th:text="${status == 'VALID' ? 'Verified and current' : (status == 'EXPIRING_SOON' ? 'Renewal recommended' : 'This certificate has expired')}">
+        Verified and current
+      </div>
+    </div>
+  </div>
+
+  <!-- Card -->
+  <div class="card">
+
+    <!-- Certificate type -->
+    <div class="cert-type" th:text="${certType}">Certificate</div>
+
+    <!-- Property -->
+    <div class="property-block">
+      <div class="property-icon">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+          <path d="M3 9.5L10 3L17 9.5V17H13V13H7V17H3V9.5Z"
+                stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <span class="property-address" th:text="${propertyAddress}">—</span>
+    </div>
+
+    <!-- Issued / Expires -->
+    <div class="dates-row">
+      <div class="date-box">
+        <div class="date-label">Issued</div>
+        <div class="date-value"
+             th:text="${issuedAt != null ? #temporals.format(issuedAt, 'd MMM yyyy') : '—'}">—</div>
+      </div>
+      <div class="date-box" th:if="${expiresAt != null}">
+        <div class="date-label">Expires</div>
+        <div class="date-value"
+             th:classappend="${status == 'EXPIRED' ? 'expired' : (status == 'EXPIRING_SOON' ? 'expiring' : 'valid')}"
+             th:text="${#temporals.format(expiresAt, 'd MMM yyyy')}">—</div>
+      </div>
+    </div>
+
+    <!-- Provider -->
+    <div class="provider-row" th:if="${engineerCompanyName != null}">
+      <div class="provider-icon">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+          <circle cx="10" cy="7" r="3.5" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M3.5 17c0-3.5 3-6 6.5-6s6.5 2.5 6.5 6"
+                stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="provider-label">Provider</div>
+        <div class="provider-name" th:text="${engineerCompanyName}">—</div>
+      </div>
+    </div>
+
+    <!-- Divider -->
+    <div class="divider" th:if="${documents != null and !documents.empty}"></div>
+
+    <!-- Documents -->
+    <div class="docs-section" th:if="${documents != null and !documents.empty}">
+      <div class="docs-label"
+           th:text="${'Documents (' + #lists.size(documents) + ')'}">Documents</div>
+
+      <div class="doc-list">
+        <div th:each="doc : ${documents}" class="doc-row">
+          <!-- Badge: red PDF or purple IMG -->
+          <div th:class="${doc.mimeType() != null and doc.mimeType().startsWith('image/') ? 'pdf-badge img-badge' : 'pdf-badge'}"
+               th:text="${doc.mimeType() != null and doc.mimeType().startsWith('image/') ? 'IMG' : 'PDF'}">
+            PDF
+          </div>
+          <div class="doc-info">
+            <div class="doc-name" th:text="${doc.fileName()}">document.pdf</div>
+            <div class="doc-size" th:if="${doc.fileSize() != null and !doc.fileSize().isEmpty()}"
+                 th:text="${doc.fileSize()}">—</div>
+          </div>
+          <a th:href="${doc.downloadUrl()}" class="doc-dl-btn" title="Download">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M8 2V11M8 11L5 8M8 11L11 8" stroke="white" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M2 13H14" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+
+      <!-- Download All button -->
+      <a th:href="${downloadAllUrl}" class="download-all-btn">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <path d="M9 2V12M9 12L5.5 8.5M9 12L12.5 8.5" stroke="white" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M2 15H16" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        Download All
+      </a>
+    </div>
+
+  </div><!-- /card -->
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="footer-brand">
+      Shared via <a href="https://certnow.co.uk" class="footer-link">CertNow</a>
+    </div>
+    <div class="footer-expiry"
+         th:text="${'Link expires ' + #temporals.format(shareExpiresAt, 'd MMMM yyyy')}">
+      Link expires —
+    </div>
+  </div>
+
+</body>
+</html>

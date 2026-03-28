@@ -24,6 +24,9 @@ springdoc:
   swagger-ui:
     enabled: true
 
+share:
+  base-url: ${SHARE_BASE_URL:https://api.certnow.co.uk}
+
 app:
   storage:
     provider: minio

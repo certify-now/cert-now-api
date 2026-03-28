@@ -76,6 +76,11 @@ certifynow:
     escalation-reminder-interval-minutes: 15     # re-alert every N minutes while job is ESCALATED
     escalation-reminder-check-interval-ms: 60000  # how often the scheduler polls for due reminders
 
+share:
+  base-url: ${SHARE_BASE_URL:http://localhost:8080}
+  default-expiry-days: 30
+  max-expiry-days: 90
+
 app:
   certificate-types:
     uploadable:

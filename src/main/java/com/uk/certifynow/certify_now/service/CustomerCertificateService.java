@@ -1,6 +1,7 @@
 package com.uk.certifynow.certify_now.service;
 
 import com.uk.certifynow.certify_now.domain.Certificate;
+import com.uk.certifynow.certify_now.domain.CertificateDocument;
 import com.uk.certifynow.certify_now.domain.Document;
 import com.uk.certifynow.certify_now.domain.EicrInspection;
 import com.uk.certifynow.certify_now.domain.GasSafetyRecord;
@@ -98,7 +99,9 @@ public class CustomerCertificateService {
 
   @Transactional
   public CertificateListItemResponse uploadCertificate(
-      final UUID customerId, final UploadCertificateRequest request, final MultipartFile file) {
+      final UUID customerId,
+      final UploadCertificateRequest request,
+      final List<MultipartFile> files) {
 
     final Property property =
         propertyRepository
@@ -153,36 +156,42 @@ public class CustomerCertificateService {
     }
     propertyRepository.save(property);
 
-    if (file != null && !file.isEmpty()) {
+    if (files != null && !files.isEmpty()) {
       final User uploader =
           userRepository
               .findById(customerId)
               .orElseThrow(() -> new NotFoundException("User not found"));
 
-      final String originalName =
-          file.getOriginalFilename() != null ? file.getOriginalFilename() : "upload";
-      final String mimeType =
-          file.getContentType() != null ? file.getContentType() : "application/octet-stream";
+      int order = 0;
+      for (final MultipartFile file : files) {
+        if (file == null || file.isEmpty()) continue;
 
-      final byte[] bytes;
-      try {
-        bytes = file.getBytes();
-      } catch (IOException e) {
-        throw new RuntimeException("Failed to read uploaded file", e);
+        final String originalName =
+            file.getOriginalFilename() != null ? file.getOriginalFilename() : "upload";
+        final String mimeType =
+            file.getContentType() != null ? file.getContentType() : "application/octet-stream";
+
+        final byte[] bytes;
+        try {
+          bytes = file.getBytes();
+        } catch (IOException e) {
+          throw new RuntimeException("Failed to read uploaded file", e);
+        }
+        final String storageUrl =
+            documentStorageService.storeRaw(UUID.randomUUID(), originalName, bytes, mimeType);
+
+        Document doc = new Document();
+        doc.setFileName(originalName);
+        doc.setMimeType(mimeType);
+        doc.setFileSizeBytes(file.getSize());
+        doc.setStorageUrl(storageUrl);
+        doc.setIsVirusScanned(false);
+        doc.setUploadedBy(uploader);
+        doc = documentRepository.save(doc);
+
+        cert.addDocument(doc, order == 0, order);
+        order++;
       }
-      final String storageUrl =
-          documentStorageService.storeRaw(UUID.randomUUID(), originalName, bytes, mimeType);
-
-      Document doc = new Document();
-      doc.setFileName(originalName);
-      doc.setMimeType(mimeType);
-      doc.setFileSizeBytes(file.getSize());
-      doc.setStorageUrl(storageUrl);
-      doc.setIsVirusScanned(false);
-      doc.setUploadedBy(uploader);
-      doc = documentRepository.save(doc);
-
-      cert.addDocument(doc, true, 0);
       certificateRepository.save(cert);
     }
 
@@ -328,6 +337,17 @@ public class CustomerCertificateService {
     final boolean canShare = canShare(cert, requestingUserId, role);
     final boolean canRenew = canRenew(cert, dynamicStatus);
 
+    final List<CertificateDetailResponse.DocumentSummary> documents = cert.getDocuments().stream()
+        .filter(cd -> cd.getDocument() != null && cd.getDocument().getStorageUrl() != null)
+        .sorted(Comparator.comparingInt(cd -> cd.getDisplayOrder()))
+        .map(cd -> new CertificateDetailResponse.DocumentSummary(
+            cd.getDocument().getId(),
+            cd.getDocument().getStorageUrl(),
+            cd.getDocument().getFileName(),
+            cd.getDocument().getMimeType(),
+            cd.getDocument().getFileSizeBytes()))
+        .toList();
+
     return new CertificateDetailResponse(
         cert.getId(),
         cert.getCertificateNumber(),
@@ -339,6 +359,7 @@ public class CustomerCertificateService {
         cert.getExpiryAt(),
         daysUntilExpiry(cert.getExpiryAt(), today),
         getPrimaryDocumentUrl(cert),
+        documents,
         cert.getShareToken(),
         buildShareUrl(cert.getShareToken()),
         canDownload,
@@ -474,6 +495,35 @@ public class CustomerCertificateService {
     cert.setShareTokenCreated(null);
     certificateRepository.save(cert);
     log.info("Share token revoked for certId={} by userId={}", certId, requestingUserId);
+  }
+
+  // ── DELETE /{certId}/documents/{docId} ───────────────────────────────────
+
+  @Transactional
+  public void removeDocument(final UUID certId, final UUID docId, final UUID customerId) {
+    final Certificate cert =
+        certificateRepository
+            .findByIdWithDetails(certId)
+            .orElseThrow(() -> new NotFoundException("Certificate not found"));
+
+    verifyOwnership(cert, customerId);
+
+    final CertificateDocument entry =
+        cert.getDocuments().stream()
+            .filter(cd -> cd.getDocument() != null && docId.equals(cd.getDocument().getId()))
+            .findFirst()
+            .orElseThrow(() -> new NotFoundException("Document not found on this certificate"));
+
+    cert.getDocuments().remove(entry);
+    certificateRepository.save(cert);
+
+    documentRepository.deleteById(docId);
+
+    log.info(
+        "Document removed from certificate: certId={} docId={} customerId={}",
+        certId,
+        docId,
+        customerId);
   }
 
   // ── DELETE /{id} ─────────────────────────────────────────────────────────

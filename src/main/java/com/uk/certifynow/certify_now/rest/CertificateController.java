@@ -100,7 +100,7 @@ public class CertificateController {
           final LocalDate expiresAt,
       @RequestParam(required = false) final String notes,
       @RequestParam(required = false) final String customTypeName,
-      @RequestPart(required = false) final MultipartFile file,
+      @RequestPart(required = false) final List<MultipartFile> files,
       final Authentication authentication,
       final HttpServletRequest httpRequest) {
 
@@ -109,7 +109,7 @@ public class CertificateController {
         new UploadCertificateRequest(
             propertyId, certType, issuedAt, expiresAt, notes, customTypeName);
     return ApiResponse.of(
-        customerCertificateService.uploadCertificate(customerId, request, file),
+        customerCertificateService.uploadCertificate(customerId, request, files),
         requestId(httpRequest));
   }
 
@@ -185,6 +185,25 @@ public class CertificateController {
     final UserRole role = extractRole(authentication);
     return ApiResponse.of(
         customerCertificateService.getCertificateForUser(id, userId, role), requestId(httpRequest));
+  }
+
+  // ── DELETE /api/v1/certificates/{id}/documents/{docId} ───────────────────
+
+  @DeleteMapping("/{id}/documents/{docId}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  @Operation(
+      summary = "Remove a document from a certificate",
+      description =
+          "Removes a specific document attachment from an uploaded certificate."
+              + " Only the property owner may remove documents."
+              + " Requires CUSTOMER role.")
+  public void removeCertificateDocument(
+      @Parameter(description = "Certificate UUID") @PathVariable final UUID id,
+      @Parameter(description = "Document UUID") @PathVariable final UUID docId,
+      final Authentication authentication) {
+
+    final UUID customerId = extractUserId(authentication);
+    customerCertificateService.removeDocument(id, docId, customerId);
   }
 
   // ── DELETE /api/v1/certificates/{id} ─────────────────────────────────────

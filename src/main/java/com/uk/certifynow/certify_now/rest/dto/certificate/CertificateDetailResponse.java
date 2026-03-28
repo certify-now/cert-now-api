@@ -15,6 +15,7 @@ public record CertificateDetailResponse(
     LocalDate expiresAt,
     Long daysUntilExpiry,
     String documentUrl,
+    List<DocumentSummary> documents,
     String shareToken,
     String shareUrl,
     boolean canDownload,
@@ -25,6 +26,8 @@ public record CertificateDetailResponse(
     GasInspectionSummary gasInspection,
     EicrInspectionSummary eicrInspection,
     EpcAssessmentSummary epcAssessment) {
+
+  public record DocumentSummary(UUID id, String url, String fileName, String mimeType, Long fileSizeBytes) {}
 
   public record GasInspectionSummary(int applianceCount, List<ApplianceSummary> appliances) {}
 

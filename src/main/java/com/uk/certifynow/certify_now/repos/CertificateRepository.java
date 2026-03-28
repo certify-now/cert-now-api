@@ -76,6 +76,8 @@ public interface CertificateRepository extends JpaRepository<Certificate, UUID> 
       JOIN FETCH p.owner
       LEFT JOIN FETCH c.issuedByEngineer
       LEFT JOIN FETCH c.job j
+      LEFT JOIN FETCH c.documents cd
+      LEFT JOIN FETCH cd.document
       WHERE c.id = :id
       """)
   Optional<Certificate> findByIdWithDetails(@Param("id") UUID id);

@@ -1,6 +1,5 @@
 package com.uk.certifynow.certify_now.rest;
 
-import com.uk.certifynow.certify_now.config.RequestIdFilter;
 import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
 import com.uk.certifynow.certify_now.rest.dto.engineer.AddInsuranceRequest;
 import com.uk.certifynow.certify_now.rest.dto.engineer.AddQualificationRequest;
@@ -41,7 +40,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/engineer")
 @Tag(name = "Engineer", description = "Engineer-specific operations and job management")
-public class EngineerController {
+public class EngineerController extends BaseController {
 
   private final EngineerProfileService engineerProfileService;
   private final EngineerQualificationService engineerQualificationService;
@@ -380,15 +379,5 @@ public class EngineerController {
       final HttpServletRequest httpRequest) {
     final UUID engineerId = extractUserId(authentication);
     return ApiResponse.of(matchingService.claimJob(jobId, engineerId), requestId(httpRequest));
-  }
-
-  // -- Helpers ----------------------------------------------------------------
-
-  private UUID extractUserId(final Authentication authentication) {
-    return UUID.fromString((String) authentication.getPrincipal());
-  }
-
-  private String requestId(final HttpServletRequest request) {
-    return (String) request.getAttribute(RequestIdFilter.REQUEST_ID);
   }
 }

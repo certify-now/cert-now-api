@@ -1,6 +1,5 @@
 package com.uk.certifynow.certify_now.rest;
 
-import com.uk.certifynow.certify_now.config.RequestIdFilter;
 import com.uk.certifynow.certify_now.model.CustomerProfileInfoDTO;
 import com.uk.certifynow.certify_now.model.NotificationPrefsDTO;
 import com.uk.certifynow.certify_now.model.ProfileStatsDTO;
@@ -22,7 +21,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/users")
 @Tag(name = "Users", description = "User profile management")
-public class UserController {
+public class UserController extends BaseController {
 
   private final UserService userService;
 
@@ -45,7 +44,7 @@ public class UserController {
   })
   public ApiResponse<UserMeDTO> getMe(
       final Authentication authentication, final HttpServletRequest request) {
-    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
+    final UUID userId = extractUserId(authentication);
     final UserMeDTO user = userService.getMe(userId);
     return ApiResponse.of(user, requestId(request));
   }
@@ -70,7 +69,7 @@ public class UserController {
       @Valid @RequestBody final UpdateMeRequest updateMeRequest,
       final Authentication authentication,
       final HttpServletRequest request) {
-    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
+    final UUID userId = extractUserId(authentication);
     userService.updateMe(userId, updateMeRequest);
     return ApiResponse.of(null, requestId(request));
   }
@@ -90,7 +89,7 @@ public class UserController {
   })
   public ApiResponse<ProfileStatsDTO> getStats(
       final Authentication authentication, final HttpServletRequest request) {
-    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
+    final UUID userId = extractUserId(authentication);
     return ApiResponse.of(userService.getStats(userId), requestId(request));
   }
 
@@ -108,7 +107,7 @@ public class UserController {
   })
   public ApiResponse<CustomerProfileInfoDTO> getCustomerProfile(
       final Authentication authentication, final HttpServletRequest request) {
-    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
+    final UUID userId = extractUserId(authentication);
     return ApiResponse.of(userService.getCustomerProfileInfo(userId), requestId(request));
   }
 
@@ -131,7 +130,7 @@ public class UserController {
       @Valid @RequestBody final UpdateCustomerProfileRequest req,
       final Authentication authentication,
       final HttpServletRequest request) {
-    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
+    final UUID userId = extractUserId(authentication);
     userService.updateCustomerProfileInfo(userId, req);
     return ApiResponse.of(null, requestId(request));
   }
@@ -150,7 +149,7 @@ public class UserController {
   })
   public ApiResponse<NotificationPrefsDTO> getNotificationPrefs(
       final Authentication authentication, final HttpServletRequest request) {
-    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
+    final UUID userId = extractUserId(authentication);
     return ApiResponse.of(userService.getNotificationPrefs(userId), requestId(request));
   }
 
@@ -174,12 +173,8 @@ public class UserController {
       @Valid @RequestBody final UpdateNotificationPrefsRequest req,
       final Authentication authentication,
       final HttpServletRequest request) {
-    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
+    final UUID userId = extractUserId(authentication);
     userService.updateNotificationPrefs(userId, req);
     return ApiResponse.of(null, requestId(request));
-  }
-
-  private String requestId(final HttpServletRequest request) {
-    return (String) request.getAttribute(RequestIdFilter.REQUEST_ID);
   }
 }

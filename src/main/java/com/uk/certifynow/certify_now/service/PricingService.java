@@ -2,11 +2,13 @@ package com.uk.certifynow.certify_now.service;
 
 import com.uk.certifynow.certify_now.domain.PricingModifier;
 import com.uk.certifynow.certify_now.domain.PricingRule;
+import com.uk.certifynow.certify_now.domain.Property;
 import com.uk.certifynow.certify_now.domain.UrgencyMultiplier;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.exception.EntityNotFoundException;
 import com.uk.certifynow.certify_now.repos.PricingModifierRepository;
 import com.uk.certifynow.certify_now.repos.PricingRuleRepository;
+import com.uk.certifynow.certify_now.repos.PropertyRepository;
 import com.uk.certifynow.certify_now.repos.UrgencyMultiplierRepository;
 import com.uk.certifynow.certify_now.rest.dto.booking.CertificateTypeItem;
 import com.uk.certifynow.certify_now.rest.dto.booking.CertificateTypesResponse;
@@ -41,9 +43,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class PricingService {
 
+  private static final List<String> VALID_URGENCIES = List.of("STANDARD", "PRIORITY", "EMERGENCY");
+
   private final PricingRuleRepository pricingRuleRepository;
   private final PricingModifierRepository pricingModifierRepository;
   private final UrgencyMultiplierRepository urgencyMultiplierRepository;
+  private final PropertyRepository propertyRepository;
   private final BigDecimal commissionRate;
   private final Clock clock;
 
@@ -51,11 +56,13 @@ public class PricingService {
       final PricingRuleRepository pricingRuleRepository,
       final PricingModifierRepository pricingModifierRepository,
       final UrgencyMultiplierRepository urgencyMultiplierRepository,
+      final PropertyRepository propertyRepository,
       @Value("${app.pricing.commission-rate:0.15}") final BigDecimal commissionRate,
       final Clock clock) {
     this.pricingRuleRepository = pricingRuleRepository;
     this.pricingModifierRepository = pricingModifierRepository;
     this.urgencyMultiplierRepository = urgencyMultiplierRepository;
+    this.propertyRepository = propertyRepository;
     this.commissionRate = commissionRate;
     this.clock = clock;
   }
@@ -63,6 +70,49 @@ public class PricingService {
   // ═══════════════════════════════════════════════════════
   // CORE CALCULATION
   // ═══════════════════════════════════════════════════════
+
+  /**
+   * Validates access and business rules for the given property, then calculates the price. Intended
+   * for use by controllers that receive a propertyId instead of raw property attributes.
+   */
+  @Transactional(readOnly = true)
+  public PriceBreakdown calculatePriceForProperty(
+      final UUID propertyId,
+      final String certificateType,
+      final String urgency,
+      final UUID requesterId,
+      final boolean isAdmin) {
+    final Property property =
+        propertyRepository
+            .findById(propertyId)
+            .orElseThrow(() -> new EntityNotFoundException("Property not found: " + propertyId));
+
+    if (!isAdmin && !property.getOwner().getId().equals(requesterId)) {
+      throw new BusinessException(
+          HttpStatus.FORBIDDEN, "ACCESS_DENIED", "You do not have access to this property");
+    }
+
+    if (!VALID_URGENCIES.contains(urgency)) {
+      throw new BusinessException(
+          HttpStatus.BAD_REQUEST, "INVALID_URGENCY", "Invalid urgency value: " + urgency);
+    }
+
+    if ("GAS_SAFETY".equals(certificateType) && Boolean.FALSE.equals(property.getHasGasSupply())) {
+      throw new BusinessException(
+          HttpStatus.BAD_REQUEST,
+          "NO_GAS_SUPPLY",
+          "Property does not have a gas supply — GAS_SAFETY certificate cannot be issued");
+    }
+
+    return calculatePrice(
+        certificateType,
+        property.getPostcode(),
+        property.getPropertyType(),
+        property.getBedrooms(),
+        property.getGasApplianceCount(),
+        property.getFloorAreaSqm(),
+        urgency);
+  }
 
   @Transactional(readOnly = true)
   @Cacheable(

@@ -1,6 +1,6 @@
 package com.uk.certifynow.certify_now.rest;
 
-import com.uk.certifynow.certify_now.config.RequestIdFilter;
+import com.uk.certifynow.certify_now.config.PaginationProperties;
 import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
 import com.uk.certifynow.certify_now.rest.dto.engineer.EngineerProfileResponse;
 import com.uk.certifynow.certify_now.rest.dto.engineer.InsuranceResponse;
@@ -18,13 +18,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -38,19 +34,22 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/admin/engineers")
 @Tag(name = "Admin - Engineers", description = "Admin management of engineers")
-public class AdminEngineerController {
+public class AdminEngineerController extends BaseController {
 
   private final EngineerProfileService engineerProfileService;
   private final EngineerQualificationService engineerQualificationService;
   private final EngineerInsuranceService engineerInsuranceService;
+  private final PaginationProperties paginationProperties;
 
   public AdminEngineerController(
       final EngineerProfileService engineerProfileService,
       final EngineerQualificationService engineerQualificationService,
-      final EngineerInsuranceService engineerInsuranceService) {
+      final EngineerInsuranceService engineerInsuranceService,
+      final PaginationProperties paginationProperties) {
     this.engineerProfileService = engineerProfileService;
     this.engineerQualificationService = engineerQualificationService;
     this.engineerInsuranceService = engineerInsuranceService;
+    this.paginationProperties = paginationProperties;
   }
 
   // -- List all engineers (paginated) -----------------------------------------
@@ -77,52 +76,11 @@ public class AdminEngineerController {
       @Parameter(description = "Page size (max 50)") @RequestParam(defaultValue = "20")
           final int size,
       final HttpServletRequest httpRequest) {
-    final int cappedSize = Math.min(size, 50);
-    final Pageable pageable =
+    final int cappedSize = Math.min(size, paginationProperties.getMaxSize());
+    final var pageable =
         PageRequest.of(page, cappedSize, Sort.by(Sort.Direction.DESC, "createdAt"));
-    final var allProfiles = engineerProfileService.findAll();
-    final int start = (int) pageable.getOffset();
-    final int end = Math.min(start + pageable.getPageSize(), allProfiles.size());
-    final List<EngineerProfileResponse> pageContent =
-        allProfiles.subList(start < allProfiles.size() ? start : allProfiles.size(), end).stream()
-            .map(
-                dto -> {
-                  return engineerProfileService.get(dto.getId());
-                })
-            .map(
-                dto -> {
-                  // Use getMyProfile via profile id lookup is not ideal;
-                  // build a response from the DTO directly
-                  return new EngineerProfileResponse(
-                      dto.getId(),
-                      dto.getUser(),
-                      dto.getStatus(),
-                      dto.getTier(),
-                      dto.getBio(),
-                      dto.getPreferredCertTypes(),
-                      dto.getPreferredJobTimes(),
-                      dto.getServiceRadiusMiles(),
-                      dto.getMaxDailyJobs(),
-                      dto.getIsOnline(),
-                      dto.getAcceptanceRate(),
-                      dto.getAvgRating(),
-                      dto.getOnTimePercentage(),
-                      dto.getTotalJobsCompleted(),
-                      dto.getTotalReviews(),
-                      dto.getStripeOnboarded(),
-                      dto.getLocation(),
-                      dto.getApprovedAt(),
-                      dto.getLocationUpdatedAt(),
-                      dto.getCreatedAt(),
-                      dto.getUpdatedAt(),
-                      0,
-                      0,
-                      null);
-                })
-            .collect(Collectors.toList());
-    final Page<EngineerProfileResponse> resultPage =
-        new PageImpl<>(pageContent, pageable, allProfiles.size());
-    return ApiResponse.of(resultPage, requestId(httpRequest));
+    return ApiResponse.of(
+        engineerProfileService.findAllPaginated(pageable), requestId(httpRequest));
   }
 
   // -- Engineer detail --------------------------------------------------------
@@ -148,34 +106,7 @@ public class AdminEngineerController {
   public ApiResponse<EngineerProfileResponse> getEngineerDetail(
       @Parameter(description = "Engineer profile ID") @PathVariable final UUID id,
       final HttpServletRequest httpRequest) {
-    final var dto = engineerProfileService.get(id);
-    final EngineerProfileResponse response =
-        new EngineerProfileResponse(
-            dto.getId(),
-            dto.getUser(),
-            dto.getStatus(),
-            dto.getTier(),
-            dto.getBio(),
-            dto.getPreferredCertTypes(),
-            dto.getPreferredJobTimes(),
-            dto.getServiceRadiusMiles(),
-            dto.getMaxDailyJobs(),
-            dto.getIsOnline(),
-            dto.getAcceptanceRate(),
-            dto.getAvgRating(),
-            dto.getOnTimePercentage(),
-            dto.getTotalJobsCompleted(),
-            dto.getTotalReviews(),
-            dto.getStripeOnboarded(),
-            dto.getLocation(),
-            dto.getApprovedAt(),
-            dto.getLocationUpdatedAt(),
-            dto.getCreatedAt(),
-            dto.getUpdatedAt(),
-            0,
-            0,
-            null);
-    return ApiResponse.of(response, requestId(httpRequest));
+    return ApiResponse.of(engineerProfileService.getProfile(id), requestId(httpRequest));
   }
 
   // -- Approve ----------------------------------------------------------------
@@ -356,15 +287,5 @@ public class AdminEngineerController {
     return ApiResponse.of(
         engineerInsuranceService.verifyInsurance(iId, adminId, request.verificationStatus()),
         requestId(httpRequest));
-  }
-
-  // -- Helpers ----------------------------------------------------------------
-
-  private UUID extractUserId(final Authentication authentication) {
-    return UUID.fromString((String) authentication.getPrincipal());
-  }
-
-  private String requestId(final HttpServletRequest request) {
-    return (String) request.getAttribute(RequestIdFilter.REQUEST_ID);
   }
 }

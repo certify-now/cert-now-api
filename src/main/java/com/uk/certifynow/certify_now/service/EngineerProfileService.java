@@ -26,6 +26,8 @@ import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -64,6 +66,18 @@ public class EngineerProfileService {
   public List<EngineerProfileDTO> findAll() {
     final List<EngineerProfile> engineerProfiles = engineerProfileRepository.findAll(Sort.by("id"));
     return engineerProfiles.stream().map(engineerProfileMapper::toDTO).toList();
+  }
+
+  @Transactional(readOnly = true)
+  public Page<EngineerProfileResponse> findAllPaginated(final Pageable pageable) {
+    return engineerProfileRepository.findAll(pageable).map(this::toResponse);
+  }
+
+  @Transactional(readOnly = true)
+  public EngineerProfileResponse getProfile(final UUID profileId) {
+    final EngineerProfile profile =
+        engineerProfileRepository.findById(profileId).orElseThrow(NotFoundException::new);
+    return toResponse(profile);
   }
 
   public EngineerProfileDTO get(final UUID id) {

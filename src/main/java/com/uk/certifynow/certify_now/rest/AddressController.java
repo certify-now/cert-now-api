@@ -1,6 +1,5 @@
 package com.uk.certifynow.certify_now.rest;
 
-import com.uk.certifynow.certify_now.config.RequestIdFilter;
 import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
 import com.uk.certifynow.certify_now.rest.dto.address.AddressSuggestionResponse;
 import com.uk.certifynow.certify_now.rest.dto.address.ResolvedAddressResponse;
@@ -22,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(
     name = "Address Lookup",
     description = "Address autocomplete and UPRN resolution (proxied from Ideal Postcodes)")
-public class AddressController {
+public class AddressController extends BaseController {
 
   private final AddressLookupService addressLookupService;
 
@@ -63,9 +62,5 @@ public class AddressController {
 
     final ResolvedAddressResponse resolved = addressLookupService.resolve(id);
     return ResponseEntity.ok(ApiResponse.of(resolved, requestId(request)));
-  }
-
-  private String requestId(final HttpServletRequest request) {
-    return (String) request.getAttribute(RequestIdFilter.REQUEST_ID);
   }
 }

@@ -1,6 +1,5 @@
 package com.uk.certifynow.certify_now.rest;
 
-import com.uk.certifynow.certify_now.config.RequestIdFilter;
 import com.uk.certifynow.certify_now.model.PropertyDTO;
 import com.uk.certifynow.certify_now.model.UserDTO;
 import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
@@ -31,7 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/admin")
 @Tag(name = "Admin - Soft Delete", description = "Admin management of soft-deleted entities")
-public class AdminSoftDeleteController {
+public class AdminSoftDeleteController extends BaseController {
 
   private final UserService userService;
   private final PropertyService propertyService;
@@ -51,9 +50,8 @@ public class AdminSoftDeleteController {
   public ApiResponse<List<UserDTO>> listUsers(
       @RequestParam(name = "include_deleted", defaultValue = "false") final boolean includeDeleted,
       final HttpServletRequest httpRequest) {
-    final List<UserDTO> users = includeDeleted ? userService.findAll() : userService.findAll();
-    // Note: when include_deleted=true, we need to bypass @SQLRestriction.
-    // For now, findAll() only returns active users. Admin can use findAllDeleted separately.
+    final List<UserDTO> users =
+        includeDeleted ? userService.findAllIncludingDeleted() : userService.findAll();
     return ApiResponse.of(users, requestId(httpRequest));
   }
 
@@ -62,8 +60,7 @@ public class AdminSoftDeleteController {
       summary = "List soft-deleted users",
       description = "Returns all users that have been soft-deleted.")
   public ApiResponse<List<UserDTO>> listDeletedUsers(final HttpServletRequest httpRequest) {
-    // This will be populated via the test/service layer
-    return ApiResponse.of(List.of(), requestId(httpRequest));
+    return ApiResponse.of(userService.findAllDeleted(), requestId(httpRequest));
   }
 
   @GetMapping("/users/{id}/deleted")
@@ -104,7 +101,11 @@ public class AdminSoftDeleteController {
       @RequestParam(name = "include_deleted", defaultValue = "false") final boolean includeDeleted,
       final Pageable pageable,
       final HttpServletRequest httpRequest) {
-    return ApiResponse.of(propertyService.findAll(pageable), requestId(httpRequest));
+    final Page<PropertyDTO> page =
+        includeDeleted
+            ? propertyService.findAllIncludingDeleted(pageable)
+            : propertyService.findAll(pageable);
+    return ApiResponse.of(page, requestId(httpRequest));
   }
 
   @PutMapping("/properties/{id}/soft-delete")
@@ -130,15 +131,5 @@ public class AdminSoftDeleteController {
     final UUID adminId = extractUserId(authentication);
     PropertyDTO restored = propertyService.restore(id, adminId);
     return ApiResponse.of(restored, requestId(httpRequest));
-  }
-
-  // ── Helpers ─────────────────────────────────────────────────────────────────
-
-  private UUID extractUserId(final Authentication authentication) {
-    return UUID.fromString((String) authentication.getPrincipal());
-  }
-
-  private String requestId(final HttpServletRequest request) {
-    return (String) request.getAttribute(RequestIdFilter.REQUEST_ID);
   }
 }

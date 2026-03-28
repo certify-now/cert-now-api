@@ -1,3 +1,7 @@
+api:
+  pagination:
+    max-size: 50
+
 logging:
   level:
     org.hibernate.orm.jdbc.warn: ERROR

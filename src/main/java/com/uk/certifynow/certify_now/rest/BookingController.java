@@ -1,17 +1,12 @@
 package com.uk.certifynow.certify_now.rest;
 
-import com.uk.certifynow.certify_now.config.RequestIdFilter;
-import com.uk.certifynow.certify_now.model.PropertyDTO;
 import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
-import com.uk.certifynow.certify_now.rest.dto.booking.CertificateTypeItem;
 import com.uk.certifynow.certify_now.rest.dto.booking.CertificateTypesResponse;
-import com.uk.certifynow.certify_now.service.PricingService;
-import com.uk.certifynow.certify_now.service.PropertyService;
+import com.uk.certifynow.certify_now.service.BookingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.List;
 import java.util.UUID;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,15 +16,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/booking")
 @Tag(name = "Booking", description = "Certificate booking flows")
-public class BookingController {
+public class BookingController extends BaseController {
 
-  private final PricingService pricingService;
-  private final PropertyService propertyService;
+  private final BookingService bookingService;
 
-  public BookingController(
-      final PricingService pricingService, final PropertyService propertyService) {
-    this.pricingService = pricingService;
-    this.propertyService = propertyService;
+  public BookingController(final BookingService bookingService) {
+    this.bookingService = bookingService;
   }
 
   @GetMapping("/certificate-types")
@@ -49,83 +41,11 @@ public class BookingController {
   })
   public ApiResponse<CertificateTypesResponse> getCertificateTypes(
       final Authentication authentication, final HttpServletRequest request) {
-
-    final CertificateTypesResponse catalogue = pricingService.getCertificateTypes();
-
     if (authentication == null) {
-      return ApiResponse.of(catalogue, requestId(request));
+      return ApiResponse.of(bookingService.getCertificateTypes(), requestId(request));
     }
-
-    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
-    final List<PropertyDTO> properties =
-        propertyService.getMyPropertiesWithCompliance(userId).getProperties();
-
-    final List<CertificateTypeItem> enriched =
-        catalogue.certificateTypes().stream()
-            .map(item -> enrichWithCounts(item, properties))
-            .toList();
-
-    return ApiResponse.of(new CertificateTypesResponse(enriched), requestId(request));
-  }
-
-  // ─── Helpers ────────────────────────────────────────────────────────────────
-
-  private static CertificateTypeItem enrichWithCounts(
-      final CertificateTypeItem item, final List<PropertyDTO> properties) {
-    final int overdue;
-    final int expiringSoon;
-
-    switch (item.type()) {
-      case "GAS_SAFETY" -> {
-        overdue =
-            countStatus(properties, "gasStatus", "EXPIRED")
-                + countStatus(properties, "gasStatus", "MISSING");
-        expiringSoon = countStatus(properties, "gasStatus", "EXPIRING_SOON");
-      }
-      case "EICR" -> {
-        overdue =
-            countStatus(properties, "eicrStatus", "EXPIRED")
-                + countStatus(properties, "eicrStatus", "MISSING");
-        expiringSoon = countStatus(properties, "eicrStatus", "EXPIRING_SOON");
-      }
-      case "EPC" -> {
-        overdue =
-            countStatus(properties, "epcStatus", "EXPIRED")
-                + countStatus(properties, "epcStatus", "MISSING");
-        expiringSoon = countStatus(properties, "epcStatus", "EXPIRING_SOON");
-      }
-      default -> {
-        overdue = 0;
-        expiringSoon = 0;
-      }
-    }
-
-    if (overdue == item.overdueCount() && expiringSoon == item.expiringSoonCount()) {
-      return item;
-    }
-    return new CertificateTypeItem(
-        item.type(), item.name(), item.fromPricePence(), item.priceUnit(), overdue, expiringSoon);
-  }
-
-  private static int countStatus(
-      final List<PropertyDTO> properties, final String field, final String value) {
-    return (int)
-        properties.stream()
-            .filter(
-                p -> {
-                  final String status =
-                      switch (field) {
-                        case "gasStatus" -> p.getGasStatus();
-                        case "eicrStatus" -> p.getEicrStatus();
-                        case "epcStatus" -> p.getEpcStatus();
-                        default -> null;
-                      };
-                  return value.equals(status);
-                })
-            .count();
-  }
-
-  private String requestId(final HttpServletRequest request) {
-    return (String) request.getAttribute(RequestIdFilter.REQUEST_ID);
+    final UUID userId = extractUserId(authentication);
+    return ApiResponse.of(
+        bookingService.getCertificateTypesForCustomer(userId), requestId(request));
   }
 }

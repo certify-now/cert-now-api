@@ -40,4 +40,16 @@ public interface PropertyRepository extends JpaRepository<Property, UUID> {
 
   @Query(value = "SELECT * FROM property", nativeQuery = true)
   List<Property> findAllIncludingDeleted();
+
+  @Query(
+      value = "SELECT * FROM property",
+      countQuery = "SELECT count(*) FROM property",
+      nativeQuery = true)
+  Page<Property> findAllIncludingDeletedPaged(Pageable pageable);
+
+  @Query(
+      value = "SELECT * FROM property WHERE deleted_at IS NOT NULL",
+      countQuery = "SELECT count(*) FROM property WHERE deleted_at IS NOT NULL",
+      nativeQuery = true)
+  Page<Property> findAllDeletedPaged(Pageable pageable);
 }

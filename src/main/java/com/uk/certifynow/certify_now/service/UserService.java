@@ -88,6 +88,16 @@ public class UserService {
   }
 
   @Transactional(readOnly = true)
+  public List<UserDTO> findAllIncludingDeleted() {
+    return userRepository.findAllIncludingDeleted().stream().map(userMapper::toDTO).toList();
+  }
+
+  @Transactional(readOnly = true)
+  public List<UserDTO> findAllDeleted() {
+    return userRepository.findAllDeleted().stream().map(userMapper::toDTO).toList();
+  }
+
+  @Transactional(readOnly = true)
   @Cacheable(value = "users", key = "#id")
   public UserDTO get(final UUID id) {
     return userRepository

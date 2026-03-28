@@ -82,6 +82,18 @@ public class PropertyService {
     return propertyRepository.findAll(pageable).map(p -> enriched(propertyMapper.toDTO(p)));
   }
 
+  public Page<PropertyDTO> findAllIncludingDeleted(final Pageable pageable) {
+    return propertyRepository
+        .findAllIncludingDeletedPaged(pageable)
+        .map(p -> enriched(propertyMapper.toDTO(p)));
+  }
+
+  public Page<PropertyDTO> findAllDeleted(final Pageable pageable) {
+    return propertyRepository
+        .findAllDeletedPaged(pageable)
+        .map(p -> enriched(propertyMapper.toDTO(p)));
+  }
+
   public PropertyDTO get(final UUID id) {
     return propertyRepository
         .findById(id)

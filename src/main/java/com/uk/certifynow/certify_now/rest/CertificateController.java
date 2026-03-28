@@ -1,7 +1,6 @@
 package com.uk.certifynow.certify_now.rest;
 
 import com.uk.certifynow.certify_now.config.CertificateTypeProperties;
-import com.uk.certifynow.certify_now.config.RequestIdFilter;
 import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
 import com.uk.certifynow.certify_now.rest.dto.certificate.CertificateDetailResponse;
 import com.uk.certifynow.certify_now.rest.dto.certificate.CertificateListItemResponse;
@@ -30,7 +29,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -47,7 +45,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/api/v1/certificates")
 @Tag(name = "Certificates", description = "Customer certificate management and compliance tracking")
-public class CertificateController {
+public class CertificateController extends BaseController {
 
   private final CustomerCertificateService customerCertificateService;
   private final CertificateTypeProperties certTypeProperties;
@@ -330,24 +328,5 @@ public class CertificateController {
 
     final UUID userId = extractUserId(authentication);
     customerCertificateService.revokeShare(id, userId);
-  }
-
-  // ── Helpers ───────────────────────────────────────────────────────────────
-
-  private UUID extractUserId(final Authentication authentication) {
-    return UUID.fromString((String) authentication.getPrincipal());
-  }
-
-  private UserRole extractRole(final Authentication authentication) {
-    return authentication.getAuthorities().stream()
-        .map(GrantedAuthority::getAuthority)
-        .filter(a -> a.startsWith("ROLE_"))
-        .map(a -> UserRole.valueOf(a.replace("ROLE_", "")))
-        .findFirst()
-        .orElse(UserRole.CUSTOMER);
-  }
-
-  private String requestId(final HttpServletRequest request) {
-    return (String) request.getAttribute(RequestIdFilter.REQUEST_ID);
   }
 }

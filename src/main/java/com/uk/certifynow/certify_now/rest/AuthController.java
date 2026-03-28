@@ -1,6 +1,5 @@
 package com.uk.certifynow.certify_now.rest;
 
-import com.uk.certifynow.certify_now.config.RequestIdFilter;
 import com.uk.certifynow.certify_now.model.UpdateEmailRequest;
 import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
 import com.uk.certifynow.certify_now.service.auth.AuthFacade;
@@ -33,7 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/auth")
 @Tag(name = "Authentication", description = "Authentication, registration, and token management")
-public class AuthController {
+public class AuthController extends BaseController {
 
   private final AuthFacade authService;
 
@@ -146,10 +145,7 @@ public class AuthController {
     final String accessToken =
         (authHeader != null && authHeader.startsWith("Bearer ")) ? authHeader.substring(7) : null;
 
-    authService.logout(
-        UUID.fromString((String) authentication.getPrincipal()),
-        request.refreshToken(),
-        accessToken);
+    authService.logout(extractUserId(authentication), request.refreshToken(), accessToken);
   }
 
   @PostMapping("/verify-email")
@@ -224,13 +220,9 @@ public class AuthController {
       @Valid @RequestBody final UpdateEmailRequest request,
       final Authentication authentication,
       final HttpServletRequest httpRequest) {
-    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
+    final UUID userId = extractUserId(authentication);
     authService.updateEmailForUnverifiedUser(userId, request.email());
     return ApiResponse.of(
         Map.of("message", "Email updated and verification code resent."), requestId(httpRequest));
-  }
-
-  private String requestId(final HttpServletRequest request) {
-    return (String) request.getAttribute(RequestIdFilter.REQUEST_ID);
   }
 }

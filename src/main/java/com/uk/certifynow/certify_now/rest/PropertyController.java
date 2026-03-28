@@ -1,6 +1,5 @@
 package com.uk.certifynow.certify_now.rest;
 
-import com.uk.certifynow.certify_now.config.RequestIdFilter;
 import com.uk.certifynow.certify_now.model.MyPropertiesResponse;
 import com.uk.certifynow.certify_now.model.PropertyDTO;
 import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
@@ -28,7 +27,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @RestController
 @RequestMapping("/api/v1/properties")
 @Tag(name = "Properties", description = "Property management for customers")
-public class PropertyController {
+public class PropertyController extends BaseController {
 
   private final PropertyService propertyService;
   private final SseEmitterRegistry sseEmitterRegistry;
@@ -64,7 +63,7 @@ public class PropertyController {
       final Authentication authentication,
       final HttpServletRequest request) {
     ensureCustomer(authentication);
-    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
+    final UUID userId = extractUserId(authentication);
     final PropertyDTO created = propertyService.create(req, userId);
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(ApiResponse.of(created, requestId(request)));
@@ -90,7 +89,7 @@ public class PropertyController {
       final Pageable pageable,
       final HttpServletRequest request) {
     ensureCustomer(authentication);
-    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
+    final UUID userId = extractUserId(authentication);
     return ApiResponse.of(propertyService.getByOwner(userId, pageable), requestId(request));
   }
 
@@ -103,7 +102,7 @@ public class PropertyController {
               + " for a newly created property.")
   public SseEmitter streamEvents(final Authentication authentication) {
     ensureCustomer(authentication);
-    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
+    final UUID userId = extractUserId(authentication);
     return sseEmitterRegistry.register(userId);
   }
 
@@ -127,7 +126,7 @@ public class PropertyController {
   public ApiResponse<MyPropertiesResponse> getMyPropertiesWithCompliance(
       final Authentication authentication, final HttpServletRequest request) {
     ensureCustomer(authentication);
-    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
+    final UUID userId = extractUserId(authentication);
     return ApiResponse.of(
         propertyService.getMyPropertiesWithCompliance(userId), requestId(request));
   }
@@ -156,7 +155,7 @@ public class PropertyController {
       final Authentication authentication,
       final HttpServletRequest request) {
     ensureCustomer(authentication);
-    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
+    final UUID userId = extractUserId(authentication);
     return ApiResponse.of(propertyService.getForOwner(id, userId), requestId(request));
   }
 
@@ -187,7 +186,7 @@ public class PropertyController {
       final Authentication authentication,
       final HttpServletRequest request) {
     ensureCustomer(authentication);
-    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
+    final UUID userId = extractUserId(authentication);
     return ApiResponse.of(propertyService.update(id, req, userId), requestId(request));
   }
 
@@ -216,12 +215,8 @@ public class PropertyController {
       @Parameter(description = "Property ID") @PathVariable final UUID id,
       final Authentication authentication) {
     ensureCustomer(authentication);
-    final UUID userId = UUID.fromString((String) authentication.getPrincipal());
+    final UUID userId = extractUserId(authentication);
     propertyService.softDelete(id, userId);
-  }
-
-  private String requestId(final HttpServletRequest request) {
-    return (String) request.getAttribute(RequestIdFilter.REQUEST_ID);
   }
 
   private void ensureCustomer(final Authentication authentication) {

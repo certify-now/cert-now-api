@@ -1,6 +1,5 @@
 package com.uk.certifynow.certify_now.rest;
 
-import com.uk.certifynow.certify_now.config.RequestIdFilter;
 import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
 import com.uk.certifynow.certify_now.rest.dto.inspection.EpcRecordRequest;
 import com.uk.certifynow.certify_now.rest.dto.inspection.EpcRecordResponse;
@@ -8,6 +7,10 @@ import com.uk.certifynow.certify_now.rest.dto.inspection.GasSafetyRecordRequest;
 import com.uk.certifynow.certify_now.rest.dto.inspection.GasSafetyRecordResponse;
 import com.uk.certifynow.certify_now.service.inspection.EpcInspectionService;
 import com.uk.certifynow.certify_now.service.inspection.GasSafetyRecordService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.UUID;
@@ -23,7 +26,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/jobs/{jobId}/inspection")
-public class InspectionController {
+@Tag(name = "Inspection", description = "Engineer inspection record submission and retrieval")
+public class InspectionController extends BaseController {
 
   private final GasSafetyRecordService gasSafetyRecordService;
   private final EpcInspectionService epcInspectionService;
@@ -38,8 +42,30 @@ public class InspectionController {
   // ── Gas Safety ─────────────────────────────────────────────────────────────
 
   @PostMapping("/gas-safety")
+  @Operation(
+      summary = "Submit a Gas Safety inspection record",
+      description =
+          "Records the Gas Safety inspection data collected by the engineer on-site."
+              + " Can only be submitted once the job is IN_PROGRESS. Engineer access required.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "201",
+        description = "Gas Safety record submitted successfully"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "Validation error in request body"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Not authenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Forbidden — engineer access required or not assigned to this job"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "Job not found")
+  })
   public ResponseEntity<ApiResponse<GasSafetyRecordResponse>> submitGasSafetyRecord(
-      @PathVariable final UUID jobId,
+      @Parameter(description = "Job ID") @PathVariable final UUID jobId,
       @Valid @RequestBody final GasSafetyRecordRequest request,
       final Authentication authentication,
       final HttpServletRequest httpRequest) {
@@ -51,8 +77,27 @@ public class InspectionController {
   }
 
   @GetMapping("/gas-safety")
+  @Operation(
+      summary = "Get Gas Safety inspection record",
+      description =
+          "Returns the Gas Safety inspection record for the specified job."
+              + " Accessible by the assigned engineer, property owner, or an admin.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Gas Safety record retrieved successfully"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Not authenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Forbidden — no access to this job's inspection record"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "Job or inspection record not found")
+  })
   public ApiResponse<GasSafetyRecordResponse> getGasSafetyRecord(
-      @PathVariable final UUID jobId,
+      @Parameter(description = "Job ID") @PathVariable final UUID jobId,
       final Authentication authentication,
       final HttpServletRequest httpRequest) {
     final UUID callerId = extractUserId(authentication);
@@ -64,8 +109,30 @@ public class InspectionController {
   // ── EPC ────────────────────────────────────────────────────────────────────
 
   @PostMapping("/epc")
+  @Operation(
+      summary = "Submit an EPC inspection record",
+      description =
+          "Records the Energy Performance Certificate assessment data collected by the engineer."
+              + " Can only be submitted once the job is IN_PROGRESS. Engineer access required.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "201",
+        description = "EPC record submitted successfully"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "Validation error in request body"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Not authenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Forbidden — engineer access required or not assigned to this job"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "Job not found")
+  })
   public ResponseEntity<ApiResponse<EpcRecordResponse>> submitEpcRecord(
-      @PathVariable final UUID jobId,
+      @Parameter(description = "Job ID") @PathVariable final UUID jobId,
       @Valid @RequestBody final EpcRecordRequest request,
       final Authentication authentication,
       final HttpServletRequest httpRequest) {
@@ -77,22 +144,31 @@ public class InspectionController {
   }
 
   @GetMapping("/epc")
+  @Operation(
+      summary = "Get EPC inspection record",
+      description =
+          "Returns the EPC inspection record for the specified job."
+              + " Accessible by the assigned engineer, property owner, or an admin.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "EPC record retrieved successfully"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Not authenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Forbidden — no access to this job's inspection record"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "Job or inspection record not found")
+  })
   public ApiResponse<EpcRecordResponse> getEpcRecord(
-      @PathVariable final UUID jobId,
+      @Parameter(description = "Job ID") @PathVariable final UUID jobId,
       final Authentication authentication,
       final HttpServletRequest httpRequest) {
     final UUID callerId = extractUserId(authentication);
     final EpcRecordResponse response = epcInspectionService.getEpcRecord(jobId, callerId);
     return ApiResponse.of(response, requestId(httpRequest));
-  }
-
-  // ── Helpers ────────────────────────────────────────────────────────────────
-
-  private UUID extractUserId(final Authentication authentication) {
-    return UUID.fromString((String) authentication.getPrincipal());
-  }
-
-  private String requestId(final HttpServletRequest request) {
-    return (String) request.getAttribute(RequestIdFilter.REQUEST_ID);
   }
 }

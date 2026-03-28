@@ -1,6 +1,5 @@
-package com.uk.certifynow.certify_now.pricing.controller;
+package com.uk.certifynow.certify_now.rest;
 
-import com.uk.certifynow.certify_now.config.RequestIdFilter;
 import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
 import com.uk.certifynow.certify_now.rest.dto.pricing.CreatePricingModifierRequest;
 import com.uk.certifynow.certify_now.rest.dto.pricing.CreatePricingRuleRequest;
@@ -32,7 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/admin/pricing")
 @Tag(name = "Admin - Pricing", description = "Admin management of pricing configurations")
-public class AdminPricingController {
+public class AdminPricingController extends BaseController {
 
   private final PricingService pricingService;
 
@@ -232,9 +231,5 @@ public class AdminPricingController {
       @Valid @RequestBody final UpdateUrgencyMultiplierRequest body,
       final HttpServletRequest request) {
     return ApiResponse.of(pricingService.updateUrgencyMultiplier(id, body), requestId(request));
-  }
-
-  private String requestId(final HttpServletRequest request) {
-    return (String) request.getAttribute(RequestIdFilter.REQUEST_ID);
   }
 }

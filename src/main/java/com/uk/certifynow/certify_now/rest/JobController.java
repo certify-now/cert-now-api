@@ -1,6 +1,6 @@
 package com.uk.certifynow.certify_now.rest;
 
-import com.uk.certifynow.certify_now.config.RequestIdFilter;
+import com.uk.certifynow.certify_now.config.PaginationProperties;
 import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
 import com.uk.certifynow.certify_now.rest.dto.job.AcceptJobRequest;
 import com.uk.certifynow.certify_now.rest.dto.job.CancelJobRequest;
@@ -28,9 +28,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -43,12 +41,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/jobs")
 @Tag(name = "Jobs", description = "Job booking and management")
-public class JobController {
+public class JobController extends BaseController {
 
   private final JobService jobService;
+  private final PaginationProperties paginationProperties;
 
-  public JobController(final JobService jobService) {
+  public JobController(
+      final JobService jobService, final PaginationProperties paginationProperties) {
     this.jobService = jobService;
+    this.paginationProperties = paginationProperties;
   }
 
   // ── POST /api/v1/jobs — CUSTOMER only ────────────────────────────────────
@@ -115,7 +116,7 @@ public class JobController {
       final HttpServletRequest httpRequest) {
     final UUID actorId = extractUserId(authentication);
     final UserRole actorRole = extractRole(authentication);
-    final int cappedSize = Math.min(size, 50);
+    final int cappedSize = Math.min(size, paginationProperties.getMaxSize());
     final Pageable pageable =
         PageRequest.of(page, cappedSize, Sort.by(Sort.Direction.DESC, "createdAt"));
     final Page<JobSummaryResponse> jobs =
@@ -474,24 +475,5 @@ public class JobController {
     final UUID actorId = extractUserId(authentication);
     final UserRole actorRole = extractRole(authentication);
     return ApiResponse.of(jobService.getHistory(id, actorId, actorRole), requestId(httpRequest));
-  }
-
-  // ── Helpers ───────────────────────────────────────────────────────────────
-
-  private UUID extractUserId(final Authentication authentication) {
-    return UUID.fromString((String) authentication.getPrincipal());
-  }
-
-  private UserRole extractRole(final Authentication authentication) {
-    return authentication.getAuthorities().stream()
-        .map(GrantedAuthority::getAuthority)
-        .filter(a -> a.startsWith("ROLE_"))
-        .map(a -> UserRole.valueOf(a.replace("ROLE_", "")))
-        .findFirst()
-        .orElseThrow(() -> new AccessDeniedException("No role found in authentication token"));
-  }
-
-  private String requestId(final HttpServletRequest request) {
-    return (String) request.getAttribute(RequestIdFilter.REQUEST_ID);
   }
 }

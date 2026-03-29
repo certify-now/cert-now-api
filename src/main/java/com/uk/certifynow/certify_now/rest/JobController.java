@@ -9,10 +9,10 @@ import com.uk.certifynow.certify_now.rest.dto.job.DeclineJobRequest;
 import com.uk.certifynow.certify_now.rest.dto.job.JobResponse;
 import com.uk.certifynow.certify_now.rest.dto.job.JobStatusHistoryResponse;
 import com.uk.certifynow.certify_now.rest.dto.job.JobSummaryResponse;
-import com.uk.certifynow.certify_now.rest.dto.job.MatchJobRequest;
 import com.uk.certifynow.certify_now.rest.dto.job.ProposeScheduleRequest;
 import com.uk.certifynow.certify_now.rest.dto.job.StartJobRequest;
 import com.uk.certifynow.certify_now.service.auth.UserRole;
+import com.uk.certifynow.certify_now.service.job.JobCreationService;
 import com.uk.certifynow.certify_now.service.job.JobService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -44,11 +44,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class JobController extends BaseController {
 
   private final JobService jobService;
+  private final JobCreationService jobCreationService;
   private final PaginationProperties paginationProperties;
 
   public JobController(
-      final JobService jobService, final PaginationProperties paginationProperties) {
+      final JobService jobService,
+      final JobCreationService jobCreationService,
+      final PaginationProperties paginationProperties) {
     this.jobService = jobService;
+    this.jobCreationService = jobCreationService;
     this.paginationProperties = paginationProperties;
   }
 
@@ -79,7 +83,7 @@ public class JobController extends BaseController {
       final Authentication authentication,
       final HttpServletRequest httpRequest) {
     final UUID customerId = extractUserId(authentication);
-    final JobResponse job = jobService.createJob(customerId, request);
+    final JobResponse job = jobCreationService.createJob(customerId, request);
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(ApiResponse.of(job, requestId(httpRequest)));
   }
@@ -153,44 +157,6 @@ public class JobController extends BaseController {
     final UUID actorId = extractUserId(authentication);
     final UserRole actorRole = extractRole(authentication);
     return ApiResponse.of(jobService.getById(id, actorId, actorRole), requestId(httpRequest));
-  }
-
-  // ── PUT /api/v1/jobs/{id}/match — ADMIN temp endpoint ────────────────────
-  // TODO: Remove when MatchingService is built (Phase 6+)
-
-  @PutMapping("/{id}/match")
-  @Operation(
-      summary = "Match a job to an engineer",
-      description =
-          "Admin-only endpoint to manually assign an engineer to a job."
-              + " Transitions the job from CREATED to MATCHED status.")
-  @ApiResponses({
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(
-        responseCode = "200",
-        description = "Job matched successfully"),
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(
-        responseCode = "400",
-        description = "Validation error in request body"),
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(
-        responseCode = "401",
-        description = "Not authenticated"),
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(
-        responseCode = "403",
-        description = "Forbidden — admin access required"),
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(
-        responseCode = "404",
-        description = "Job not found"),
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(
-        responseCode = "409",
-        description = "Invalid state transition")
-  })
-  public ApiResponse<JobResponse> matchJob(
-      @Parameter(description = "Job ID") @PathVariable final UUID id,
-      @Valid @RequestBody final MatchJobRequest request,
-      final Authentication authentication,
-      final HttpServletRequest httpRequest) {
-    final UUID adminId = extractUserId(authentication);
-    return ApiResponse.of(jobService.matchJob(id, adminId, request), requestId(httpRequest));
   }
 
   // ── PUT /api/v1/jobs/{id}/accept — ENGINEER only ─────────────────────────

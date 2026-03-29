@@ -116,6 +116,7 @@ class GlobalExceptionHandlerTest {
   @Test
   void handleBadJson_returnsBadRequest() {
     final HttpMessageNotReadableException ex = mock(HttpMessageNotReadableException.class);
+    when(ex.getMostSpecificCause()).thenReturn(new RuntimeException("Unexpected character"));
 
     final ResponseEntity<Map<String, Object>> response = handler.handleBadJson(ex, request);
 

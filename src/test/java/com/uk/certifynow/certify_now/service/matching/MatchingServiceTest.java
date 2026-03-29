@@ -14,6 +14,10 @@ import com.uk.certifynow.certify_now.domain.Job;
 import com.uk.certifynow.certify_now.domain.JobMatchLog;
 import com.uk.certifynow.certify_now.domain.Property;
 import com.uk.certifynow.certify_now.domain.User;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.PrecisionModel;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.repos.EngineerProfileRepository;
 import com.uk.certifynow.certify_now.repos.JobMatchLogRepository;
@@ -75,7 +79,7 @@ class MatchingServiceTest {
   void findCandidates_returnsNearbyApprovedEngineers() {
     final User customer = TestUserBuilder.buildActiveCustomer();
     final Property property = TestPropertyBuilder.buildWithGas(customer);
-    property.setLocation("51.5074,-0.1278");
+    property.setCoordinates(makePoint(-0.1278, 51.5074));
     final Job job = TestJobBuilder.buildCreated(customer, property);
 
     final User engineerUser = TestUserBuilder.buildActiveEngineer();
@@ -94,7 +98,7 @@ class MatchingServiceTest {
   void findCandidates_excludesEngineersOverDailyJobCap() {
     final User customer = TestUserBuilder.buildActiveCustomer();
     final Property property = TestPropertyBuilder.buildWithGas(customer);
-    property.setLocation("51.5074,-0.1278");
+    property.setCoordinates(makePoint(-0.1278, 51.5074));
     final Job job = TestJobBuilder.buildCreated(customer, property);
 
     final User engineerUser = TestUserBuilder.buildActiveEngineer();
@@ -115,7 +119,6 @@ class MatchingServiceTest {
   void findCandidates_propertyNoLocation_fallsBackToAllApproved() {
     final User customer = TestUserBuilder.buildActiveCustomer();
     final Property property = TestPropertyBuilder.buildWithGas(customer);
-    property.setLocation(null);
     final Job job = TestJobBuilder.buildCreated(customer, property);
 
     final User engineerUser = TestUserBuilder.buildActiveEngineer();
@@ -136,7 +139,6 @@ class MatchingServiceTest {
   void broadcastToEligible_noCandidates_escalatesImmediately() {
     final User customer = TestUserBuilder.buildActiveCustomer();
     final Property property = TestPropertyBuilder.buildWithGas(customer);
-    property.setLocation(null);
     final Job job = TestJobBuilder.buildCreated(customer, property);
 
     when(jobRepository.findByIdWithProperty(job.getId())).thenReturn(Optional.of(job));
@@ -153,7 +155,6 @@ class MatchingServiceTest {
   void broadcastToEligible_setsStatusToAwaitingAcceptance_createsMatchLogs() {
     final User customer = TestUserBuilder.buildActiveCustomer();
     final Property property = TestPropertyBuilder.buildWithGas(customer);
-    property.setLocation(null);
     final Job job = TestJobBuilder.buildCreated(customer, property);
 
     final User engineerUser = TestUserBuilder.buildActiveEngineer();
@@ -288,32 +289,17 @@ class MatchingServiceTest {
   // ─── parseLocation ────────────────────────────────────────────────────────────
 
   @Test
-  void parseLocation_commaFormat_parsesCorrectly() {
+  void findCandidates_withCoordinates_queriesNearbyEngineers() {
     final User customer = TestUserBuilder.buildActiveCustomer();
     final Property property = TestPropertyBuilder.buildWithGas(customer);
-    property.setLocation("51.5074,-0.1278");
+    property.setCoordinates(makePoint(-0.1278, 51.5074));
     final Job job = TestJobBuilder.buildCreated(customer, property);
 
-    // Verifying no exception is thrown on findCandidates with comma format
     when(engineerProfileRepository.findNearbyApproved(51.5074, -0.1278)).thenReturn(List.of());
     when(jobRepository.countEngineerJobsTodayBatch(any(), any())).thenReturn(List.of());
 
     final List<EngineerProfile> candidates = matchingService.findCandidates(job);
     assertThat(candidates).isEmpty();
-  }
-
-  @Test
-  void broadcastToEligible_invalidLocation_throwsBusinessException() {
-    final User customer = TestUserBuilder.buildActiveCustomer();
-    final Property property = TestPropertyBuilder.buildWithGas(customer);
-    property.setLocation("not-a-location");
-    final Job job = TestJobBuilder.buildCreated(customer, property);
-
-    when(jobRepository.findByIdWithProperty(job.getId())).thenReturn(Optional.of(job));
-
-    assertThatThrownBy(() -> matchingService.broadcastToEligible(job))
-        .isInstanceOf(BusinessException.class)
-        .hasMessageContaining("Failed to parse property location");
   }
 
   // ─── escalateJob ──────────────────────────────────────────────────────────────
@@ -334,6 +320,11 @@ class MatchingServiceTest {
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+  private static Point makePoint(final double lng, final double lat) {
+    return new GeometryFactory(new PrecisionModel(), 4326)
+        .createPoint(new Coordinate(lng, lat));
+  }
 
   private EngineerProfile buildEngineerProfile(final User user, final int maxDailyJobs) {
     final EngineerProfile ep = new EngineerProfile();

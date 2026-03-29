@@ -42,13 +42,13 @@ jobs:
         run: ./gradlew --no-daemon spotlessCheck build -x test
 
   # ─────────────────────────────────────────────────────────────
-  # Runs only on version tags: full test suite against postgres
+  # Runs on pushes to main and version tags: full test suite
   # ─────────────────────────────────────────────────────────────
   test:
     name: Full Test Suite
     runs-on: ubuntu-latest
     needs: lint-build
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     timeout-minutes: 30
 
     services:
@@ -82,12 +82,12 @@ jobs:
           SPRING_PROFILES_ACTIVE: test
 
   # ─────────────────────────────────────────────────────────────
-  # Staging: push to main → skip tests, deploy fast
+  # Staging: push to main → tests must pass, then deploy
   # ─────────────────────────────────────────────────────────────
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
-    needs: lint-build
+    needs: [lint-build, test]
     if: github.ref == 'refs/heads/main'
 
     steps:

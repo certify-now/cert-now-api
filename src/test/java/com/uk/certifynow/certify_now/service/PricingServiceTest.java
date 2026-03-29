@@ -12,6 +12,7 @@ import com.uk.certifynow.certify_now.domain.UrgencyMultiplier;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.repos.PricingModifierRepository;
 import com.uk.certifynow.certify_now.repos.PricingRuleRepository;
+import com.uk.certifynow.certify_now.repos.PropertyRepository;
 import com.uk.certifynow.certify_now.repos.UrgencyMultiplierRepository;
 import com.uk.certifynow.certify_now.rest.dto.pricing.CreatePricingRuleRequest;
 import com.uk.certifynow.certify_now.rest.dto.pricing.PriceBreakdown;
@@ -39,6 +40,7 @@ class PricingServiceTest {
   @Mock private PricingRuleRepository pricingRuleRepository;
   @Mock private PricingModifierRepository pricingModifierRepository;
   @Mock private UrgencyMultiplierRepository urgencyMultiplierRepository;
+  @Mock private PropertyRepository propertyRepository;
 
   private PricingService service;
 
@@ -49,6 +51,7 @@ class PricingServiceTest {
             pricingRuleRepository,
             pricingModifierRepository,
             urgencyMultiplierRepository,
+            propertyRepository,
             new BigDecimal("0.200"),
             clock);
   }

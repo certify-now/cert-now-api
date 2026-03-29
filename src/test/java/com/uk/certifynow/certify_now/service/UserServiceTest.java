@@ -20,6 +20,7 @@ import com.uk.certifynow.certify_now.service.auth.UserStatus;
 import com.uk.certifynow.certify_now.service.mappers.UserMapper;
 import com.uk.certifynow.certify_now.util.TestConstants;
 import com.uk.certifynow.certify_now.util.TestUserBuilder;
+import tools.jackson.databind.ObjectMapper;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.Optional;
@@ -44,6 +45,8 @@ class UserServiceTest {
   @Mock private RefreshTokenRepository refreshTokenRepository;
   @Mock private ApplicationEventPublisher publisher;
   @Mock private UserMapper userMapper;
+  @Mock private PropertyService propertyService;
+  @Mock private ObjectMapper objectMapper;
 
   private UserService service;
 
@@ -58,7 +61,9 @@ class UserServiceTest {
             refreshTokenRepository,
             publisher,
             userMapper,
-            clock);
+            clock,
+            propertyService,
+            objectMapper);
   }
 
   @Test

@@ -16,6 +16,7 @@ import com.uk.certifynow.certify_now.repos.PropertyRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
 import com.uk.certifynow.certify_now.rest.dto.property.CreatePropertyRequest;
 import com.uk.certifynow.certify_now.rest.dto.property.UpdatePropertyRequest;
+import com.uk.certifynow.certify_now.service.job.ActorType;
 import com.uk.certifynow.certify_now.service.job.JobStatus;
 import com.uk.certifynow.certify_now.service.mappers.PropertyMapper;
 import com.uk.certifynow.certify_now.util.NotFoundException;
@@ -227,10 +228,10 @@ public class PropertyService {
     property.setDeletedBy(deletedByUserId);
     propertyRepository.save(property);
 
-    final String actorType =
+    final ActorType actorType =
         property.getOwner() != null && deletedByUserId.equals(property.getOwner().getId())
-            ? "USER"
-            : "ADMIN";
+            ? ActorType.CUSTOMER
+            : ActorType.ADMIN;
 
     log.info("Property {} soft-deleted by {}", id, deletedByUserId);
     publisher.publishEvent(new PropertySoftDeletedEvent(id, deletedByUserId, actorType));
@@ -252,10 +253,10 @@ public class PropertyService {
     final Property saved = propertyRepository.save(property);
 
     log.info("Property {} restored by {}", id, restoredByUserId);
-    final String actorType =
+    final ActorType actorType =
         property.getOwner() != null && restoredByUserId.equals(property.getOwner().getId())
-            ? "USER"
-            : "ADMIN";
+            ? ActorType.CUSTOMER
+            : ActorType.ADMIN;
     publisher.publishEvent(new PropertyRestoredEvent(id, restoredByUserId, actorType));
 
     return enriched(propertyMapper.toDTO(saved));

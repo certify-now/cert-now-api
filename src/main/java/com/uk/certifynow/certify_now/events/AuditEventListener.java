@@ -1,5 +1,7 @@
 package com.uk.certifynow.certify_now.events;
 
+import com.uk.certifynow.certify_now.domain.enums.AuditAction;
+import com.uk.certifynow.certify_now.domain.enums.AuditEntityType;
 import com.uk.certifynow.certify_now.repos.AuditLogRepository;
 import com.uk.certifynow.certify_now.service.AuditHelper;
 import java.time.Clock;
@@ -37,8 +39,8 @@ public class AuditEventListener {
               clock,
               event.getDeletedBy(),
               event.getActorType(),
-              "USER_SOFT_DELETED",
-              "User",
+              AuditAction.USER_SOFT_DELETED,
+              AuditEntityType.User,
               event.getUserId(),
               null,
               null));
@@ -56,8 +58,8 @@ public class AuditEventListener {
               clock,
               event.getRestoredBy(),
               event.getActorType(),
-              "USER_RESTORED",
-              "User",
+              AuditAction.USER_RESTORED,
+              AuditEntityType.User,
               event.getUserId(),
               null,
               null));
@@ -75,8 +77,8 @@ public class AuditEventListener {
               clock,
               event.getDeletedBy(),
               event.getActorType(),
-              "PROPERTY_SOFT_DELETED",
-              "Property",
+              AuditAction.PROPERTY_SOFT_DELETED,
+              AuditEntityType.Property,
               event.getPropertyId(),
               null,
               null));
@@ -97,8 +99,8 @@ public class AuditEventListener {
               clock,
               event.getRestoredBy(),
               event.getActorType(),
-              "PROPERTY_RESTORED",
-              "Property",
+              AuditAction.PROPERTY_RESTORED,
+              AuditEntityType.Property,
               event.getPropertyId(),
               null,
               null));
@@ -119,8 +121,8 @@ public class AuditEventListener {
               clock,
               event.getApprovedBy(),
               event.getActorType(),
-              "ENGINEER_APPROVED",
-              "EngineerProfile",
+              AuditAction.ENGINEER_APPROVED,
+              AuditEntityType.EngineerProfile,
               event.getEngineerProfileId(),
               null,
               null));

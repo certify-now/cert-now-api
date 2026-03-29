@@ -1,5 +1,6 @@
 package com.uk.certifynow.certify_now.events;
 
+import com.uk.certifynow.certify_now.service.job.ActorType;
 import java.util.UUID;
 
 public class UserLoggedOutEvent extends DomainEvent {
@@ -10,7 +11,7 @@ public class UserLoggedOutEvent extends DomainEvent {
 
   public UserLoggedOutEvent(
       final UUID userId, final Long sessionDurationSeconds, final String deviceInfo) {
-    super(userId, "USER");
+    super(userId, ActorType.CUSTOMER);
     this.userId = userId;
     this.sessionDurationSeconds = sessionDurationSeconds;
     this.deviceInfo = deviceInfo;

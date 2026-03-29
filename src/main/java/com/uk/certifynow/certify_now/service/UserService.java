@@ -24,6 +24,7 @@ import com.uk.certifynow.certify_now.repos.RefreshTokenRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
 import com.uk.certifynow.certify_now.service.auth.UserRole;
 import com.uk.certifynow.certify_now.service.auth.UserStatus;
+import com.uk.certifynow.certify_now.service.job.ActorType;
 import com.uk.certifynow.certify_now.service.job.JobStatus;
 import com.uk.certifynow.certify_now.service.mappers.UserMapper;
 import java.time.Clock;
@@ -337,15 +338,21 @@ public class UserService {
     // Invalidate all refresh tokens
     refreshTokenRepository.deleteAllByUserId(userId);
 
-    final String initiatedBy = userId.equals(deletedByUserId) ? "USER" : "ADMIN";
+    final ActorType actorType =
+        userId.equals(deletedByUserId) ? ActorType.CUSTOMER : ActorType.ADMIN;
 
     log.info("User {} soft-deleted by {}", userId, deletedByUserId);
-    publisher.publishEvent(new UserSoftDeletedEvent(userId, deletedByUserId, initiatedBy));
+    publisher.publishEvent(new UserSoftDeletedEvent(userId, deletedByUserId, actorType));
     final Long accountAgeInDays =
         user.getCreatedAt() != null ? ChronoUnit.DAYS.between(user.getCreatedAt(), now) : null;
     publisher.publishEvent(
         new AccountDeactivatedEvent(
-            userId, user.getEmail(), "ACCOUNT_DEACTIVATED", initiatedBy, accountAgeInDays, null));
+            userId,
+            user.getEmail(),
+            "ACCOUNT_DEACTIVATED",
+            actorType.name(),
+            accountAgeInDays,
+            null));
   }
 
   @Transactional
@@ -372,9 +379,9 @@ public class UserService {
     cascadeRestoreProfile(user, now);
 
     log.info("User {} restored by {}", userId, restoredByUserId);
-    publisher.publishEvent(
-        new UserRestoredEvent(
-            userId, restoredByUserId, userId.equals(restoredByUserId) ? "USER" : "ADMIN"));
+    final ActorType actorType =
+        userId.equals(restoredByUserId) ? ActorType.CUSTOMER : ActorType.ADMIN;
+    publisher.publishEvent(new UserRestoredEvent(userId, restoredByUserId, actorType));
 
     return userMapper.toDTO(saved);
   }

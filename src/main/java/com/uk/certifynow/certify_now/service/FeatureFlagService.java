@@ -2,9 +2,12 @@ package com.uk.certifynow.certify_now.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.uk.certifynow.certify_now.domain.FeatureFlag;
+import com.uk.certifynow.certify_now.domain.enums.AuditAction;
+import com.uk.certifynow.certify_now.domain.enums.AuditEntityType;
 import com.uk.certifynow.certify_now.model.FeatureFlagDTO;
 import com.uk.certifynow.certify_now.repos.AuditLogRepository;
 import com.uk.certifynow.certify_now.repos.FeatureFlagRepository;
+import com.uk.certifynow.certify_now.service.job.ActorType;
 import com.uk.certifynow.certify_now.util.NotFoundException;
 import java.time.Clock;
 import java.util.List;
@@ -68,9 +71,9 @@ public class FeatureFlagService {
         AuditHelper.build(
             clock,
             currentActorId(),
-            "ADMIN",
-            "FEATURE_FLAG_CREATED",
-            "FeatureFlag",
+            ActorType.ADMIN,
+            AuditAction.FEATURE_FLAG_CREATED,
+            AuditEntityType.FeatureFlag,
             saved.getId(),
             null,
             toJson(
@@ -102,9 +105,9 @@ public class FeatureFlagService {
         AuditHelper.build(
             clock,
             currentActorId(),
-            "ADMIN",
-            "FEATURE_FLAG_UPDATED",
-            "FeatureFlag",
+            ActorType.ADMIN,
+            AuditAction.FEATURE_FLAG_UPDATED,
+            AuditEntityType.FeatureFlag,
             id,
             oldValues,
             toJson(
@@ -124,9 +127,9 @@ public class FeatureFlagService {
         AuditHelper.build(
             clock,
             currentActorId(),
-            "ADMIN",
-            "FEATURE_FLAG_DELETED",
-            "FeatureFlag",
+            ActorType.ADMIN,
+            AuditAction.FEATURE_FLAG_DELETED,
+            AuditEntityType.FeatureFlag,
             id,
             toJson(
                 Map.of(

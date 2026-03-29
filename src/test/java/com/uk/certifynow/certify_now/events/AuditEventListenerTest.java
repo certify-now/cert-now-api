@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 
 import com.uk.certifynow.certify_now.domain.AuditLog;
 import com.uk.certifynow.certify_now.repos.AuditLogRepository;
+import com.uk.certifynow.certify_now.service.job.ActorType;
 import com.uk.certifynow.certify_now.util.TestConstants;
 import java.time.Clock;
 import java.time.OffsetDateTime;
@@ -39,7 +40,7 @@ class AuditEventListenerTest {
   void onUserSoftDeleted_savesCorrectAuditLog() {
     final UUID userId = UUID.randomUUID();
     final UUID deletedBy = UUID.randomUUID();
-    final UserSoftDeletedEvent event = new UserSoftDeletedEvent(userId, deletedBy, "ADMIN");
+    final UserSoftDeletedEvent event = new UserSoftDeletedEvent(userId, deletedBy, ActorType.ADMIN);
 
     listener.onUserSoftDeleted(event);
 
@@ -57,7 +58,7 @@ class AuditEventListenerTest {
   void onUserRestored_savesCorrectAuditLog() {
     final UUID userId = UUID.randomUUID();
     final UUID restoredBy = UUID.randomUUID();
-    final UserRestoredEvent event = new UserRestoredEvent(userId, restoredBy, "ADMIN");
+    final UserRestoredEvent event = new UserRestoredEvent(userId, restoredBy, ActorType.ADMIN);
 
     listener.onUserRestored(event);
 
@@ -75,7 +76,7 @@ class AuditEventListenerTest {
     final UUID propertyId = UUID.randomUUID();
     final UUID deletedBy = UUID.randomUUID();
     final PropertySoftDeletedEvent event =
-        new PropertySoftDeletedEvent(propertyId, deletedBy, "ADMIN");
+        new PropertySoftDeletedEvent(propertyId, deletedBy, ActorType.ADMIN);
 
     listener.onPropertySoftDeleted(event);
 
@@ -92,7 +93,8 @@ class AuditEventListenerTest {
   void onPropertyRestored_savesCorrectAuditLog() {
     final UUID propertyId = UUID.randomUUID();
     final UUID restoredBy = UUID.randomUUID();
-    final PropertyRestoredEvent event = new PropertyRestoredEvent(propertyId, restoredBy, "ADMIN");
+    final PropertyRestoredEvent event =
+        new PropertyRestoredEvent(propertyId, restoredBy, ActorType.ADMIN);
 
     listener.onPropertyRestored(event);
 

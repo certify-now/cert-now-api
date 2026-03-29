@@ -1,5 +1,6 @@
 package com.uk.certifynow.certify_now.events;
 
+import com.uk.certifynow.certify_now.service.job.ActorType;
 import java.util.UUID;
 
 public class AccountDeactivatedEvent extends DomainEvent {
@@ -18,7 +19,7 @@ public class AccountDeactivatedEvent extends DomainEvent {
       final String initiatedBy,
       final Long accountAgeInDays,
       final Long totalJobsCompleted) {
-    super(userId, "USER");
+    super(userId, ActorType.CUSTOMER);
     this.userId = userId;
     this.email = email;
     this.reason = reason;

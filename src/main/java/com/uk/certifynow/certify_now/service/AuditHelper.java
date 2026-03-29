@@ -1,6 +1,9 @@
 package com.uk.certifynow.certify_now.service;
 
 import com.uk.certifynow.certify_now.domain.AuditLog;
+import com.uk.certifynow.certify_now.domain.enums.AuditAction;
+import com.uk.certifynow.certify_now.domain.enums.AuditEntityType;
+import com.uk.certifynow.certify_now.service.job.ActorType;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -13,9 +16,9 @@ public final class AuditHelper {
   public static AuditLog build(
       final Clock clock,
       final UUID actorId,
-      final String actorType,
-      final String action,
-      final String entityType,
+      final ActorType actorType,
+      final AuditAction action,
+      final AuditEntityType entityType,
       final UUID entityId,
       final String oldValues,
       final String newValues,
@@ -24,9 +27,9 @@ public final class AuditHelper {
     final AuditLog log = new AuditLog();
     log.setCreatedAt(OffsetDateTime.now(clock));
     log.setActorId(actorId);
-    log.setActorType(actorType);
-    log.setAction(action);
-    log.setEntityType(entityType);
+    log.setActorType(actorType.name());
+    log.setAction(action.name());
+    log.setEntityType(entityType.name());
     log.setEntityId(entityId);
     log.setOldValues(oldValues);
     log.setNewValues(newValues);
@@ -39,9 +42,9 @@ public final class AuditHelper {
   public static AuditLog build(
       final Clock clock,
       final UUID actorId,
-      final String actorType,
-      final String action,
-      final String entityType,
+      final ActorType actorType,
+      final AuditAction action,
+      final AuditEntityType entityType,
       final UUID entityId,
       final String oldValues,
       final String newValues) {

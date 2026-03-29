@@ -1,5 +1,6 @@
 package com.uk.certifynow.certify_now.events;
 
+import com.uk.certifynow.certify_now.service.job.ActorType;
 import java.util.UUID;
 import lombok.Getter;
 
@@ -10,13 +11,13 @@ public class PropertyRestoredEvent extends DomainEvent {
   private final UUID restoredBy;
 
   public PropertyRestoredEvent(
-      final UUID propertyId, final UUID restoredBy, final String actorType) {
+      final UUID propertyId, final UUID restoredBy, final ActorType actorType) {
     super(restoredBy, actorType);
     this.propertyId = propertyId;
     this.restoredBy = restoredBy;
   }
 
   public PropertyRestoredEvent(final UUID propertyId, final UUID restoredBy) {
-    this(propertyId, restoredBy, "ADMIN");
+    this(propertyId, restoredBy, ActorType.ADMIN);
   }
 }

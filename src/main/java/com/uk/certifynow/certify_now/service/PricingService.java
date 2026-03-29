@@ -5,6 +5,8 @@ import com.uk.certifynow.certify_now.domain.PricingModifier;
 import com.uk.certifynow.certify_now.domain.PricingRule;
 import com.uk.certifynow.certify_now.domain.Property;
 import com.uk.certifynow.certify_now.domain.UrgencyMultiplier;
+import com.uk.certifynow.certify_now.domain.enums.AuditAction;
+import com.uk.certifynow.certify_now.domain.enums.AuditEntityType;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.exception.EntityNotFoundException;
 import com.uk.certifynow.certify_now.repos.AuditLogRepository;
@@ -22,6 +24,7 @@ import com.uk.certifynow.certify_now.rest.dto.pricing.PricingRuleResponse;
 import com.uk.certifynow.certify_now.rest.dto.pricing.UpdatePricingRuleRequest;
 import com.uk.certifynow.certify_now.rest.dto.pricing.UpdateUrgencyMultiplierRequest;
 import com.uk.certifynow.certify_now.rest.dto.pricing.UrgencyMultiplierResponse;
+import com.uk.certifynow.certify_now.service.job.ActorType;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
@@ -401,9 +404,9 @@ public class PricingService {
         AuditHelper.build(
             clock,
             currentActorId(),
-            "ADMIN",
-            "PRICING_RULE_CREATED",
-            "PricingRule",
+            ActorType.ADMIN,
+            AuditAction.PRICING_RULE_CREATED,
+            AuditEntityType.PricingRule,
             saved.getId(),
             null,
             toJson(
@@ -450,9 +453,9 @@ public class PricingService {
         AuditHelper.build(
             clock,
             currentActorId(),
-            "ADMIN",
-            "PRICING_RULE_UPDATED",
-            "PricingRule",
+            ActorType.ADMIN,
+            AuditAction.PRICING_RULE_UPDATED,
+            AuditEntityType.PricingRule,
             id,
             oldValues,
             toJson(
@@ -578,9 +581,9 @@ public class PricingService {
         AuditHelper.build(
             clock,
             currentActorId(),
-            "ADMIN",
-            "URGENCY_MULTIPLIER_UPDATED",
-            "UrgencyMultiplier",
+            ActorType.ADMIN,
+            AuditAction.URGENCY_MULTIPLIER_UPDATED,
+            AuditEntityType.UrgencyMultiplier,
             id,
             oldValues,
             toJson(Map.of("multiplier", saved.getMultiplier()))));

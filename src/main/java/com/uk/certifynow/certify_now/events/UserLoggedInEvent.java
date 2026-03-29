@@ -1,5 +1,6 @@
 package com.uk.certifynow.certify_now.events;
 
+import com.uk.certifynow.certify_now.service.job.ActorType;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
@@ -21,7 +22,7 @@ public class UserLoggedInEvent extends DomainEvent {
       final String deviceInfo,
       final String ipAddress,
       final OffsetDateTime lastLoginAt) {
-    super(userId, "USER");
+    super(userId, ActorType.CUSTOMER);
     this.userId = userId;
     this.email = email;
     this.role = role;

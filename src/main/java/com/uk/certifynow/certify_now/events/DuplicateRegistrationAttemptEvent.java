@@ -1,5 +1,6 @@
 package com.uk.certifynow.certify_now.events;
 
+import com.uk.certifynow.certify_now.service.job.ActorType;
 import java.util.UUID;
 
 /**
@@ -20,7 +21,7 @@ public class DuplicateRegistrationAttemptEvent extends DomainEvent {
       final String targetEmail,
       final String collisionType,
       final String ipAddress) {
-    super(existingUserId, "USER");
+    super(existingUserId, ActorType.CUSTOMER);
     this.targetEmail = targetEmail;
     this.collisionType = collisionType;
     this.ipAddress = ipAddress;

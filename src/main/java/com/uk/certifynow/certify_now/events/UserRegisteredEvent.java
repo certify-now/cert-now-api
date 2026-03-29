@@ -1,5 +1,6 @@
 package com.uk.certifynow.certify_now.events;
 
+import com.uk.certifynow.certify_now.service.job.ActorType;
 import java.util.UUID;
 
 public class UserRegisteredEvent extends DomainEvent {
@@ -16,7 +17,7 @@ public class UserRegisteredEvent extends DomainEvent {
       final String role,
       final String authProvider,
       final boolean emailVerified) {
-    super(userId, "USER");
+    super(userId, ActorType.CUSTOMER);
     this.userId = userId;
     this.email = email;
     this.role = role;

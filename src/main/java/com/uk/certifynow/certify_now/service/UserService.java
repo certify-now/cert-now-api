@@ -338,21 +338,17 @@ public class UserService {
     // Invalidate all refresh tokens
     refreshTokenRepository.deleteAllByUserId(userId);
 
-    final ActorType actorType =
-        userId.equals(deletedByUserId) ? ActorType.CUSTOMER : ActorType.ADMIN;
+    final boolean isSelfAction = userId.equals(deletedByUserId);
+    final ActorType actorType = isSelfAction ? ActorType.CUSTOMER : ActorType.ADMIN;
 
     log.info("User {} soft-deleted by {}", userId, deletedByUserId);
     publisher.publishEvent(new UserSoftDeletedEvent(userId, deletedByUserId, actorType));
     final Long accountAgeInDays =
         user.getCreatedAt() != null ? ChronoUnit.DAYS.between(user.getCreatedAt(), now) : null;
+    final String initiatedBy = isSelfAction ? "USER" : "ADMIN";
     publisher.publishEvent(
         new AccountDeactivatedEvent(
-            userId,
-            user.getEmail(),
-            "ACCOUNT_DEACTIVATED",
-            actorType.name(),
-            accountAgeInDays,
-            null));
+            userId, user.getEmail(), "ACCOUNT_DEACTIVATED", initiatedBy, accountAgeInDays, null));
   }
 
   @Transactional

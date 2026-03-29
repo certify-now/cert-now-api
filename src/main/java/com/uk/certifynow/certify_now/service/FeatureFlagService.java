@@ -18,6 +18,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class FeatureFlagService {
@@ -56,6 +57,7 @@ public class FeatureFlagService {
         .orElseThrow(NotFoundException::new);
   }
 
+  @Transactional
   @CacheEvict(value = "feature-flags", allEntries = true)
   public UUID create(final FeatureFlagDTO featureFlagDTO) {
     final FeatureFlag featureFlag = new FeatureFlag();
@@ -80,6 +82,7 @@ public class FeatureFlagService {
     return saved.getId();
   }
 
+  @Transactional
   @CacheEvict(value = "feature-flags", allEntries = true)
   public void update(final UUID id, final FeatureFlagDTO featureFlagDTO) {
     final FeatureFlag featureFlag =
@@ -111,6 +114,7 @@ public class FeatureFlagService {
                     "rolloutPct", saved.getRolloutPct()))));
   }
 
+  @Transactional
   @CacheEvict(value = "feature-flags", allEntries = true)
   public void delete(final UUID id) {
     final FeatureFlag featureFlag =

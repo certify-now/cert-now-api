@@ -337,10 +337,10 @@ public class UserService {
     // Invalidate all refresh tokens
     refreshTokenRepository.deleteAllByUserId(userId);
 
-    log.info("User {} soft-deleted by {}", userId, deletedByUserId);
-    publisher.publishEvent(new UserSoftDeletedEvent(userId, deletedByUserId));
-
     final String initiatedBy = userId.equals(deletedByUserId) ? "USER" : "ADMIN";
+
+    log.info("User {} soft-deleted by {}", userId, deletedByUserId);
+    publisher.publishEvent(new UserSoftDeletedEvent(userId, deletedByUserId, initiatedBy));
     final Long accountAgeInDays =
         user.getCreatedAt() != null ? ChronoUnit.DAYS.between(user.getCreatedAt(), now) : null;
     publisher.publishEvent(
@@ -372,7 +372,9 @@ public class UserService {
     cascadeRestoreProfile(user, now);
 
     log.info("User {} restored by {}", userId, restoredByUserId);
-    publisher.publishEvent(new UserRestoredEvent(userId, restoredByUserId));
+    publisher.publishEvent(
+        new UserRestoredEvent(
+            userId, restoredByUserId, userId.equals(restoredByUserId) ? "USER" : "ADMIN"));
 
     return userMapper.toDTO(saved);
   }

@@ -227,8 +227,13 @@ public class PropertyService {
     property.setDeletedBy(deletedByUserId);
     propertyRepository.save(property);
 
+    final String actorType =
+        property.getOwner() != null && deletedByUserId.equals(property.getOwner().getId())
+            ? "USER"
+            : "ADMIN";
+
     log.info("Property {} soft-deleted by {}", id, deletedByUserId);
-    publisher.publishEvent(new PropertySoftDeletedEvent(id, deletedByUserId));
+    publisher.publishEvent(new PropertySoftDeletedEvent(id, deletedByUserId, actorType));
   }
 
   @CacheEvict(value = "my-properties", allEntries = true)
@@ -247,7 +252,11 @@ public class PropertyService {
     final Property saved = propertyRepository.save(property);
 
     log.info("Property {} restored by {}", id, restoredByUserId);
-    publisher.publishEvent(new PropertyRestoredEvent(id, restoredByUserId));
+    final String actorType =
+        property.getOwner() != null && restoredByUserId.equals(property.getOwner().getId())
+            ? "USER"
+            : "ADMIN";
+    publisher.publishEvent(new PropertyRestoredEvent(id, restoredByUserId, actorType));
 
     return enriched(propertyMapper.toDTO(saved));
   }

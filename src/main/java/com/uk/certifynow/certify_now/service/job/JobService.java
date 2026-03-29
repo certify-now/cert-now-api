@@ -3,34 +3,24 @@ package com.uk.certifynow.certify_now.service.job;
 import com.uk.certifynow.certify_now.domain.Job;
 import com.uk.certifynow.certify_now.domain.Payment;
 import com.uk.certifynow.certify_now.domain.Property;
-import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.events.BeforeDeleteProperty;
 import com.uk.certifynow.certify_now.events.BeforeDeleteUser;
 import com.uk.certifynow.certify_now.events.job.JobAcceptedEvent;
-import com.uk.certifynow.certify_now.events.job.JobCreatedEvent;
-import com.uk.certifynow.certify_now.events.job.JobMatchedEvent;
 import com.uk.certifynow.certify_now.events.job.JobStatusChangedEvent;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.exception.EntityNotFoundException;
 import com.uk.certifynow.certify_now.exception.InvalidStateTransitionException;
-import com.uk.certifynow.certify_now.interfaces.PricingCalculator;
 import com.uk.certifynow.certify_now.repos.JobMatchLogRepository;
 import com.uk.certifynow.certify_now.repos.JobRepository;
 import com.uk.certifynow.certify_now.repos.PaymentRepository;
-import com.uk.certifynow.certify_now.repos.PropertyRepository;
-import com.uk.certifynow.certify_now.repos.UserRepository;
 import com.uk.certifynow.certify_now.rest.dto.job.AcceptJobRequest;
 import com.uk.certifynow.certify_now.rest.dto.job.CancelJobRequest;
-import com.uk.certifynow.certify_now.rest.dto.job.CreateJobRequest;
-import com.uk.certifynow.certify_now.rest.dto.job.DayAvailability;
 import com.uk.certifynow.certify_now.rest.dto.job.DeclineJobRequest;
 import com.uk.certifynow.certify_now.rest.dto.job.JobResponse;
 import com.uk.certifynow.certify_now.rest.dto.job.JobStatusHistoryResponse;
 import com.uk.certifynow.certify_now.rest.dto.job.JobSummaryResponse;
-import com.uk.certifynow.certify_now.rest.dto.job.MatchJobRequest;
 import com.uk.certifynow.certify_now.rest.dto.job.ProposeScheduleRequest;
 import com.uk.certifynow.certify_now.rest.dto.job.StartJobRequest;
-import com.uk.certifynow.certify_now.rest.dto.pricing.PriceBreakdown;
 import com.uk.certifynow.certify_now.service.auth.UserRole;
 import com.uk.certifynow.certify_now.util.ReferencedException;
 import java.time.Clock;
@@ -38,34 +28,34 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
+import org.locationtech.jts.geom.Point;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.ObjectMapper;
 
 @Service
 public class JobService {
 
+  private static final Logger log = LoggerFactory.getLogger(JobService.class);
+
+  /** Maximum allowed distance (in metres) between engineer GPS and property coordinates. */
+  private static final double GPS_MAX_DISTANCE_METRES = 200.0;
+
   private final JobRepository jobRepository;
-  private final UserRepository userRepository;
-  private final PropertyRepository propertyRepository;
   private final PaymentRepository paymentRepository;
   private final JobMatchLogRepository matchLogRepository;
-  private final PricingCalculator pricingCalculator;
-  private final ReferenceNumberGenerator referenceNumberGenerator;
   private final ApplicationEventPublisher publisher;
-  private final ObjectMapper objectMapper;
   private final Clock clock;
   private final JobResponseMapper jobResponseMapper;
   private final JobHistoryService jobHistoryService;
@@ -73,183 +63,21 @@ public class JobService {
 
   public JobService(
       final JobRepository jobRepository,
-      final UserRepository userRepository,
-      final PropertyRepository propertyRepository,
       final PaymentRepository paymentRepository,
       final JobMatchLogRepository matchLogRepository,
-      final PricingCalculator pricingCalculator,
-      final ReferenceNumberGenerator referenceNumberGenerator,
       final ApplicationEventPublisher publisher,
-      final ObjectMapper objectMapper,
       final Clock clock,
       final JobResponseMapper jobResponseMapper,
       final JobHistoryService jobHistoryService,
       final JobCancellationService jobCancellationService) {
     this.jobRepository = jobRepository;
-    this.userRepository = userRepository;
-    this.propertyRepository = propertyRepository;
     this.paymentRepository = paymentRepository;
     this.matchLogRepository = matchLogRepository;
-    this.pricingCalculator = pricingCalculator;
-    this.referenceNumberGenerator = referenceNumberGenerator;
     this.publisher = publisher;
-    this.objectMapper = objectMapper;
     this.clock = clock;
     this.jobResponseMapper = jobResponseMapper;
     this.jobHistoryService = jobHistoryService;
     this.jobCancellationService = jobCancellationService;
-  }
-
-  // ────────────────────────────────────────────────────────────────────────────
-  // CREATE JOB
-  // ────────────────────────────────────────────────────────────────────────────
-
-  @Transactional
-  public JobResponse createJob(final UUID customerId, final CreateJobRequest request) {
-    // 1. Load customer
-    final User customer =
-        userRepository
-            .findById(customerId)
-            .orElseThrow(() -> new EntityNotFoundException("User not found: " + customerId));
-
-    // 2. Load property, validate ownership
-    final Property property =
-        propertyRepository
-            .findById(request.propertyId())
-            .orElseThrow(
-                () -> new EntityNotFoundException("Property not found: " + request.propertyId()));
-    if (!property.getOwner().getId().equals(customerId)) {
-      throw new AccessDeniedException("Property does not belong to this customer");
-    }
-    if (!Boolean.TRUE.equals(property.getIsActive())) {
-      throw new BusinessException(
-          HttpStatus.BAD_REQUEST,
-          "PROPERTY_INACTIVE",
-          "This property is inactive and cannot be booked");
-    }
-
-    // 3. Business validation: gas safety requires gas supply
-    final String certType = request.certificateType();
-    if ("GAS_SAFETY".equals(certType) && !Boolean.TRUE.equals(property.getHasGasSupply())) {
-      throw new BusinessException(
-          HttpStatus.BAD_REQUEST,
-          "NO_GAS_SUPPLY",
-          "Property does not have a gas supply; cannot book a gas safety certificate");
-    }
-
-    // Validate preferred availability if provided
-    if (request.preferredAvailability() != null && !request.preferredAvailability().isEmpty()) {
-      final Set<String> validDays = Set.of("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN");
-      final Set<String> validSlots = Set.of("MORNING", "AFTERNOON", "EVENING");
-      for (final DayAvailability entry : request.preferredAvailability()) {
-        if (!validDays.contains(entry.day().toUpperCase())) {
-          throw new BusinessException(
-              HttpStatus.BAD_REQUEST,
-              "INVALID_PREFERRED_DAY",
-              "Invalid preferred day: " + entry.day() + ". Must be MON-SUN.");
-        }
-        for (final String slot : entry.slots()) {
-          if (!validSlots.contains(slot.toUpperCase())) {
-            throw new BusinessException(
-                HttpStatus.BAD_REQUEST,
-                "INVALID_PREFERRED_TIME_SLOT",
-                "Invalid preferred time slot: "
-                    + slot
-                    + ". Must be MORNING, AFTERNOON, or EVENING.");
-          }
-        }
-      }
-    }
-
-    // 4. Calculate pricing
-    final String urgency = request.urgencyOrDefault();
-    final PriceBreakdown price = pricingCalculator.calculate(certType, property.getId(), urgency);
-
-    // 5. Generate reference number (retry up to 3 times on collision)
-    Job saved = null;
-    for (int attempt = 0; attempt < 3; attempt++) {
-      final Job job = buildJob(customer, property, request, certType, urgency, price);
-      try {
-        saved = jobRepository.save(job);
-        break;
-      } catch (final DataIntegrityViolationException e) {
-        if (attempt == 2) throw e; // give up after 3 attempts
-      }
-    }
-
-    // 6. Record initial status history (null → CREATED)
-    jobHistoryService.recordHistory(
-        saved, null, JobStatus.CREATED.name(), customerId, "CUSTOMER", null, null);
-
-    // 7. Create stub payment
-    final Payment payment = buildPayment(customer, saved, price);
-    final Payment savedPayment = paymentRepository.save(payment);
-
-    // 8. Publish event (fires after commit via @TransactionalEventListener)
-    publisher.publishEvent(
-        new JobCreatedEvent(
-            saved.getId(), customerId, property.getId(), certType, price.totalPricePence()));
-
-    return jobResponseMapper.toJobResponse(saved, savedPayment);
-  }
-
-  private Job buildJob(
-      final User customer,
-      final Property property,
-      final CreateJobRequest request,
-      final String certType,
-      final String urgency,
-      final PriceBreakdown price) {
-    final Job job = new Job();
-    job.setCustomer(customer);
-    job.setProperty(property);
-    job.setCertificateType(certType);
-    job.setUrgency(urgency);
-    job.setStatus(JobStatus.CREATED.name());
-    job.setReferenceNumber(referenceNumberGenerator.generate());
-    job.setMatchAttempts(0);
-    job.setAdminAlertCount(0);
-    job.setAccessInstructions(request.accessInstructions());
-    job.setCustomerNotes(request.customerNotes());
-    if (request.preferredAvailability() != null && !request.preferredAvailability().isEmpty()) {
-      try {
-        job.setPreferredAvailability(
-            objectMapper.writeValueAsString(request.preferredAvailability()));
-      } catch (final JacksonException e) {
-        throw new BusinessException(
-            HttpStatus.BAD_REQUEST,
-            "INVALID_AVAILABILITY",
-            "Failed to serialise availability preferences");
-      }
-    }
-    // Pricing — copied from breakdown at creation time
-    job.setBasePricePence(price.basePricePence());
-    job.setPropertyModifierPence(price.propertyModifierPence());
-    job.setUrgencyModifierPence(price.urgencyModifierPence());
-    job.setDiscountPence(price.discountPence());
-    job.setTotalPricePence(price.totalPricePence());
-    job.setCommissionRate(price.commissionRate());
-    job.setCommissionPence(price.commissionPence());
-    job.setEngineerPayoutPence(price.engineerPayoutPence());
-    job.setCreatedAt(OffsetDateTime.now(clock));
-    job.setUpdatedAt(OffsetDateTime.now(clock));
-    return job;
-  }
-
-  private Payment buildPayment(final User customer, final Job job, final PriceBreakdown price) {
-    final Payment payment = new Payment();
-    payment.setCustomer(customer);
-    payment.setJob(job);
-    payment.setStatus("PENDING");
-    payment.setAmountPence(price.totalPricePence());
-    payment.setCurrency("GBP");
-    payment.setRequiresAction(false);
-    // Stub values — real Stripe integration in Phase 8
-    payment.setStripePaymentIntentId("stub_pi_" + job.getId());
-    payment.setStripeClientSecret("stub_secret_" + job.getId());
-    payment.setCreatedAt(OffsetDateTime.now(clock));
-    payment.setUpdatedAt(OffsetDateTime.now(clock));
-    return payment;
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -302,49 +130,6 @@ public class JobService {
   }
 
   // ────────────────────────────────────────────────────────────────────────────
-  // MATCH JOB (ADMIN temp endpoint — remove when MatchingService built in Phase
-  // 6)
-  // ────────────────────────────────────────────────────────────────────────────
-
-  // TODO: Remove when MatchingService is built (Phase 6+)
-  @CacheEvict(value = "jobs", key = "#jobId")
-  @Transactional
-  public JobResponse matchJob(final UUID jobId, final UUID adminId, final MatchJobRequest request) {
-    final Job job = loadJobOrThrow(jobId);
-    final JobStatus current = JobStatus.fromString(job.getStatus());
-    final JobStatus target = JobStatus.MATCHED;
-    validateTransition(current, target);
-
-    // Validate engineer exists and has ENGINEER role
-    final User engineer =
-        userRepository
-            .findById(request.engineerId())
-            .orElseThrow(
-                () -> new EntityNotFoundException("User not found: " + request.engineerId()));
-    if (!engineer.isEngineer()) {
-      throw new BusinessException(
-          HttpStatus.BAD_REQUEST, "NOT_AN_ENGINEER", "User is not an engineer");
-    }
-
-    job.setEngineer(engineer);
-    job.setMatchedAt(OffsetDateTime.now(clock));
-    job.setStatus(JobStatus.MATCHED.name());
-    job.setMatchAttempts(job.getMatchAttempts() + 1);
-    job.setUpdatedAt(OffsetDateTime.now(clock));
-    final Job saved = jobRepository.save(job);
-
-    jobHistoryService.recordHistory(
-        saved, JobStatus.CREATED.name(), JobStatus.MATCHED.name(), adminId, "ADMIN", null, null);
-
-    // Create match log entry (score/distance null for manual admin match)
-    jobHistoryService.createMatchLog(saved, engineer, null, null);
-
-    publisher.publishEvent(new JobMatchedEvent(saved.getId(), engineer.getId(), null, null));
-    final Payment payment = paymentRepository.findByJobId(jobId).orElse(null);
-    return jobResponseMapper.toJobResponse(saved, payment);
-  }
-
-  // ────────────────────────────────────────────────────────────────────────────
   // ACCEPT JOB
   // ────────────────────────────────────────────────────────────────────────────
 
@@ -386,10 +171,10 @@ public class JobService {
     matchLogRepository
         .findByJobIdAndEngineerId(jobId, engineerId)
         .ifPresent(
-            log -> {
-              log.setRespondedAt(OffsetDateTime.now(clock));
-              log.setResponse(JobStatus.ACCEPTED.name());
-              matchLogRepository.save(log);
+            matchLog -> {
+              matchLog.setRespondedAt(OffsetDateTime.now(clock));
+              matchLog.setResponse(JobStatus.ACCEPTED.name());
+              matchLogRepository.save(matchLog);
             });
 
     publisher.publishEvent(
@@ -417,32 +202,12 @@ public class JobService {
   @CacheEvict(value = "jobs", key = "#jobId")
   @Transactional
   public JobResponse markEnRoute(final UUID jobId, final UUID engineerId) {
-    final Job job = loadJobOrThrow(jobId);
-    authoriseEngineer(job, engineerId);
-    validateTransition(JobStatus.fromString(job.getStatus()), JobStatus.EN_ROUTE);
-
-    job.setStatus(JobStatus.EN_ROUTE.name());
-    job.setEnRouteAt(OffsetDateTime.now(clock));
-    job.setUpdatedAt(OffsetDateTime.now(clock));
-    final Job saved = jobRepository.save(job);
-
-    jobHistoryService.recordHistory(
-        saved,
-        JobStatus.ACCEPTED.name(),
-        JobStatus.EN_ROUTE.name(),
+    return transitionAndPublish(
+        jobId,
         engineerId,
         "ENGINEER",
-        null,
-        null);
-    publisher.publishEvent(
-        new JobStatusChangedEvent(
-            saved.getId(),
-            JobStatus.ACCEPTED.name(),
-            JobStatus.EN_ROUTE.name(),
-            engineerId,
-            "ENGINEER"));
-    final Payment payment = paymentRepository.findByJobId(jobId).orElse(null);
-    return jobResponseMapper.toJobResponse(saved, payment);
+        JobStatus.EN_ROUTE,
+        job -> job.setEnRouteAt(OffsetDateTime.now(clock)));
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -457,14 +222,10 @@ public class JobService {
     authoriseEngineer(job, engineerId);
     validateTransition(JobStatus.fromString(job.getStatus()), JobStatus.IN_PROGRESS);
 
-    // TODO: GPS validation — compare engineer coordinates with property.location
-    // using PostGIS
-    // ST_Distance. If distance > 200 metres, return 400 GPS_TOO_FAR.
-    // Requires geocoded property location. Stubbed until geocoding is integrated.
-    // Real implementation:
-    // propertyLocationService.distanceMetres(request.latitude(),
-    // request.longitude(), job.getProperty().getId()) > 200 → throw GPS_TOO_FAR
+    // GPS proximity validation
+    validateGpsProximity(job, request);
 
+    final String prev = job.getStatus();
     job.setStatus(JobStatus.IN_PROGRESS.name());
     job.setStartedAt(OffsetDateTime.now(clock));
     job.setEngineerStartLat(request.latitude());
@@ -473,20 +234,10 @@ public class JobService {
     final Job saved = jobRepository.save(job);
 
     jobHistoryService.recordHistory(
-        saved,
-        JobStatus.EN_ROUTE.name(),
-        JobStatus.IN_PROGRESS.name(),
-        engineerId,
-        "ENGINEER",
-        null,
-        null);
+        saved, prev, JobStatus.IN_PROGRESS.name(), engineerId, "ENGINEER", null, null);
     publisher.publishEvent(
         new JobStatusChangedEvent(
-            saved.getId(),
-            JobStatus.EN_ROUTE.name(),
-            JobStatus.IN_PROGRESS.name(),
-            engineerId,
-            "ENGINEER"));
+            saved.getId(), prev, JobStatus.IN_PROGRESS.name(), engineerId, "ENGINEER"));
     final Payment payment = paymentRepository.findByJobId(jobId).orElse(null);
     return jobResponseMapper.toJobResponse(saved, payment);
   }
@@ -498,35 +249,16 @@ public class JobService {
   @CacheEvict(value = "jobs", key = "#jobId")
   @Transactional
   public JobResponse completeJob(final UUID jobId, final UUID engineerId) {
-    final Job job = loadJobOrThrow(jobId);
-    validateTransition(JobStatus.fromString(job.getStatus()), JobStatus.COMPLETED);
-    authoriseEngineer(job, engineerId);
-
-    job.setStatus(JobStatus.COMPLETED.name());
-    job.setCompletedAt(OffsetDateTime.now(clock));
-    job.setUpdatedAt(OffsetDateTime.now(clock));
-    final Job saved = jobRepository.save(job);
-
-    jobHistoryService.recordHistory(
-        saved,
-        JobStatus.IN_PROGRESS.name(),
-        JobStatus.COMPLETED.name(),
+    return transitionAndPublish(
+        jobId,
         engineerId,
         "ENGINEER",
-        null,
-        null);
-    publisher.publishEvent(
-        new JobStatusChangedEvent(
-            saved.getId(),
-            JobStatus.IN_PROGRESS.name(),
-            JobStatus.COMPLETED.name(),
-            engineerId,
-            "ENGINEER"));
-    final Payment payment = paymentRepository.findByJobId(jobId).orElse(null);
-    return jobResponseMapper.toJobResponse(saved, payment);
+        JobStatus.COMPLETED,
+        job -> job.setCompletedAt(OffsetDateTime.now(clock)));
   }
 
   // ────────────────────────────────────────────────────────────────────────────
+  // CERTIFY JOB
   // ────────────────────────────────────────────────────────────────────────────
 
   @CacheEvict(value = "jobs", key = "#jobId")
@@ -535,6 +267,7 @@ public class JobService {
     final Job job = loadJobOrThrow(jobId);
     validateTransition(JobStatus.fromString(job.getStatus()), JobStatus.CERTIFIED);
 
+    final String prev = job.getStatus();
     job.setStatus(JobStatus.CERTIFIED.name());
     job.setCertifiedAt(OffsetDateTime.now(clock));
     job.setUpdatedAt(OffsetDateTime.now(clock));
@@ -542,20 +275,10 @@ public class JobService {
 
     final UUID engineerId = job.getEngineer() != null ? job.getEngineer().getId() : null;
     jobHistoryService.recordHistory(
-        job,
-        JobStatus.COMPLETED.name(),
-        JobStatus.CERTIFIED.name(),
-        engineerId,
-        "SYSTEM",
-        null,
-        null);
+        job, prev, JobStatus.CERTIFIED.name(), engineerId, "SYSTEM", null, null);
     publisher.publishEvent(
         new JobStatusChangedEvent(
-            job.getId(),
-            JobStatus.COMPLETED.name(),
-            JobStatus.CERTIFIED.name(),
-            engineerId,
-            "SYSTEM"));
+            job.getId(), prev, JobStatus.CERTIFIED.name(), engineerId, "SYSTEM"));
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -621,38 +344,6 @@ public class JobService {
   }
 
   // ────────────────────────────────────────────────────────────────────────────
-  // PRIVATE HELPERS
-  // ────────────────────────────────────────────────────────────────────────────
-
-  private Job loadJobOrThrow(final UUID jobId) {
-    return jobRepository
-        .findById(jobId)
-        .orElseThrow(() -> new EntityNotFoundException("Job not found: " + jobId));
-  }
-
-  private void validateTransition(final JobStatus current, final JobStatus target) {
-    if (!current.canTransitionTo(target)) {
-      throw new InvalidStateTransitionException(current, target);
-    }
-  }
-
-  private void authoriseRead(final Job job, final UUID actorId, final UserRole actorRole) {
-    if (actorRole == UserRole.ADMIN) return;
-    final boolean isCustomer = job.getCustomer().getId().equals(actorId);
-    final boolean isEngineer =
-        job.getEngineer() != null && job.getEngineer().getId().equals(actorId);
-    if (!isCustomer && !isEngineer) {
-      throw new AccessDeniedException("Access denied to this job");
-    }
-  }
-
-  private void authoriseEngineer(final Job job, final UUID engineerId) {
-    if (job.getEngineer() == null || !job.getEngineer().getId().equals(engineerId)) {
-      throw new AccessDeniedException("Not the assigned engineer for this job");
-    }
-  }
-
-  // ────────────────────────────────────────────────────────────────────────────
   // PROPOSE SCHEDULE
   // ────────────────────────────────────────────────────────────────────────────
 
@@ -682,5 +373,106 @@ public class JobService {
     jobRepository.save(job);
 
     return jobResponseMapper.toJobResponse(job, null);
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // PRIVATE HELPERS
+  // ────────────────────────────────────────────────────────────────────────────
+
+  private JobResponse transitionAndPublish(
+      final UUID jobId,
+      final UUID actorId,
+      final String actorType,
+      final JobStatus target,
+      final Consumer<Job> mutator) {
+    final Job job = loadJobOrThrow(jobId);
+    if ("ENGINEER".equals(actorType)) {
+      authoriseEngineer(job, actorId);
+    }
+    final String prev = job.getStatus();
+    validateTransition(JobStatus.fromString(prev), target);
+    mutator.accept(job);
+    job.setStatus(target.name());
+    job.setUpdatedAt(OffsetDateTime.now(clock));
+    final Job saved = jobRepository.save(job);
+    jobHistoryService.recordHistory(saved, prev, target.name(), actorId, actorType, null, null);
+    publisher.publishEvent(
+        new JobStatusChangedEvent(saved.getId(), prev, target.name(), actorId, actorType));
+    final Payment payment = paymentRepository.findByJobId(jobId).orElse(null);
+    return jobResponseMapper.toJobResponse(saved, payment);
+  }
+
+  private void validateGpsProximity(final Job job, final StartJobRequest request) {
+    final Property property = job.getProperty();
+    final Point coordinates = property.getCoordinates();
+
+    if (coordinates == null) {
+      log.warn(
+          "Property {} has no geocoded coordinates; skipping GPS proximity check for job {}",
+          property.getId(),
+          job.getId());
+      return;
+    }
+
+    final double propertyLat = coordinates.getY();
+    final double propertyLng = coordinates.getX();
+    final double engineerLat = request.latitude().doubleValue();
+    final double engineerLng = request.longitude().doubleValue();
+
+    final double distanceMetres =
+        haversineMetres(propertyLat, propertyLng, engineerLat, engineerLng);
+
+    if (distanceMetres > GPS_MAX_DISTANCE_METRES) {
+      throw new BusinessException(
+          HttpStatus.BAD_REQUEST,
+          "GPS_TOO_FAR",
+          String.format(
+              "Engineer is %.0fm from the property; must be within %.0fm to start the job",
+              distanceMetres, GPS_MAX_DISTANCE_METRES));
+    }
+  }
+
+  /** Haversine formula — returns the great-circle distance in metres between two WGS84 points. */
+  static double haversineMetres(
+      final double lat1, final double lng1, final double lat2, final double lng2) {
+    final double earthRadiusMetres = 6_371_000.0;
+    final double dLat = Math.toRadians(lat2 - lat1);
+    final double dLng = Math.toRadians(lng2 - lng1);
+    final double a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2)
+            + Math.cos(Math.toRadians(lat1))
+                * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLng / 2)
+                * Math.sin(dLng / 2);
+    final double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return earthRadiusMetres * c;
+  }
+
+  private Job loadJobOrThrow(final UUID jobId) {
+    return jobRepository
+        .findById(jobId)
+        .orElseThrow(() -> new EntityNotFoundException("Job not found: " + jobId));
+  }
+
+  private void validateTransition(final JobStatus current, final JobStatus target) {
+    if (!current.canTransitionTo(target)) {
+      throw new InvalidStateTransitionException(current, target);
+    }
+  }
+
+  private void authoriseRead(final Job job, final UUID actorId, final UserRole actorRole) {
+    if (actorRole == UserRole.ADMIN) return;
+    final boolean isCustomer = job.getCustomer().getId().equals(actorId);
+    final boolean isEngineer =
+        job.getEngineer() != null && job.getEngineer().getId().equals(actorId);
+    if (!isCustomer && !isEngineer) {
+      throw new AccessDeniedException("Access denied to this job");
+    }
+  }
+
+  private void authoriseEngineer(final Job job, final UUID engineerId) {
+    if (job.getEngineer() == null || !job.getEngineer().getId().equals(engineerId)) {
+      throw new AccessDeniedException("Not the assigned engineer for this job");
+    }
   }
 }

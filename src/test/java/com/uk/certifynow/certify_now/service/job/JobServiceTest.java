@@ -3,30 +3,22 @@ package com.uk.certifynow.certify_now.service.job;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.uk.certifynow.certify_now.domain.Job;
 import com.uk.certifynow.certify_now.domain.Property;
 import com.uk.certifynow.certify_now.domain.User;
-import com.uk.certifynow.certify_now.events.job.JobCreatedEvent;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.exception.InvalidStateTransitionException;
-import com.uk.certifynow.certify_now.interfaces.PricingCalculator;
 import com.uk.certifynow.certify_now.repos.JobMatchLogRepository;
 import com.uk.certifynow.certify_now.repos.JobRepository;
 import com.uk.certifynow.certify_now.repos.PaymentRepository;
-import com.uk.certifynow.certify_now.repos.PropertyRepository;
-import com.uk.certifynow.certify_now.repos.UserRepository;
 import com.uk.certifynow.certify_now.rest.dto.job.AcceptJobRequest;
-import com.uk.certifynow.certify_now.rest.dto.job.CreateJobRequest;
 import com.uk.certifynow.certify_now.rest.dto.job.JobResponse;
-import com.uk.certifynow.certify_now.rest.dto.job.MatchJobRequest;
-import com.uk.certifynow.certify_now.rest.dto.pricing.PriceBreakdown;
+import com.uk.certifynow.certify_now.rest.dto.job.StartJobRequest;
 import com.uk.certifynow.certify_now.service.auth.UserRole;
 import com.uk.certifynow.certify_now.util.TestConstants;
 import com.uk.certifynow.certify_now.util.TestJobBuilder;
@@ -41,11 +33,13 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.PrecisionModel;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -58,12 +52,8 @@ class JobServiceTest {
   private final Clock clock = TestConstants.FIXED_CLOCK;
 
   @Mock private JobRepository jobRepository;
-  @Mock private UserRepository userRepository;
-  @Mock private PropertyRepository propertyRepository;
   @Mock private PaymentRepository paymentRepository;
   @Mock private JobMatchLogRepository matchLogRepository;
-  @Mock private PricingCalculator pricingCalculator;
-  @Mock private ReferenceNumberGenerator referenceNumberGenerator;
   @Mock private ApplicationEventPublisher publisher;
   @Mock private JobHistoryService jobHistoryService;
   @Mock private JobCancellationService jobCancellationService;
@@ -77,207 +67,16 @@ class JobServiceTest {
     jobService =
         new JobService(
             jobRepository,
-            userRepository,
-            propertyRepository,
             paymentRepository,
             matchLogRepository,
-            pricingCalculator,
-            referenceNumberGenerator,
             publisher,
-            new ObjectMapper(),
             clock,
             jobResponseMapper,
             jobHistoryService,
             jobCancellationService);
   }
 
-  // ─── CREATE JOB ──────────────────────────────────────────────────────────────
-
-  @Test
-  void createJob_happyPath_returnsCreatedJob() {
-    final User customer = TestUserBuilder.buildActiveCustomer();
-    final Property property = TestPropertyBuilder.buildWithGas(customer);
-    final PriceBreakdown price = buildPrice();
-
-    when(userRepository.findById(customer.getId())).thenReturn(Optional.of(customer));
-    when(propertyRepository.findById(property.getId())).thenReturn(Optional.of(property));
-    when(pricingCalculator.calculate("GAS_SAFETY", property.getId(), "STANDARD")).thenReturn(price);
-    when(referenceNumberGenerator.generate()).thenReturn("CN-00000001");
-    when(jobRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-    when(paymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-
-    final CreateJobRequest req =
-        new CreateJobRequest(property.getId(), "GAS_SAFETY", "STANDARD", null, null, null);
-
-    final JobResponse response = jobService.createJob(customer.getId(), req);
-
-    assertThat(response).isNotNull();
-    assertThat(response.status()).isEqualTo("CREATED");
-    assertThat(response.certificateType()).isEqualTo("GAS_SAFETY");
-
-    final ArgumentCaptor<JobCreatedEvent> eventCaptor =
-        ArgumentCaptor.forClass(JobCreatedEvent.class);
-    verify(publisher).publishEvent(eventCaptor.capture());
-    assertThat(eventCaptor.getValue().getCustomerId()).isEqualTo(customer.getId());
-  }
-
-  @Test
-  void createJob_propertyNotOwned_throwsAccessDenied() {
-    final User customer = TestUserBuilder.buildActiveCustomer();
-    final User otherCustomer =
-        TestUserBuilder.buildActiveCustomer(UUID.randomUUID(), "other@example.com");
-    final Property property = TestPropertyBuilder.buildWithGas(otherCustomer);
-
-    when(userRepository.findById(customer.getId())).thenReturn(Optional.of(customer));
-    when(propertyRepository.findById(property.getId())).thenReturn(Optional.of(property));
-
-    final CreateJobRequest req =
-        new CreateJobRequest(property.getId(), "GAS_SAFETY", null, null, null, null);
-
-    assertThatThrownBy(() -> jobService.createJob(customer.getId(), req))
-        .isInstanceOf(AccessDeniedException.class);
-  }
-
-  @Test
-  void createJob_inactiveProperty_throwsBadRequest() {
-    final User customer = TestUserBuilder.buildActiveCustomer();
-    final Property property = TestPropertyBuilder.buildInactive(customer);
-
-    when(userRepository.findById(customer.getId())).thenReturn(Optional.of(customer));
-    when(propertyRepository.findById(property.getId())).thenReturn(Optional.of(property));
-
-    final CreateJobRequest req =
-        new CreateJobRequest(property.getId(), "GAS_SAFETY", null, null, null, null);
-
-    assertThatThrownBy(() -> jobService.createJob(customer.getId(), req))
-        .isInstanceOf(BusinessException.class)
-        .hasMessageContaining("inactive");
-  }
-
-  @Test
-  void createJob_gasSafety_noGasSupply_throwsBadRequest() {
-    final User customer = TestUserBuilder.buildActiveCustomer();
-    final Property property = TestPropertyBuilder.buildWithElectric(customer);
-
-    when(userRepository.findById(customer.getId())).thenReturn(Optional.of(customer));
-    when(propertyRepository.findById(property.getId())).thenReturn(Optional.of(property));
-
-    final CreateJobRequest req =
-        new CreateJobRequest(property.getId(), "GAS_SAFETY", null, null, null, null);
-
-    assertThatThrownBy(() -> jobService.createJob(customer.getId(), req))
-        .isInstanceOf(BusinessException.class)
-        .hasMessageContaining("gas supply");
-  }
-
-  @Test
-  void createJob_invalidPreferredDay_throwsBadRequest() {
-    final User customer = TestUserBuilder.buildActiveCustomer();
-    final Property property = TestPropertyBuilder.buildWithGas(customer);
-
-    when(userRepository.findById(customer.getId())).thenReturn(Optional.of(customer));
-    when(propertyRepository.findById(property.getId())).thenReturn(Optional.of(property));
-
-    final var badDay =
-        new com.uk.certifynow.certify_now.rest.dto.job.DayAvailability(
-            "FUNDAY", List.of("MORNING"));
-    final CreateJobRequest req =
-        new CreateJobRequest(property.getId(), "GAS_SAFETY", null, null, null, List.of(badDay));
-
-    assertThatThrownBy(() -> jobService.createJob(customer.getId(), req))
-        .isInstanceOf(BusinessException.class)
-        .satisfies(
-            e ->
-                assertThat(((BusinessException) e).getErrorCode())
-                    .isEqualTo("INVALID_PREFERRED_DAY"));
-  }
-
-  @Test
-  void createJob_invalidPreferredTimeSlot_throwsBadRequest() {
-    final User customer = TestUserBuilder.buildActiveCustomer();
-    final Property property = TestPropertyBuilder.buildWithGas(customer);
-
-    when(userRepository.findById(customer.getId())).thenReturn(Optional.of(customer));
-    when(propertyRepository.findById(property.getId())).thenReturn(Optional.of(property));
-
-    final var badSlot =
-        new com.uk.certifynow.certify_now.rest.dto.job.DayAvailability("MON", List.of("MIDNIGHT"));
-    final CreateJobRequest req =
-        new CreateJobRequest(property.getId(), "GAS_SAFETY", null, null, null, List.of(badSlot));
-
-    assertThatThrownBy(() -> jobService.createJob(customer.getId(), req))
-        .isInstanceOf(BusinessException.class)
-        .satisfies(
-            e ->
-                assertThat(((BusinessException) e).getErrorCode())
-                    .isEqualTo("INVALID_PREFERRED_TIME_SLOT"));
-  }
-
-  @Test
-  void createJob_referenceNumberCollision_retriesUpTo3Times() {
-    final User customer = TestUserBuilder.buildActiveCustomer();
-    final Property property = TestPropertyBuilder.buildWithGas(customer);
-    final PriceBreakdown price = buildPrice();
-
-    when(userRepository.findById(customer.getId())).thenReturn(Optional.of(customer));
-    when(propertyRepository.findById(property.getId())).thenReturn(Optional.of(property));
-    when(pricingCalculator.calculate(anyString(), any(), anyString())).thenReturn(price);
-    when(referenceNumberGenerator.generate()).thenReturn("REF");
-    // First two attempts throw; third succeeds
-    when(jobRepository.save(any()))
-        .thenThrow(new DataIntegrityViolationException("dup"))
-        .thenThrow(new DataIntegrityViolationException("dup"))
-        .thenAnswer(inv -> inv.getArgument(0));
-    when(paymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-
-    final CreateJobRequest req =
-        new CreateJobRequest(property.getId(), "GAS_SAFETY", null, null, null, null);
-
-    final JobResponse response = jobService.createJob(customer.getId(), req);
-
-    assertThat(response).isNotNull();
-    verify(jobRepository, times(3)).save(any());
-  }
-
   // ─── STATE TRANSITIONS ────────────────────────────────────────────────────────
-
-  @Test
-  void matchJob_createdToMatched_success() {
-    final User admin = TestUserBuilder.buildAdmin();
-    final User engineer = TestUserBuilder.buildActiveEngineer();
-    final User customer = TestUserBuilder.buildActiveCustomer();
-    final Property property = TestPropertyBuilder.buildWithGas(customer);
-    final Job job = TestJobBuilder.buildCreated(customer, property);
-
-    when(jobRepository.findById(job.getId())).thenReturn(Optional.of(job));
-    when(userRepository.findById(engineer.getId())).thenReturn(Optional.of(engineer));
-    when(jobRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-    when(paymentRepository.findByJobId(job.getId())).thenReturn(Optional.empty());
-
-    final MatchJobRequest req = new MatchJobRequest(engineer.getId());
-    final JobResponse response = jobService.matchJob(job.getId(), admin.getId(), req);
-
-    assertThat(response.status()).isEqualTo("MATCHED");
-  }
-
-  @Test
-  void matchJob_nonEngineerUser_throwsBadRequest() {
-    final User admin = TestUserBuilder.buildAdmin();
-    final User customer = TestUserBuilder.buildActiveCustomer();
-    final User notEngineer =
-        TestUserBuilder.buildActiveCustomer(UUID.randomUUID(), "c2@example.com");
-    final Property property = TestPropertyBuilder.buildWithGas(customer);
-    final Job job = TestJobBuilder.buildCreated(customer, property);
-
-    when(jobRepository.findById(job.getId())).thenReturn(Optional.of(job));
-    when(userRepository.findById(notEngineer.getId())).thenReturn(Optional.of(notEngineer));
-
-    final MatchJobRequest req = new MatchJobRequest(notEngineer.getId());
-
-    assertThatThrownBy(() -> jobService.matchJob(job.getId(), admin.getId(), req))
-        .isInstanceOf(BusinessException.class)
-        .hasMessageContaining("engineer");
-  }
 
   @Test
   void acceptJob_matchedToAccepted_success() {
@@ -356,22 +155,62 @@ class JobServiceTest {
   }
 
   @Test
-  void startJob_enRouteToInProgress_success() {
+  void startJob_enRouteToInProgress_withinGpsRange_success() {
     final User customer = TestUserBuilder.buildActiveCustomer();
     final User engineer = TestUserBuilder.buildActiveEngineer();
     final Property property = TestPropertyBuilder.buildWithGas(customer);
+    property.setCoordinates(makePoint(-0.1278, 51.5074));
     final Job job = TestJobBuilder.buildEnRoute(customer, property, engineer);
 
     when(jobRepository.findById(job.getId())).thenReturn(Optional.of(job));
     when(jobRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
     when(paymentRepository.findByJobId(job.getId())).thenReturn(Optional.empty());
 
-    final var req =
-        new com.uk.certifynow.certify_now.rest.dto.job.StartJobRequest(
-            new BigDecimal("51.5074"), new BigDecimal("-0.1278"));
+    final StartJobRequest req =
+        new StartJobRequest(new BigDecimal("51.5074"), new BigDecimal("-0.1278"));
     final JobResponse response = jobService.startJob(job.getId(), engineer.getId(), req);
 
     assertThat(response.status()).isEqualTo("IN_PROGRESS");
+  }
+
+  @Test
+  void startJob_enRouteToInProgress_noCoordinates_skipsGpsCheck() {
+    final User customer = TestUserBuilder.buildActiveCustomer();
+    final User engineer = TestUserBuilder.buildActiveEngineer();
+    final Property property = TestPropertyBuilder.buildWithGas(customer);
+    // coordinates are null by default — GPS check should be skipped gracefully
+    final Job job = TestJobBuilder.buildEnRoute(customer, property, engineer);
+
+    when(jobRepository.findById(job.getId())).thenReturn(Optional.of(job));
+    when(jobRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+    when(paymentRepository.findByJobId(job.getId())).thenReturn(Optional.empty());
+
+    final StartJobRequest req =
+        new StartJobRequest(new BigDecimal("51.5074"), new BigDecimal("-0.1278"));
+    final JobResponse response = jobService.startJob(job.getId(), engineer.getId(), req);
+
+    assertThat(response.status()).isEqualTo("IN_PROGRESS");
+  }
+
+  @Test
+  void startJob_gpsTooFar_throwsBusinessException() {
+    final User customer = TestUserBuilder.buildActiveCustomer();
+    final User engineer = TestUserBuilder.buildActiveEngineer();
+    final Property property = TestPropertyBuilder.buildWithGas(customer);
+    // Property at London (51.5074, -0.1278)
+    property.setCoordinates(makePoint(-0.1278, 51.5074));
+    final Job job = TestJobBuilder.buildEnRoute(customer, property, engineer);
+
+    when(jobRepository.findById(job.getId())).thenReturn(Optional.of(job));
+
+    // Engineer at Manchester (~260km away)
+    final StartJobRequest req =
+        new StartJobRequest(new BigDecimal("53.4808"), new BigDecimal("-2.2426"));
+
+    assertThatThrownBy(() -> jobService.startJob(job.getId(), engineer.getId(), req))
+        .isInstanceOf(BusinessException.class)
+        .satisfies(
+            e -> assertThat(((BusinessException) e).getErrorCode()).isEqualTo("GPS_TOO_FAR"));
   }
 
   @Test
@@ -571,16 +410,7 @@ class JobServiceTest {
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-  private PriceBreakdown buildPrice() {
-    return new PriceBreakdown(
-        9900,
-        0,
-        0,
-        0,
-        9900,
-        new BigDecimal("0.200"),
-        1980,
-        7920,
-        new PriceBreakdown.Breakdown(List.of(), "STANDARD", BigDecimal.ONE));
+  private static Point makePoint(final double lng, final double lat) {
+    return new GeometryFactory(new PrecisionModel(), 4326).createPoint(new Coordinate(lng, lat));
   }
 }

@@ -2,6 +2,7 @@ package com.uk.certifynow.certify_now.events;
 
 import com.uk.certifynow.certify_now.domain.Certificate;
 import com.uk.certifynow.certify_now.domain.Property;
+import com.uk.certifynow.certify_now.domain.enums.CertificateStatus;
 import com.uk.certifynow.certify_now.repos.CertificateRepository;
 import com.uk.certifynow.certify_now.repos.PropertyRepository;
 import com.uk.certifynow.certify_now.service.EpcLookupService;
@@ -50,8 +51,6 @@ public class EpcEnrichmentListener {
   private static final int EPC_VALID_YEARS = 10;
   private static final String CERT_TYPE_EPC = "EPC";
   private static final String SOURCE_GOVERNMENT = "GOVERNMENT";
-  private static final String STATUS_ACTIVE = "ACTIVE";
-  private static final String STATUS_EXPIRED = "EXPIRED";
 
   private final EpcLookupService epcLookupService;
   private final PropertyRepository propertyRepository;
@@ -149,7 +148,7 @@ public class EpcEnrichmentListener {
     cert.setExpiryAt(expiryDate);
     cert.setEpcRating(record.energyBand());
     cert.setCertificateNumber(record.certificateNumber());
-    cert.setStatus(active ? STATUS_ACTIVE : STATUS_EXPIRED);
+    cert.setStatus(active ? CertificateStatus.ACTIVE.name() : CertificateStatus.EXPIRED.name());
 
     return cert;
   }

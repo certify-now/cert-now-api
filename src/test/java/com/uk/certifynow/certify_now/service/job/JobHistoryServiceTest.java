@@ -54,16 +54,22 @@ class JobHistoryServiceTest {
     when(historyRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
     service.recordHistory(
-        job, null, "CREATED", actorId, "CUSTOMER", "initial", "{\"key\":\"val\"}");
+        job,
+        null,
+        JobStatus.CREATED.name(),
+        actorId,
+        ActorType.CUSTOMER.name(),
+        "initial",
+        "{\"key\":\"val\"}");
 
     final ArgumentCaptor<JobStatusHistory> captor = ArgumentCaptor.forClass(JobStatusHistory.class);
     verify(historyRepository).save(captor.capture());
 
     final JobStatusHistory saved = captor.getValue();
     assertThat(saved.getFromStatus()).isNull();
-    assertThat(saved.getToStatus()).isEqualTo("CREATED");
+    assertThat(saved.getToStatus()).isEqualTo(JobStatus.CREATED.name());
     assertThat(saved.getActorId()).isEqualTo(actorId);
-    assertThat(saved.getActorType()).isEqualTo("CUSTOMER");
+    assertThat(saved.getActorType()).isEqualTo(ActorType.CUSTOMER.name());
     assertThat(saved.getReason()).isEqualTo("initial");
     assertThat(saved.getMetadata()).isEqualTo("{\"key\":\"val\"}");
     assertThat(saved.getCreatedAt()).isEqualTo(TestConstants.FIXED_NOW);
@@ -98,16 +104,17 @@ class JobHistoryServiceTest {
     final OffsetDateTime t1 = OffsetDateTime.now(clock).minusHours(2);
     final OffsetDateTime t2 = OffsetDateTime.now(clock).minusHours(1);
 
-    final JobStatusHistory h1 = buildHistory(jobId, null, "CREATED", t1);
-    final JobStatusHistory h2 = buildHistory(jobId, "CREATED", "MATCHED", t2);
+    final JobStatusHistory h1 = buildHistory(jobId, null, JobStatus.CREATED.name(), t1);
+    final JobStatusHistory h2 =
+        buildHistory(jobId, JobStatus.CREATED.name(), JobStatus.MATCHED.name(), t2);
 
     when(historyRepository.findByJobIdOrderByCreatedAtAsc(jobId)).thenReturn(List.of(h1, h2));
 
     final List<JobStatusHistoryResponse> result = service.getHistoryResponses(jobId);
 
     assertThat(result).hasSize(2);
-    assertThat(result.get(0).toStatus()).isEqualTo("CREATED");
-    assertThat(result.get(1).toStatus()).isEqualTo("MATCHED");
+    assertThat(result.get(0).toStatus()).isEqualTo(JobStatus.CREATED.name());
+    assertThat(result.get(1).toStatus()).isEqualTo(JobStatus.MATCHED.name());
   }
 
   private JobStatusHistory buildHistory(
@@ -116,7 +123,7 @@ class JobHistoryServiceTest {
     h.setId(UUID.randomUUID());
     h.setFromStatus(from);
     h.setToStatus(to);
-    h.setActorType("CUSTOMER");
+    h.setActorType(ActorType.CUSTOMER.name());
     h.setCreatedAt(createdAt);
     final Job job = new Job();
     job.setId(jobId);

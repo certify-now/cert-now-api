@@ -14,6 +14,7 @@ import com.uk.certifynow.certify_now.domain.Job;
 import com.uk.certifynow.certify_now.domain.JobMatchLog;
 import com.uk.certifynow.certify_now.domain.Property;
 import com.uk.certifynow.certify_now.domain.User;
+import com.uk.certifynow.certify_now.domain.enums.CertificateType;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.repos.EngineerProfileRepository;
 import com.uk.certifynow.certify_now.repos.JobMatchLogRepository;
@@ -22,6 +23,7 @@ import com.uk.certifynow.certify_now.repos.UserRepository;
 import com.uk.certifynow.certify_now.service.AdminAlertService;
 import com.uk.certifynow.certify_now.service.auth.EngineerApplicationStatus;
 import com.uk.certifynow.certify_now.service.job.JobResponseMapper;
+import com.uk.certifynow.certify_now.service.job.JobStatus;
 import com.uk.certifynow.certify_now.util.TestConstants;
 import com.uk.certifynow.certify_now.util.TestJobBuilder;
 import com.uk.certifynow.certify_now.util.TestPropertyBuilder;
@@ -148,7 +150,7 @@ class MatchingServiceTest {
 
     matchingService.broadcastToEligible(job);
 
-    assertThat(job.getStatus()).isEqualTo("ESCALATED");
+    assertThat(job.getStatus()).isEqualTo(JobStatus.ESCALATED.name());
   }
 
   @Test
@@ -168,7 +170,7 @@ class MatchingServiceTest {
 
     matchingService.broadcastToEligible(job);
 
-    assertThat(job.getStatus()).isEqualTo("AWAITING_ACCEPTANCE");
+    assertThat(job.getStatus()).isEqualTo(JobStatus.AWAITING_ACCEPTANCE.name());
     assertThat(job.getBroadcastAt()).isNotNull();
     verify(matchLogRepository).saveAll(any());
   }
@@ -196,13 +198,13 @@ class MatchingServiceTest {
     final User engineer = TestUserBuilder.buildActiveEngineer();
     final Property property = TestPropertyBuilder.buildWithGas(customer);
     final Job job = TestJobBuilder.buildCreated(customer, property);
-    job.setStatus("AWAITING_ACCEPTANCE");
+    job.setStatus(JobStatus.AWAITING_ACCEPTANCE.name());
 
     final JobMatchLog matchLog = new JobMatchLog();
     matchLog.setId(UUID.randomUUID());
     matchLog.setEngineer(engineer);
     matchLog.setJob(job);
-    matchLog.setResponse("PENDING");
+    matchLog.setResponse(MatchLogResponse.PENDING.name());
     matchLog.setCreatedAt(OffsetDateTime.now(clock));
     matchLog.setNotifiedAt(OffsetDateTime.now(clock));
 
@@ -222,8 +224,8 @@ class MatchingServiceTest {
                 "10 Test Street",
                 engineer.getId(),
                 engineer.getFullName(),
-                "GAS_SAFETY",
-                "MATCHED",
+                CertificateType.GAS_SAFETY.name(),
+                JobStatus.MATCHED.name(),
                 "STANDARD",
                 null,
                 null,
@@ -314,7 +316,7 @@ class MatchingServiceTest {
 
     matchingService.escalateJob(job);
 
-    assertThat(job.getStatus()).isEqualTo("ESCALATED");
+    assertThat(job.getStatus()).isEqualTo(JobStatus.ESCALATED.name());
     assertThat(job.getEscalatedAt()).isNotNull();
     verify(matchLogRepository).expireAllPendingForJob(job.getId());
   }

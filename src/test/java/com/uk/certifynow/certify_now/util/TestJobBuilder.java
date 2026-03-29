@@ -3,6 +3,7 @@ package com.uk.certifynow.certify_now.util;
 import com.uk.certifynow.certify_now.domain.Job;
 import com.uk.certifynow.certify_now.domain.Property;
 import com.uk.certifynow.certify_now.domain.User;
+import com.uk.certifynow.certify_now.domain.enums.CertificateType;
 import com.uk.certifynow.certify_now.service.job.JobStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -68,7 +69,7 @@ public final class TestJobBuilder {
     j.setCustomer(customer);
     j.setProperty(property);
     j.setStatus(status.name());
-    j.setCertificateType("GAS_SAFETY");
+    j.setCertificateType(CertificateType.GAS_SAFETY.name());
     j.setUrgency("STANDARD");
     j.setReferenceNumber("CN-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
     j.setMatchAttempts(0);

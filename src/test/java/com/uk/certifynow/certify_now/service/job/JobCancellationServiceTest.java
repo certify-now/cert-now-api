@@ -190,7 +190,7 @@ class JobCancellationServiceTest {
         service.cancelJob(
             job.getId(), UUID.randomUUID(), UserRole.ADMIN, new CancelJobRequest("Admin action"));
 
-    assertThat(response.status()).isEqualTo("CANCELLED");
+    assertThat(response.status()).isEqualTo(JobStatus.CANCELLED.name());
   }
 
   @Test
@@ -250,7 +250,7 @@ class JobCancellationServiceTest {
             engineer.getId(),
             new com.uk.certifynow.certify_now.rest.dto.job.DeclineJobRequest("Not available"));
 
-    assertThat(response.status()).isEqualTo("CREATED");
+    assertThat(response.status()).isEqualTo(JobStatus.CREATED.name());
     assertThat(job.getMatchAttempts()).isEqualTo(initialAttempts + 1);
     assertThat(job.getEngineer()).isNull();
   }

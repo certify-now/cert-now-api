@@ -96,7 +96,7 @@ class JobServiceTest {
 
     final JobResponse response = jobService.acceptJob(job.getId(), engineer.getId(), req);
 
-    assertThat(response.status()).isEqualTo("ACCEPTED");
+    assertThat(response.status()).isEqualTo(JobStatus.ACCEPTED.name());
     assertThat(response.scheduledDate()).isEqualTo(scheduledDate);
   }
 
@@ -151,7 +151,7 @@ class JobServiceTest {
 
     final JobResponse response = jobService.markEnRoute(job.getId(), engineer.getId());
 
-    assertThat(response.status()).isEqualTo("EN_ROUTE");
+    assertThat(response.status()).isEqualTo(JobStatus.EN_ROUTE.name());
   }
 
   @Test
@@ -170,7 +170,7 @@ class JobServiceTest {
         new StartJobRequest(new BigDecimal("51.5074"), new BigDecimal("-0.1278"));
     final JobResponse response = jobService.startJob(job.getId(), engineer.getId(), req);
 
-    assertThat(response.status()).isEqualTo("IN_PROGRESS");
+    assertThat(response.status()).isEqualTo(JobStatus.IN_PROGRESS.name());
   }
 
   @Test
@@ -189,7 +189,7 @@ class JobServiceTest {
         new StartJobRequest(new BigDecimal("51.5074"), new BigDecimal("-0.1278"));
     final JobResponse response = jobService.startJob(job.getId(), engineer.getId(), req);
 
-    assertThat(response.status()).isEqualTo("IN_PROGRESS");
+    assertThat(response.status()).isEqualTo(JobStatus.IN_PROGRESS.name());
   }
 
   @Test
@@ -226,7 +226,7 @@ class JobServiceTest {
 
     final JobResponse response = jobService.completeJob(job.getId(), engineer.getId());
 
-    assertThat(response.status()).isEqualTo("COMPLETED");
+    assertThat(response.status()).isEqualTo(JobStatus.COMPLETED.name());
   }
 
   @Test
@@ -398,12 +398,16 @@ class JobServiceTest {
     final Page<Job> emptyPage = Page.empty();
 
     when(jobRepository.findByCustomerWithFilters(
-            any(), eq(List.of("CREATED")), isNull(), any(Pageable.class)))
+            any(), eq(List.of(JobStatus.CREATED.name())), isNull(), any(Pageable.class)))
         .thenReturn(emptyPage);
 
     final var result =
         jobService.listJobs(
-            customer.getId(), UserRole.CUSTOMER, "CREATED", null, Pageable.unpaged());
+            customer.getId(),
+            UserRole.CUSTOMER,
+            JobStatus.CREATED.name(),
+            null,
+            Pageable.unpaged());
 
     assertThat(result.getTotalElements()).isZero();
   }

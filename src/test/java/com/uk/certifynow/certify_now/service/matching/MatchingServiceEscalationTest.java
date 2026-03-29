@@ -16,6 +16,7 @@ import com.uk.certifynow.certify_now.repos.JobRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
 import com.uk.certifynow.certify_now.service.AdminAlertService;
 import com.uk.certifynow.certify_now.service.job.JobResponseMapper;
+import com.uk.certifynow.certify_now.service.job.JobStatus;
 import com.uk.certifynow.certify_now.util.TestConstants;
 import com.uk.certifynow.certify_now.util.TestJobBuilder;
 import com.uk.certifynow.certify_now.util.TestPropertyBuilder;
@@ -79,7 +80,7 @@ class MatchingServiceEscalationTest {
 
     matchingService.escalateJob(job);
 
-    assertThat(job.getStatus()).isEqualTo("ESCALATED");
+    assertThat(job.getStatus()).isEqualTo(JobStatus.ESCALATED.name());
   }
 
   @Test
@@ -118,7 +119,7 @@ class MatchingServiceEscalationTest {
   @Test
   void sendEscalationReminderAndRecord_skipsWhenJobIsNoLongerEscalated() {
     final Job job = TestJobBuilder.buildCreated(customer, property);
-    job.setStatus("MATCHED");
+    job.setStatus(JobStatus.MATCHED.name());
     when(jobRepository.findById(job.getId())).thenReturn(Optional.of(job));
 
     matchingService.sendEscalationReminderAndRecord(job);
@@ -184,7 +185,7 @@ class MatchingServiceEscalationTest {
 
   private Job buildEscalatedJob(final Integer adminAlertCount) {
     final Job job = TestJobBuilder.buildCreated(customer, property);
-    job.setStatus("ESCALATED");
+    job.setStatus(JobStatus.ESCALATED.name());
     final OffsetDateTime fixedNow =
         OffsetDateTime.ofInstant(TestConstants.FIXED_INSTANT, java.time.ZoneOffset.UTC);
     job.setEscalatedAt(fixedNow.minusHours(1));

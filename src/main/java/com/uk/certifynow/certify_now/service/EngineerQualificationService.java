@@ -99,7 +99,7 @@ public class EngineerQualificationService {
     qualification.setExpiryDate(request.expiryDate());
     qualification.setSchemeName(request.schemeName());
     qualification.setDocumentUrl(request.documentUrl());
-    qualification.setVerificationStatus("PENDING");
+    qualification.setVerificationStatus(VerificationStatus.PENDING.name());
     qualification.setExternalVerified(false);
     qualification.setCreatedAt(now);
     qualification.setUpdatedAt(now);
@@ -123,6 +123,7 @@ public class EngineerQualificationService {
   @Transactional
   public QualificationResponse verifyQualification(
       final UUID qualificationId, final UUID adminId, final String newStatus) {
+    VerificationStatus.valueOf(newStatus);
     final EngineerQualification qualification =
         engineerQualificationRepository
             .findById(qualificationId)

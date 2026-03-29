@@ -12,6 +12,7 @@ import com.uk.certifynow.certify_now.rest.dto.job.CancelJobRequest;
 import com.uk.certifynow.certify_now.rest.dto.job.DeclineJobRequest;
 import com.uk.certifynow.certify_now.rest.dto.job.JobResponse;
 import com.uk.certifynow.certify_now.service.auth.UserRole;
+import com.uk.certifynow.certify_now.service.matching.MatchLogResponse;
 import java.time.Clock;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
@@ -127,7 +128,7 @@ public class JobCancellationService {
         prevStatus,
         JobStatus.CREATED.name(),
         engineerId,
-        "ENGINEER",
+        ActorType.ENGINEER.name(),
         request.reason(),
         null);
 
@@ -136,14 +137,18 @@ public class JobCancellationService {
         .ifPresent(
             log -> {
               log.setRespondedAt(OffsetDateTime.now(clock));
-              log.setResponse("DECLINED");
+              log.setResponse(MatchLogResponse.DECLINED.name());
               log.setDeclineReason(request.reason());
               matchLogRepository.save(log);
             });
 
     publisher.publishEvent(
         new com.uk.certifynow.certify_now.events.job.JobStatusChangedEvent(
-            saved.getId(), prevStatus, JobStatus.CREATED.name(), engineerId, "ENGINEER"));
+            saved.getId(),
+            prevStatus,
+            JobStatus.CREATED.name(),
+            engineerId,
+            ActorType.ENGINEER.name()));
     final Payment payment = paymentRepository.findByJobId(jobId).orElse(null);
     return jobResponseMapper.toJobResponse(saved, payment);
   }

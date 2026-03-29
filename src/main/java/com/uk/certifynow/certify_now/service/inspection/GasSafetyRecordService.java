@@ -4,6 +4,9 @@ import com.uk.certifynow.certify_now.domain.Certificate;
 import com.uk.certifynow.certify_now.domain.GasSafetyAppliance;
 import com.uk.certifynow.certify_now.domain.GasSafetyRecord;
 import com.uk.certifynow.certify_now.domain.Job;
+import com.uk.certifynow.certify_now.domain.enums.CertificateResult;
+import com.uk.certifynow.certify_now.domain.enums.CertificateStatus;
+import com.uk.certifynow.certify_now.domain.enums.CertificateType;
 import com.uk.certifynow.certify_now.events.CertificateIssuedEvent;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.exception.EntityNotFoundException;
@@ -77,7 +80,7 @@ public class GasSafetyRecordService {
     }
 
     // 3. Validate certificate type is GAS_SAFETY
-    if (!"GAS_SAFETY".equals(job.getCertificateType())) {
+    if (!CertificateType.GAS_SAFETY.name().equals(job.getCertificateType())) {
       throw new BusinessException(
           HttpStatus.BAD_REQUEST,
           "INVALID_CERTIFICATE_TYPE",
@@ -174,11 +177,11 @@ public class GasSafetyRecordService {
   private Certificate issueCertificate(final Job job, final GasSafetyRecord record) {
     final Certificate certificate = new Certificate();
     certificate.setCertificateNumber(record.getCertificateNumber());
-    certificate.setCertificateType("GAS_SAFETY");
+    certificate.setCertificateType(CertificateType.GAS_SAFETY.name());
     certificate.setIssuedAt(record.getIssueDate());
     certificate.setExpiryAt(record.getNextInspectionDueOnOrBefore());
-    certificate.setStatus("ACTIVE");
-    certificate.setResult("PASS");
+    certificate.setStatus(CertificateStatus.ACTIVE.name());
+    certificate.setResult(CertificateResult.PASS.name());
     certificate.setJob(job);
     certificate.setProperty(job.getProperty());
     certificate.setIssuedByEngineer(job.getEngineer());
@@ -191,10 +194,10 @@ public class GasSafetyRecordService {
     final UUID propertyId = job.getProperty().getId();
     final List<Certificate> activeCerts =
         certificateRepository.findByPropertyIdAndCertificateTypeAndStatus(
-            propertyId, "GAS_SAFETY", "ACTIVE");
+            propertyId, CertificateType.GAS_SAFETY.name(), CertificateStatus.ACTIVE.name());
     for (final Certificate existing : activeCerts) {
       if (!existing.getId().equals(newCertificate.getId())) {
-        existing.setStatus("SUPERSEDED");
+        existing.setStatus(CertificateStatus.SUPERSEDED.name());
         existing.setSupersededBy(newCertificate);
         existing.setUpdatedAt(OffsetDateTime.now(clock));
         certificateRepository.save(existing);

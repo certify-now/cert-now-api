@@ -9,6 +9,8 @@ import com.uk.certifynow.certify_now.domain.GasSafetyRecord;
 import com.uk.certifynow.certify_now.domain.Property;
 import com.uk.certifynow.certify_now.domain.ShareToken;
 import com.uk.certifynow.certify_now.domain.User;
+import com.uk.certifynow.certify_now.domain.enums.CertificateStatus;
+import com.uk.certifynow.certify_now.domain.enums.CertificateType;
 import com.uk.certifynow.certify_now.events.BeforeDeleteCertificate;
 import com.uk.certifynow.certify_now.repos.CertificateRepository;
 import com.uk.certifynow.certify_now.repos.DocumentRepository;
@@ -132,7 +134,8 @@ public class CustomerCertificateService {
             ? request.customTypeName().trim()
             : request.certType();
 
-    final String status = calculateStatus(request.expiresAt(), "VALID", today);
+    final String status =
+        calculateStatus(request.expiresAt(), CertificateStatus.VALID.name(), today);
 
     final Certificate cert = new Certificate();
     cert.setCertificateType(certType);
@@ -152,21 +155,25 @@ public class CustomerCertificateService {
 
     // Sync the denormalised property fields used by ComplianceService.enrich()
     // so that GET /properties/with-compliance reflects the new certificate immediately.
-    switch (certType) {
-      case "GAS_SAFETY" -> {
-        property.setHasGasCertificate(true);
-        property.setGasExpiryDate(cert.getExpiryAt());
-        property.setCurrentGasCertificate(cert);
+    try {
+      switch (CertificateType.valueOf(certType)) {
+        case GAS_SAFETY -> {
+          property.setHasGasCertificate(true);
+          property.setGasExpiryDate(cert.getExpiryAt());
+          property.setCurrentGasCertificate(cert);
+        }
+        case EICR -> {
+          property.setHasEicr(true);
+          property.setEicrExpiryDate(cert.getExpiryAt());
+          property.setCurrentEicrCertificate(cert);
+        }
+        case EPC -> property.setCurrentEpcCertificate(cert);
+        default -> {
+          // BOILER_SERVICE, etc. — no property-level compliance fields to sync
+        }
       }
-      case "EICR" -> {
-        property.setHasEicr(true);
-        property.setEicrExpiryDate(cert.getExpiryAt());
-        property.setCurrentEicrCertificate(cert);
-      }
-      case "EPC" -> property.setCurrentEpcCertificate(cert);
-      default -> {
-        // CUSTOM, BOILER_SERVICE, etc. — no property-level compliance fields to sync
-      }
+    } catch (final IllegalArgumentException e) {
+      // CUSTOM type — no property-level compliance fields to sync
     }
     propertyRepository.save(property);
 
@@ -301,7 +308,7 @@ public class CustomerCertificateService {
 
     if (cert.getJob() != null) {
       final UUID jobId = cert.getJob().getId();
-      switch (cert.getCertificateType()) {
+      switch (cert.getCertificateType() != null ? cert.getCertificateType() : "") {
         case "GAS_SAFETY" -> {
           final Optional<GasSafetyRecord> record =
               gasSafetyRecordRepository.findByJobIdWithAppliances(jobId);
@@ -344,7 +351,7 @@ public class CustomerCertificateService {
           // PAT or unknown — no inspection summary
         }
       }
-    } else if ("EPC".equals(cert.getCertificateType())) {
+    } else if (CertificateType.EPC.name().equals(cert.getCertificateType())) {
       epcAssessment = new EpcAssessmentSummary(cert.getEpcRating(), cert.getEpcScore(), null, null);
     }
 
@@ -403,7 +410,7 @@ public class CustomerCertificateService {
 
     verifyAccess(cert, requestingUserId, role);
 
-    if ("EPC".equals(cert.getCertificateType())) {
+    if (CertificateType.EPC.name().equals(cert.getCertificateType())) {
       throw new IllegalArgumentException(
           "EPC certificates are not downloadable — use the government EPC register.");
     }
@@ -688,7 +695,7 @@ public class CustomerCertificateService {
     // Gas Safety: required if property has gas supply
     if (Boolean.TRUE.equals(property.getHasGasSupply())) {
       final List<Certificate> allActive =
-          activeCertsByKey.getOrDefault(pid + "|GAS_SAFETY", List.of());
+          activeCertsByKey.getOrDefault(pid + "|" + CertificateType.GAS_SAFETY.name(), List.of());
       final List<Certificate> nonExpired =
           allActive.stream()
               .filter(c -> c.getExpiryAt() == null || !c.getExpiryAt().isBefore(today))
@@ -696,7 +703,7 @@ public class CustomerCertificateService {
       if (nonExpired.isEmpty()) {
         entries.add(
             new MissingEntry(
-                "GAS_SAFETY",
+                CertificateType.GAS_SAFETY.name(),
                 !allActive.isEmpty()
                     ? "Gas safety certificate has expired"
                     : "No gas safety certificate on record",
@@ -715,7 +722,7 @@ public class CustomerCertificateService {
     if (isResidential) {
       final LocalDate epcCutoff = today.minusYears(EPC_MAX_AGE_YEARS);
       final List<Certificate> epcCerts =
-          activeCertsByKey.getOrDefault(pid + "|EPC", List.of()).stream()
+          activeCertsByKey.getOrDefault(pid + "|" + CertificateType.EPC.name(), List.of()).stream()
               .filter(c -> c.getExpiryAt() == null || !c.getExpiryAt().isBefore(today))
               .toList();
       final boolean hasValidEpc =
@@ -724,7 +731,7 @@ public class CustomerCertificateService {
       if (!hasValidEpc) {
         entries.add(
             new MissingEntry(
-                "EPC",
+                CertificateType.EPC.name(),
                 epcCerts.isEmpty()
                     ? "No EPC certificate on record"
                     : "EPC certificate is more than 10 years old",
@@ -736,7 +743,7 @@ public class CustomerCertificateService {
     if (Boolean.TRUE.equals(property.getHasElectric()) && isResidential) {
       final LocalDate eicrCutoff = today.minusYears(EICR_MAX_AGE_YEARS);
       final List<Certificate> eicrCerts =
-          activeCertsByKey.getOrDefault(pid + "|EICR", List.of()).stream()
+          activeCertsByKey.getOrDefault(pid + "|" + CertificateType.EICR.name(), List.of()).stream()
               .filter(c -> c.getExpiryAt() == null || !c.getExpiryAt().isBefore(today))
               .toList();
       final boolean hasValidEicr =
@@ -745,7 +752,7 @@ public class CustomerCertificateService {
       if (!hasValidEicr) {
         entries.add(
             new MissingEntry(
-                "EICR",
+                CertificateType.EICR.name(),
                 eicrCerts.isEmpty()
                     ? "No EICR certificate on record"
                     : "EICR certificate is more than 5 years old",
@@ -757,7 +764,7 @@ public class CustomerCertificateService {
     if ("HMO".equalsIgnoreCase(propertyType) || "COMMERCIAL".equalsIgnoreCase(propertyType)) {
       final LocalDate patCutoff = today.minusYears(PAT_MAX_AGE_YEARS);
       final List<Certificate> patCerts =
-          activeCertsByKey.getOrDefault(pid + "|PAT", List.of()).stream()
+          activeCertsByKey.getOrDefault(pid + "|" + CertificateType.PAT.name(), List.of()).stream()
               .filter(c -> c.getExpiryAt() == null || !c.getExpiryAt().isBefore(today))
               .toList();
       final boolean hasValidPat =
@@ -766,7 +773,7 @@ public class CustomerCertificateService {
       if (!hasValidPat) {
         entries.add(
             new MissingEntry(
-                "PAT",
+                CertificateType.PAT.name(),
                 patCerts.isEmpty()
                     ? "No PAT certificate on record"
                     : "PAT certificate is more than 1 year old",
@@ -779,19 +786,19 @@ public class CustomerCertificateService {
 
   static String calculateStatus(
       final LocalDate expiryAt, final String entityStatus, final LocalDate today) {
-    if ("SUPERSEDED".equals(entityStatus)) {
-      return "SUPERSEDED";
+    if (CertificateStatus.SUPERSEDED.name().equals(entityStatus)) {
+      return CertificateStatus.SUPERSEDED.name();
     }
-    if ("EXPIRED".equals(entityStatus) && expiryAt == null) {
-      return "EXPIRED";
+    if (CertificateStatus.EXPIRED.name().equals(entityStatus) && expiryAt == null) {
+      return CertificateStatus.EXPIRED.name();
     }
     if (expiryAt == null) {
-      return "VALID";
+      return CertificateStatus.VALID.name();
     }
     final long days = ChronoUnit.DAYS.between(today, expiryAt);
-    if (days < 0) return "EXPIRED";
-    if (days <= EXPIRING_SOON_DAYS) return "EXPIRING_SOON";
-    return "VALID";
+    if (days < 0) return CertificateStatus.EXPIRED.name();
+    if (days <= EXPIRING_SOON_DAYS) return CertificateStatus.EXPIRING_SOON.name();
+    return CertificateStatus.VALID.name();
   }
 
   private static Long daysUntilExpiry(final LocalDate expiryAt, final LocalDate today) {
@@ -801,7 +808,7 @@ public class CustomerCertificateService {
 
   private boolean canDownload(
       final Certificate cert, final UUID requestingUserId, final UserRole role) {
-    if ("EPC".equals(cert.getCertificateType())) return false;
+    if (CertificateType.EPC.name().equals(cert.getCertificateType())) return false;
     if (cert.getPrimaryDocument() == null) return false;
     return isOwner(cert, requestingUserId)
         || role.isAdmin()
@@ -816,7 +823,8 @@ public class CustomerCertificateService {
   }
 
   private boolean canRenew(final Certificate cert, final String dynamicStatus) {
-    return "EXPIRED".equals(dynamicStatus) || "EXPIRING_SOON".equals(dynamicStatus);
+    return CertificateStatus.EXPIRED.name().equals(dynamicStatus)
+        || CertificateStatus.EXPIRING_SOON.name().equals(dynamicStatus);
   }
 
   private boolean isOwner(final Certificate cert, final UUID userId) {
@@ -849,7 +857,7 @@ public class CustomerCertificateService {
       final LocalDate today,
       final UUID requestingUserId) {
     final boolean canDl =
-        !"EPC".equals(cert.getCertificateType())
+        !CertificateType.EPC.name().equals(cert.getCertificateType())
             && cert.getPrimaryDocument() != null
             && isOwner(cert, requestingUserId);
     return new CertificateListItemResponse(
@@ -868,7 +876,8 @@ public class CustomerCertificateService {
         buildShareUrl(cert.getShareToken()),
         canDl,
         true,
-        "EXPIRED".equals(dynamicStatus) || "EXPIRING_SOON".equals(dynamicStatus),
+        CertificateStatus.EXPIRED.name().equals(dynamicStatus)
+            || CertificateStatus.EXPIRING_SOON.name().equals(dynamicStatus),
         toEngineerSummary(cert),
         cert.getSupersededBy() != null ? cert.getSupersededBy().getId() : null);
   }
@@ -880,7 +889,7 @@ public class CustomerCertificateService {
         null,
         certificateType,
         toPropertySummary(property),
-        "MISSING",
+        CertificateStatus.MISSING.name(),
         null,
         null,
         null,
@@ -967,29 +976,24 @@ public class CustomerCertificateService {
   }
 
   private static int statusSortOrder(final String status) {
-    return switch (status == null ? "" : status) {
-      case "EXPIRED" -> 0;
-      case "EXPIRING_SOON" -> 1;
-      case "VALID" -> 2;
-      case "MISSING" -> 3;
-      default -> 4;
-    };
+    if (status == null) return 4;
+    if (CertificateStatus.EXPIRED.name().equals(status)) return 0;
+    if (CertificateStatus.EXPIRING_SOON.name().equals(status)) return 1;
+    if (CertificateStatus.VALID.name().equals(status)) return 2;
+    if (CertificateStatus.MISSING.name().equals(status)) return 3;
+    return 4;
   }
 
   private static Meta buildMeta(final List<CertificateListItemResponse> items) {
     int valid = 0, expired = 0, expiringSoon = 0, missing = 0, superseded = 0;
     final Map<String, Integer> byType = new HashMap<>();
     for (final CertificateListItemResponse item : items) {
-      switch (item.status() == null ? "" : item.status()) {
-        case "VALID" -> valid++;
-        case "EXPIRED" -> expired++;
-        case "EXPIRING_SOON" -> expiringSoon++;
-        case "MISSING" -> missing++;
-        case "SUPERSEDED" -> superseded++;
-        default -> {
-          /* unknown */
-        }
-      }
+      final String st = item.status() == null ? "" : item.status();
+      if (CertificateStatus.VALID.name().equals(st)) valid++;
+      else if (CertificateStatus.EXPIRED.name().equals(st)) expired++;
+      else if (CertificateStatus.EXPIRING_SOON.name().equals(st)) expiringSoon++;
+      else if (CertificateStatus.MISSING.name().equals(st)) missing++;
+      else if (CertificateStatus.SUPERSEDED.name().equals(st)) superseded++;
       if (item.certificateType() != null) {
         byType.merge(item.certificateType(), 1, Integer::sum);
       }

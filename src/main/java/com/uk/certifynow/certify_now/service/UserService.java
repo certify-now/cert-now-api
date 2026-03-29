@@ -41,6 +41,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.core.JacksonException;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
@@ -272,8 +273,16 @@ public class UserService {
               : List.of(90, 60, 30);
       dto.setReminderDays(days);
       return dto;
-    } catch (Exception e) {
-      log.warn("Could not parse notificationPrefs JSON, returning defaults: {}", e.getMessage());
+    } catch (JacksonException e) {
+      log.warn(
+          "Could not parse notificationPrefs JSON (malformed input), returning defaults: {}",
+          e.getMessage());
+      return new NotificationPrefsDTO(
+          Boolean.TRUE, Boolean.TRUE, Boolean.FALSE, List.of(90, 60, 30));
+    } catch (ClassCastException e) {
+      log.warn(
+          "Could not parse notificationPrefs JSON (unexpected value types), returning defaults: {}",
+          e.getMessage());
       return new NotificationPrefsDTO(
           Boolean.TRUE, Boolean.TRUE, Boolean.FALSE, List.of(90, 60, 30));
     }

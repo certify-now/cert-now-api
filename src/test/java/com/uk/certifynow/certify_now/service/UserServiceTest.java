@@ -31,6 +31,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
+import tools.jackson.databind.ObjectMapper;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
@@ -44,6 +45,8 @@ class UserServiceTest {
   @Mock private RefreshTokenRepository refreshTokenRepository;
   @Mock private ApplicationEventPublisher publisher;
   @Mock private UserMapper userMapper;
+  @Mock private PropertyService propertyService;
+  @Mock private ObjectMapper objectMapper;
 
   private UserService service;
 
@@ -58,7 +61,9 @@ class UserServiceTest {
             refreshTokenRepository,
             publisher,
             userMapper,
-            clock);
+            clock,
+            propertyService,
+            objectMapper);
   }
 
   @Test

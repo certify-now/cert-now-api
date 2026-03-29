@@ -8,6 +8,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -45,6 +46,7 @@ public class AddressLookupService {
   }
 
   /** Returns up to 10 address suggestions for the given free-text query. */
+  @Cacheable(value = "address-autocomplete", key = "T(String).valueOf(#query).trim()")
   public List<AddressSuggestionResponse> autocomplete(final String query) {
     final AutocompleteEnvelope envelope =
         restClient
@@ -67,6 +69,7 @@ public class AddressLookupService {
    * Resolves a suggestion {@code id} (e.g. {@code paf_10093397}) to a full address with UPRN and
    * coordinates.
    */
+  @Cacheable(value = "address-resolve", key = "#id")
   public ResolvedAddressResponse resolve(final String id) {
     final ResolveEnvelope envelope =
         restClient
@@ -103,6 +106,10 @@ public class AddressLookupService {
    * @param postcode raw UK postcode (spaces allowed, case-insensitive)
    * @return lat/lng of the postcode centroid, or {@code null} if the lookup fails
    */
+  @Cacheable(
+      value = "postcode-centroid",
+      key = "T(String).valueOf(#postcode).replaceAll(' ', '')",
+      unless = "#result == null")
   public double[] lookupPostcodeCentroid(final String postcode) {
     try {
       final PostcodeEnvelope envelope =

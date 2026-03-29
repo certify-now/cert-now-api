@@ -6,6 +6,8 @@ import com.uk.certifynow.certify_now.repos.FeatureFlagRepository;
 import com.uk.certifynow.certify_now.util.NotFoundException;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
@@ -18,6 +20,7 @@ public class FeatureFlagService {
     this.featureFlagRepository = featureFlagRepository;
   }
 
+  @Cacheable("feature-flags")
   public List<FeatureFlagDTO> findAll() {
     final List<FeatureFlag> featureFlags = featureFlagRepository.findAll(Sort.by("id"));
     return featureFlags.stream()
@@ -25,6 +28,7 @@ public class FeatureFlagService {
         .toList();
   }
 
+  @Cacheable(value = "feature-flags", key = "#id")
   public FeatureFlagDTO get(final UUID id) {
     return featureFlagRepository
         .findById(id)
@@ -32,12 +36,14 @@ public class FeatureFlagService {
         .orElseThrow(NotFoundException::new);
   }
 
+  @CacheEvict(value = "feature-flags", allEntries = true)
   public UUID create(final FeatureFlagDTO featureFlagDTO) {
     final FeatureFlag featureFlag = new FeatureFlag();
     mapToEntity(featureFlagDTO, featureFlag);
     return featureFlagRepository.save(featureFlag).getId();
   }
 
+  @CacheEvict(value = "feature-flags", allEntries = true)
   public void update(final UUID id, final FeatureFlagDTO featureFlagDTO) {
     final FeatureFlag featureFlag =
         featureFlagRepository.findById(id).orElseThrow(NotFoundException::new);
@@ -45,6 +51,7 @@ public class FeatureFlagService {
     featureFlagRepository.save(featureFlag);
   }
 
+  @CacheEvict(value = "feature-flags", allEntries = true)
   public void delete(final UUID id) {
     final FeatureFlag featureFlag =
         featureFlagRepository.findById(id).orElseThrow(NotFoundException::new);

@@ -8,6 +8,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
@@ -68,6 +69,7 @@ public class EpcLookupService {
    * @return the most recent {@link EpcRecord}, or {@code null} if no EPC was found or the UPRN is
    *     blank
    */
+  @Cacheable(value = "epc-lookup", key = "#uprn", unless = "#result == null")
   public EpcRecord lookup(final String uprn) {
     if (uprn == null || uprn.isBlank()) {
       return null;

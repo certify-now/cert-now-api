@@ -339,7 +339,7 @@ public class UserService {
     refreshTokenRepository.deleteAllByUserId(userId);
 
     final boolean isSelfAction = userId.equals(deletedByUserId);
-    final ActorType actorType = isSelfAction ? ActorType.CUSTOMER : ActorType.ADMIN;
+    final ActorType actorType = isSelfAction ? actorTypeFromRole(user.getRole()) : ActorType.ADMIN;
 
     log.info("User {} soft-deleted by {}", userId, deletedByUserId);
     publisher.publishEvent(new UserSoftDeletedEvent(userId, deletedByUserId, actorType));
@@ -376,10 +376,18 @@ public class UserService {
 
     log.info("User {} restored by {}", userId, restoredByUserId);
     final ActorType actorType =
-        userId.equals(restoredByUserId) ? ActorType.CUSTOMER : ActorType.ADMIN;
+        userId.equals(restoredByUserId) ? actorTypeFromRole(user.getRole()) : ActorType.ADMIN;
     publisher.publishEvent(new UserRestoredEvent(userId, restoredByUserId, actorType));
 
     return userMapper.toDTO(saved);
+  }
+
+  private static ActorType actorTypeFromRole(final UserRole role) {
+    return switch (role) {
+      case CUSTOMER -> ActorType.CUSTOMER;
+      case ENGINEER -> ActorType.ENGINEER;
+      case ADMIN -> ActorType.ADMIN;
+    };
   }
 
   private void cascadeSoftDeleteProfile(

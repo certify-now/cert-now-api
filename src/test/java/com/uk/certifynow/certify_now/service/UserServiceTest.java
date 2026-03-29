@@ -20,7 +20,6 @@ import com.uk.certifynow.certify_now.service.auth.UserStatus;
 import com.uk.certifynow.certify_now.service.mappers.UserMapper;
 import com.uk.certifynow.certify_now.util.TestConstants;
 import com.uk.certifynow.certify_now.util.TestUserBuilder;
-import tools.jackson.databind.ObjectMapper;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.Optional;
@@ -32,6 +31,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
+import tools.jackson.databind.ObjectMapper;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {

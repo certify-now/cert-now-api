@@ -14,10 +14,6 @@ import com.uk.certifynow.certify_now.domain.Job;
 import com.uk.certifynow.certify_now.domain.JobMatchLog;
 import com.uk.certifynow.certify_now.domain.Property;
 import com.uk.certifynow.certify_now.domain.User;
-import org.locationtech.jts.geom.Coordinate;
-import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.Point;
-import org.locationtech.jts.geom.PrecisionModel;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.repos.EngineerProfileRepository;
 import com.uk.certifynow.certify_now.repos.JobMatchLogRepository;
@@ -39,6 +35,10 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.PrecisionModel;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
@@ -322,8 +322,7 @@ class MatchingServiceTest {
   // ─── Helpers ──────────────────────────────────────────────────────────────────
 
   private static Point makePoint(final double lng, final double lat) {
-    return new GeometryFactory(new PrecisionModel(), 4326)
-        .createPoint(new Coordinate(lng, lat));
+    return new GeometryFactory(new PrecisionModel(), 4326).createPoint(new Coordinate(lng, lat));
   }
 
   private EngineerProfile buildEngineerProfile(final User user, final int maxDailyJobs) {

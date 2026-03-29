@@ -12,6 +12,7 @@ import com.uk.certifynow.certify_now.domain.Job;
 import com.uk.certifynow.certify_now.domain.Property;
 import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.repos.JobRepository;
+import com.uk.certifynow.certify_now.service.job.JobStatus;
 import com.uk.certifynow.certify_now.service.matching.MatchingService;
 import com.uk.certifynow.certify_now.util.TestConstants;
 import com.uk.certifynow.certify_now.util.TestJobBuilder;
@@ -62,7 +63,8 @@ class MatchingSchedulerTest {
     final Job job2 = TestJobBuilder.buildCreated(customer, property);
 
     final Page<Job> page = new PageImpl<>(List.of(job1, job2));
-    when(jobRepository.findByStatusAndBroadcastAtIsNull(eq("CREATED"), any(Pageable.class)))
+    when(jobRepository.findByStatusAndBroadcastAtIsNull(
+            eq(JobStatus.CREATED.name()), any(Pageable.class)))
         .thenReturn(page)
         .thenReturn(Page.empty());
 
@@ -100,11 +102,11 @@ class MatchingSchedulerTest {
     final User engineer = TestUserBuilder.buildActiveEngineer();
     final Property property = TestPropertyBuilder.buildWithGas(customer);
     final Job job = TestJobBuilder.buildCreated(customer, property);
-    job.setStatus("AWAITING_ACCEPTANCE");
+    job.setStatus(JobStatus.AWAITING_ACCEPTANCE.name());
 
     final Page<Job> page = new PageImpl<>(List.of(job));
     when(jobRepository.findByStatusAndBroadcastAtBefore(
-            eq("AWAITING_ACCEPTANCE"), any(), any(Pageable.class)))
+            eq(JobStatus.AWAITING_ACCEPTANCE.name()), any(), any(Pageable.class)))
         .thenReturn(page)
         .thenReturn(Page.empty());
 

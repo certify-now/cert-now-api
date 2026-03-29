@@ -4,6 +4,7 @@ import com.uk.certifynow.certify_now.domain.Job;
 import com.uk.certifynow.certify_now.domain.Payment;
 import com.uk.certifynow.certify_now.domain.Property;
 import com.uk.certifynow.certify_now.domain.User;
+import com.uk.certifynow.certify_now.domain.enums.CertificateType;
 import com.uk.certifynow.certify_now.events.job.JobCreatedEvent;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.exception.EntityNotFoundException;
@@ -95,7 +96,8 @@ public class JobCreationService {
 
     // 3. Business validation: gas safety requires gas supply
     final String certType = request.certificateType();
-    if ("GAS_SAFETY".equals(certType) && !Boolean.TRUE.equals(property.getHasGasSupply())) {
+    if (CertificateType.GAS_SAFETY.name().equals(certType)
+        && !Boolean.TRUE.equals(property.getHasGasSupply())) {
       throw new BusinessException(
           HttpStatus.BAD_REQUEST,
           "NO_GAS_SUPPLY",
@@ -144,7 +146,7 @@ public class JobCreationService {
 
     // 6. Record initial status history (null -> CREATED)
     jobHistoryService.recordHistory(
-        saved, null, JobStatus.CREATED.name(), customerId, "CUSTOMER", null, null);
+        saved, null, JobStatus.CREATED.name(), customerId, ActorType.CUSTOMER.name(), null, null);
 
     // 7. Create stub payment
     final Payment payment = buildPayment(customer, saved, price);

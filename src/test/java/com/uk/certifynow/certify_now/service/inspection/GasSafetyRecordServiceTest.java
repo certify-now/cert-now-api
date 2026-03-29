@@ -7,6 +7,7 @@ import com.uk.certifynow.certify_now.domain.GasSafetyRecord;
 import com.uk.certifynow.certify_now.domain.Job;
 import com.uk.certifynow.certify_now.domain.Property;
 import com.uk.certifynow.certify_now.domain.User;
+import com.uk.certifynow.certify_now.domain.enums.CertificateType;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.repos.CertificateRepository;
 import com.uk.certifynow.certify_now.repos.GasSafetyRecordRepository;
@@ -84,7 +85,7 @@ class GasSafetyRecordServiceTest {
     final User engineer = TestUserBuilder.buildActiveEngineer();
     final Property property = TestPropertyBuilder.buildWithGas(customer);
     final Job job = TestJobBuilder.buildCompleted(customer, property, engineer);
-    job.setCertificateType("EPC");
+    job.setCertificateType(CertificateType.EPC.name());
 
     when(jobRepository.findById(job.getId())).thenReturn(Optional.of(job));
 

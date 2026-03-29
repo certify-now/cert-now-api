@@ -163,7 +163,7 @@ public class JobService {
         JobStatus.MATCHED.name(),
         JobStatus.ACCEPTED.name(),
         engineerId,
-        "ENGINEER",
+        ActorType.ENGINEER.name(),
         null,
         null);
 
@@ -205,7 +205,7 @@ public class JobService {
     return transitionAndPublish(
         jobId,
         engineerId,
-        "ENGINEER",
+        ActorType.ENGINEER.name(),
         JobStatus.EN_ROUTE,
         job -> job.setEnRouteAt(OffsetDateTime.now(clock)));
   }
@@ -234,10 +234,20 @@ public class JobService {
     final Job saved = jobRepository.save(job);
 
     jobHistoryService.recordHistory(
-        saved, prev, JobStatus.IN_PROGRESS.name(), engineerId, "ENGINEER", null, null);
+        saved,
+        prev,
+        JobStatus.IN_PROGRESS.name(),
+        engineerId,
+        ActorType.ENGINEER.name(),
+        null,
+        null);
     publisher.publishEvent(
         new JobStatusChangedEvent(
-            saved.getId(), prev, JobStatus.IN_PROGRESS.name(), engineerId, "ENGINEER"));
+            saved.getId(),
+            prev,
+            JobStatus.IN_PROGRESS.name(),
+            engineerId,
+            ActorType.ENGINEER.name()));
     final Payment payment = paymentRepository.findByJobId(jobId).orElse(null);
     return jobResponseMapper.toJobResponse(saved, payment);
   }
@@ -252,7 +262,7 @@ public class JobService {
     return transitionAndPublish(
         jobId,
         engineerId,
-        "ENGINEER",
+        ActorType.ENGINEER.name(),
         JobStatus.COMPLETED,
         job -> job.setCompletedAt(OffsetDateTime.now(clock)));
   }
@@ -275,10 +285,10 @@ public class JobService {
 
     final UUID engineerId = job.getEngineer() != null ? job.getEngineer().getId() : null;
     jobHistoryService.recordHistory(
-        job, prev, JobStatus.CERTIFIED.name(), engineerId, "SYSTEM", null, null);
+        job, prev, JobStatus.CERTIFIED.name(), engineerId, ActorType.SYSTEM.name(), null, null);
     publisher.publishEvent(
         new JobStatusChangedEvent(
-            job.getId(), prev, JobStatus.CERTIFIED.name(), engineerId, "SYSTEM"));
+            job.getId(), prev, JobStatus.CERTIFIED.name(), engineerId, ActorType.SYSTEM.name()));
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -386,7 +396,7 @@ public class JobService {
       final JobStatus target,
       final Consumer<Job> mutator) {
     final Job job = loadJobOrThrow(jobId);
-    if ("ENGINEER".equals(actorType)) {
+    if (ActorType.ENGINEER.name().equals(actorType)) {
       authoriseEngineer(job, actorId);
     }
     final String prev = job.getStatus();

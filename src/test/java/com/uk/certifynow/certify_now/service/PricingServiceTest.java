@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import com.uk.certifynow.certify_now.domain.PricingModifier;
 import com.uk.certifynow.certify_now.domain.PricingRule;
 import com.uk.certifynow.certify_now.domain.UrgencyMultiplier;
+import com.uk.certifynow.certify_now.domain.enums.CertificateType;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.repos.PricingModifierRepository;
 import com.uk.certifynow.certify_now.repos.PricingRuleRepository;
@@ -59,15 +60,17 @@ class PricingServiceTest {
   @Test
   void calculatePrice_nationalRule_basePriceWithNoModifiers() {
     final PricingRule rule = TestPricingBuilder.buildGasSafetyRule();
-    when(pricingRuleRepository.findActiveByTypeAndRegion("GAS_SAFETY", "SW1A"))
+    when(pricingRuleRepository.findActiveByTypeAndRegion(CertificateType.GAS_SAFETY.name(), "SW1A"))
         .thenReturn(Optional.empty());
-    when(pricingRuleRepository.findNationalDefault("GAS_SAFETY")).thenReturn(Optional.of(rule));
+    when(pricingRuleRepository.findNationalDefault(CertificateType.GAS_SAFETY.name()))
+        .thenReturn(Optional.of(rule));
     when(pricingModifierRepository.findByPricingRuleId(rule.getId())).thenReturn(List.of());
     when(urgencyMultiplierRepository.findActiveByUrgency("STANDARD"))
         .thenReturn(Optional.of(buildUrgencyMultiplier("STANDARD", new BigDecimal("1.000"))));
 
     final PriceBreakdown result =
-        service.calculatePrice("GAS_SAFETY", "SW1A 1AA", "FLAT", 2, 1, null, "STANDARD");
+        service.calculatePrice(
+            CertificateType.GAS_SAFETY.name(), "SW1A 1AA", "FLAT", 2, 1, null, "STANDARD");
 
     assertThat(result.basePricePence()).isEqualTo(9900);
     assertThat(result.propertyModifierPence()).isEqualTo(0);
@@ -82,14 +85,15 @@ class PricingServiceTest {
     final PricingRule national = TestPricingBuilder.buildGasSafetyRule();
     final PricingRule regional = TestPricingBuilder.buildRegionalGasSafetyRule("SW1A");
 
-    when(pricingRuleRepository.findActiveByTypeAndRegion("GAS_SAFETY", "SW1A"))
+    when(pricingRuleRepository.findActiveByTypeAndRegion(CertificateType.GAS_SAFETY.name(), "SW1A"))
         .thenReturn(Optional.of(regional));
     when(pricingModifierRepository.findByPricingRuleId(regional.getId())).thenReturn(List.of());
     when(urgencyMultiplierRepository.findActiveByUrgency("STANDARD"))
         .thenReturn(Optional.of(buildUrgencyMultiplier("STANDARD", new BigDecimal("1.000"))));
 
     final PriceBreakdown result =
-        service.calculatePrice("GAS_SAFETY", "SW1A 1AA", "FLAT", 2, 1, null, "STANDARD");
+        service.calculatePrice(
+            CertificateType.GAS_SAFETY.name(), "SW1A 1AA", "FLAT", 2, 1, null, "STANDARD");
 
     assertThat(result.basePricePence()).isEqualTo(11000);
   }
@@ -101,14 +105,16 @@ class PricingServiceTest {
 
     when(pricingRuleRepository.findActiveByTypeAndRegion(anyString(), any()))
         .thenReturn(Optional.empty());
-    when(pricingRuleRepository.findNationalDefault("GAS_SAFETY")).thenReturn(Optional.of(rule));
+    when(pricingRuleRepository.findNationalDefault(CertificateType.GAS_SAFETY.name()))
+        .thenReturn(Optional.of(rule));
     when(pricingModifierRepository.findByPricingRuleId(rule.getId())).thenReturn(List.of(modifier));
     when(urgencyMultiplierRepository.findActiveByUrgency("STANDARD"))
         .thenReturn(Optional.of(buildUrgencyMultiplier("STANDARD", new BigDecimal("1.000"))));
 
     // 3 bedrooms triggers the modifier (conditionMin=3, conditionMax=5)
     final PriceBreakdown result =
-        service.calculatePrice("GAS_SAFETY", "SW1A 1AA", "FLAT", 3, 1, null, "STANDARD");
+        service.calculatePrice(
+            CertificateType.GAS_SAFETY.name(), "SW1A 1AA", "FLAT", 3, 1, null, "STANDARD");
 
     assertThat(result.propertyModifierPence()).isEqualTo(1000);
     assertThat(result.totalPricePence()).isEqualTo(9900 + 1000);
@@ -121,14 +127,16 @@ class PricingServiceTest {
 
     when(pricingRuleRepository.findActiveByTypeAndRegion(anyString(), any()))
         .thenReturn(Optional.empty());
-    when(pricingRuleRepository.findNationalDefault("GAS_SAFETY")).thenReturn(Optional.of(rule));
+    when(pricingRuleRepository.findNationalDefault(CertificateType.GAS_SAFETY.name()))
+        .thenReturn(Optional.of(rule));
     when(pricingModifierRepository.findByPricingRuleId(rule.getId())).thenReturn(List.of(modifier));
     when(urgencyMultiplierRepository.findActiveByUrgency("STANDARD"))
         .thenReturn(Optional.of(buildUrgencyMultiplier("STANDARD", new BigDecimal("1.000"))));
 
     // 2 appliances triggers the APPLIANCES modifier (conditionMin=2, conditionMax=4)
     final PriceBreakdown result =
-        service.calculatePrice("GAS_SAFETY", "SW1A 1AA", "FLAT", 2, 2, null, "STANDARD");
+        service.calculatePrice(
+            CertificateType.GAS_SAFETY.name(), "SW1A 1AA", "FLAT", 2, 2, null, "STANDARD");
 
     assertThat(result.propertyModifierPence()).isEqualTo(500);
   }
@@ -140,7 +148,8 @@ class PricingServiceTest {
 
     when(pricingRuleRepository.findActiveByTypeAndRegion(anyString(), any()))
         .thenReturn(Optional.empty());
-    when(pricingRuleRepository.findNationalDefault("EPC")).thenReturn(Optional.of(epcRule));
+    when(pricingRuleRepository.findNationalDefault(CertificateType.EPC.name()))
+        .thenReturn(Optional.of(epcRule));
     when(pricingModifierRepository.findByPricingRuleId(epcRule.getId()))
         .thenReturn(List.of(applianceModifier));
     when(urgencyMultiplierRepository.findActiveByUrgency("STANDARD"))
@@ -148,7 +157,8 @@ class PricingServiceTest {
 
     // APPLIANCES modifier should NOT apply for EPC cert type
     final PriceBreakdown result =
-        service.calculatePrice("EPC", "SW1A 1AA", "FLAT", 2, 3, null, "STANDARD");
+        service.calculatePrice(
+            CertificateType.EPC.name(), "SW1A 1AA", "FLAT", 2, 3, null, "STANDARD");
 
     assertThat(result.propertyModifierPence()).isEqualTo(0);
   }
@@ -159,13 +169,15 @@ class PricingServiceTest {
 
     when(pricingRuleRepository.findActiveByTypeAndRegion(anyString(), any()))
         .thenReturn(Optional.empty());
-    when(pricingRuleRepository.findNationalDefault("GAS_SAFETY")).thenReturn(Optional.of(rule));
+    when(pricingRuleRepository.findNationalDefault(CertificateType.GAS_SAFETY.name()))
+        .thenReturn(Optional.of(rule));
     when(pricingModifierRepository.findByPricingRuleId(rule.getId())).thenReturn(List.of());
     when(urgencyMultiplierRepository.findActiveByUrgency("URGENT"))
         .thenReturn(Optional.of(buildUrgencyMultiplier("URGENT", new BigDecimal("1.500"))));
 
     final PriceBreakdown result =
-        service.calculatePrice("GAS_SAFETY", "SW1A 1AA", "FLAT", 2, 1, null, "URGENT");
+        service.calculatePrice(
+            CertificateType.GAS_SAFETY.name(), "SW1A 1AA", "FLAT", 2, 1, null, "URGENT");
 
     assertThat(result.urgencyModifierPence()).isEqualTo(4950); // 9900 * 0.5
     assertThat(result.totalPricePence()).isEqualTo(14850); // 9900 * 1.5
@@ -175,10 +187,13 @@ class PricingServiceTest {
   void calculatePrice_noActivePricingRule_throwsBadRequest() {
     when(pricingRuleRepository.findActiveByTypeAndRegion(anyString(), any()))
         .thenReturn(Optional.empty());
-    when(pricingRuleRepository.findNationalDefault("GAS_SAFETY")).thenReturn(Optional.empty());
+    when(pricingRuleRepository.findNationalDefault(CertificateType.GAS_SAFETY.name()))
+        .thenReturn(Optional.empty());
 
     assertThatThrownBy(
-            () -> service.calculatePrice("GAS_SAFETY", "SW1A 1AA", "FLAT", 2, 1, null, "STANDARD"))
+            () ->
+                service.calculatePrice(
+                    CertificateType.GAS_SAFETY.name(), "SW1A 1AA", "FLAT", 2, 1, null, "STANDARD"))
         .isInstanceOf(BusinessException.class)
         .extracting(e -> ((BusinessException) e).getStatus())
         .isEqualTo(HttpStatus.BAD_REQUEST);
@@ -190,12 +205,17 @@ class PricingServiceTest {
     existing.setEffectiveFrom(LocalDate.of(2025, 1, 1));
     existing.setEffectiveTo(LocalDate.of(2025, 12, 31));
 
-    when(pricingRuleRepository.findByCertificateTypeAndRegion("GAS_SAFETY", null))
+    when(pricingRuleRepository.findByCertificateTypeAndRegion(
+            CertificateType.GAS_SAFETY.name(), null))
         .thenReturn(List.of(existing));
 
     final CreatePricingRuleRequest req =
         new CreatePricingRuleRequest(
-            "GAS_SAFETY", null, 12000, LocalDate.of(2025, 6, 1), LocalDate.of(2025, 8, 31));
+            CertificateType.GAS_SAFETY.name(),
+            null,
+            12000,
+            LocalDate.of(2025, 6, 1),
+            LocalDate.of(2025, 8, 31));
 
     assertThatThrownBy(() -> service.createPricingRule(req))
         .isInstanceOf(BusinessException.class)
@@ -209,12 +229,14 @@ class PricingServiceTest {
     existing.setEffectiveFrom(LocalDate.of(2025, 1, 1));
     existing.setEffectiveTo(null); // open-ended
 
-    when(pricingRuleRepository.findByCertificateTypeAndRegion("GAS_SAFETY", null))
+    when(pricingRuleRepository.findByCertificateTypeAndRegion(
+            CertificateType.GAS_SAFETY.name(), null))
         .thenReturn(List.of(existing));
     when(pricingRuleRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
     final CreatePricingRuleRequest req =
-        new CreatePricingRuleRequest("GAS_SAFETY", null, 12000, LocalDate.of(2026, 1, 1), null);
+        new CreatePricingRuleRequest(
+            CertificateType.GAS_SAFETY.name(), null, 12000, LocalDate.of(2026, 1, 1), null);
 
     service.createPricingRule(req);
 

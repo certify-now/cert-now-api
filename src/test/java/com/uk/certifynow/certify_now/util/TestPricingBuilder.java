@@ -2,6 +2,7 @@ package com.uk.certifynow.certify_now.util;
 
 import com.uk.certifynow.certify_now.domain.PricingModifier;
 import com.uk.certifynow.certify_now.domain.PricingRule;
+import com.uk.certifynow.certify_now.domain.enums.CertificateType;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -14,15 +15,15 @@ public final class TestPricingBuilder {
   private TestPricingBuilder() {}
 
   public static PricingRule buildGasSafetyRule() {
-    return buildRule("GAS_SAFETY", null, 9900);
+    return buildRule(CertificateType.GAS_SAFETY.name(), null, 9900);
   }
 
   public static PricingRule buildEpcRule() {
-    return buildRule("EPC", null, 14900);
+    return buildRule(CertificateType.EPC.name(), null, 14900);
   }
 
   public static PricingRule buildRegionalGasSafetyRule(final String region) {
-    return buildRule("GAS_SAFETY", region, 11000);
+    return buildRule(CertificateType.GAS_SAFETY.name(), region, 11000);
   }
 
   public static PricingModifier buildBedroomModifier(final PricingRule rule) {

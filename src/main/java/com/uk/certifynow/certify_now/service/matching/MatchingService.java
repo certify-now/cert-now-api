@@ -186,7 +186,7 @@ public class MatchingService {
       matchLog.setEngineer(ep.getUser());
       matchLog.setNotifiedAt(now);
       matchLog.setCreatedAt(now);
-      matchLog.setResponse("PENDING");
+      matchLog.setResponse(MatchLogResponse.PENDING.name());
       // Distance calculation would require PostGIS — left as null for now
       matchLogs.add(matchLog);
     }
@@ -245,7 +245,7 @@ public class MatchingService {
 
     // Update match log for the claiming engineer
     matchLog.setRespondedAt(now);
-    matchLog.setResponse("ACCEPTED");
+    matchLog.setResponse(MatchLogResponse.ACCEPTED.name());
     matchLogRepository.save(matchLog);
 
     // Expire all other pending match log entries
@@ -278,7 +278,7 @@ public class MatchingService {
     log.warn("Escalating job {} — no engineer accepted within timeout", job.getId());
 
     final OffsetDateTime now = OffsetDateTime.now(clock);
-    job.setStatus("ESCALATED");
+    job.setStatus(JobStatus.ESCALATED.name());
     job.setEscalatedAt(now);
     job.setLastAdminAlertAt(now);
     job.setAdminAlertCount(1);
@@ -310,7 +310,7 @@ public class MatchingService {
             .findById(jobRef.getId())
             .orElseThrow(() -> new EntityNotFoundException("Job not found: " + jobRef.getId()));
 
-    if (!"ESCALATED".equals(job.getStatus())) {
+    if (JobStatus.fromString(job.getStatus()) != JobStatus.ESCALATED) {
       log.info(
           "sendEscalationReminderAndRecord: job {} is no longer ESCALATED (status={}) — skipping",
           job.getId(),

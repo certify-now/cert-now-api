@@ -6,6 +6,7 @@ import com.uk.certifynow.certify_now.domain.Job;
 import com.uk.certifynow.certify_now.domain.Payment;
 import com.uk.certifynow.certify_now.domain.Property;
 import com.uk.certifynow.certify_now.domain.User;
+import com.uk.certifynow.certify_now.domain.enums.CertificateType;
 import com.uk.certifynow.certify_now.rest.dto.job.DayAvailability;
 import com.uk.certifynow.certify_now.rest.dto.job.JobResponse;
 import com.uk.certifynow.certify_now.rest.dto.job.JobSummaryResponse;
@@ -46,8 +47,8 @@ class JobResponseMapperTest {
     assertThat(response.propertyId()).isEqualTo(property.getId());
     assertThat(response.engineerId()).isEqualTo(engineer.getId());
     assertThat(response.engineerName()).isEqualTo(engineer.getFullName());
-    assertThat(response.certificateType()).isEqualTo("GAS_SAFETY");
-    assertThat(response.status()).isEqualTo("MATCHED");
+    assertThat(response.certificateType()).isEqualTo(CertificateType.GAS_SAFETY.name());
+    assertThat(response.status()).isEqualTo(JobStatus.MATCHED.name());
     assertThat(response.pricing()).isNotNull();
     assertThat(response.pricing().totalPricePence()).isEqualTo(9900);
   }
@@ -103,7 +104,7 @@ class JobResponseMapperTest {
     final JobSummaryResponse summary = mapper.toJobSummary(job);
 
     assertThat(summary.id()).isEqualTo(job.getId());
-    assertThat(summary.status()).isEqualTo("MATCHED");
+    assertThat(summary.status()).isEqualTo(JobStatus.MATCHED.name());
     assertThat(summary.totalPricePence()).isEqualTo(9900);
     assertThat(summary.engineerName()).isEqualTo(engineer.getFullName());
   }

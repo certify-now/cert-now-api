@@ -10,10 +10,20 @@ package com.uk.certifynow.certify_now.domain.enums;
  *   <li>{@code ACTIVE} — the certificate is valid and in use
  *   <li>{@code EXPIRED} — the certificate's expiry date has passed
  *   <li>{@code SUPERSEDED} — replaced by a newer certificate of the same type
+ *   <li>{@code VALID} — dynamically calculated: certificate has not expired
+ *   <li>{@code EXPIRING_SOON} — dynamically calculated: certificate expires within threshold
+ *   <li>{@code MISSING} — no certificate on record for this obligation
  * </ul>
  */
 public enum CertificateStatus {
   ACTIVE,
   EXPIRED,
-  SUPERSEDED
+  SUPERSEDED,
+  VALID,
+  EXPIRING_SOON,
+  MISSING;
+
+  public static CertificateStatus fromString(final String status) {
+    return valueOf(status.toUpperCase());
+  }
 }

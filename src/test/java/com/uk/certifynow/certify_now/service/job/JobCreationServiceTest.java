@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 
 import com.uk.certifynow.certify_now.domain.Property;
 import com.uk.certifynow.certify_now.domain.User;
+import com.uk.certifynow.certify_now.domain.enums.CertificateType;
 import com.uk.certifynow.certify_now.events.job.JobCreatedEvent;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.interfaces.PricingCalculator;
@@ -84,19 +85,22 @@ class JobCreationServiceTest {
 
     when(userRepository.findById(customer.getId())).thenReturn(Optional.of(customer));
     when(propertyRepository.findById(property.getId())).thenReturn(Optional.of(property));
-    when(pricingCalculator.calculate("GAS_SAFETY", property.getId(), "STANDARD")).thenReturn(price);
+    when(pricingCalculator.calculate(
+            CertificateType.GAS_SAFETY.name(), property.getId(), "STANDARD"))
+        .thenReturn(price);
     when(referenceNumberGenerator.generate()).thenReturn("CN-00000001");
     when(jobRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
     when(paymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
     final CreateJobRequest req =
-        new CreateJobRequest(property.getId(), "GAS_SAFETY", "STANDARD", null, null, null);
+        new CreateJobRequest(
+            property.getId(), CertificateType.GAS_SAFETY.name(), "STANDARD", null, null, null);
 
     final JobResponse response = jobCreationService.createJob(customer.getId(), req);
 
     assertThat(response).isNotNull();
-    assertThat(response.status()).isEqualTo("CREATED");
-    assertThat(response.certificateType()).isEqualTo("GAS_SAFETY");
+    assertThat(response.status()).isEqualTo(JobStatus.CREATED.name());
+    assertThat(response.certificateType()).isEqualTo(CertificateType.GAS_SAFETY.name());
 
     final ArgumentCaptor<JobCreatedEvent> eventCaptor =
         ArgumentCaptor.forClass(JobCreatedEvent.class);
@@ -115,7 +119,8 @@ class JobCreationServiceTest {
     when(propertyRepository.findById(property.getId())).thenReturn(Optional.of(property));
 
     final CreateJobRequest req =
-        new CreateJobRequest(property.getId(), "GAS_SAFETY", null, null, null, null);
+        new CreateJobRequest(
+            property.getId(), CertificateType.GAS_SAFETY.name(), null, null, null, null);
 
     assertThatThrownBy(() -> jobCreationService.createJob(customer.getId(), req))
         .isInstanceOf(AccessDeniedException.class);
@@ -130,7 +135,8 @@ class JobCreationServiceTest {
     when(propertyRepository.findById(property.getId())).thenReturn(Optional.of(property));
 
     final CreateJobRequest req =
-        new CreateJobRequest(property.getId(), "GAS_SAFETY", null, null, null, null);
+        new CreateJobRequest(
+            property.getId(), CertificateType.GAS_SAFETY.name(), null, null, null, null);
 
     assertThatThrownBy(() -> jobCreationService.createJob(customer.getId(), req))
         .isInstanceOf(BusinessException.class)
@@ -146,7 +152,8 @@ class JobCreationServiceTest {
     when(propertyRepository.findById(property.getId())).thenReturn(Optional.of(property));
 
     final CreateJobRequest req =
-        new CreateJobRequest(property.getId(), "GAS_SAFETY", null, null, null, null);
+        new CreateJobRequest(
+            property.getId(), CertificateType.GAS_SAFETY.name(), null, null, null, null);
 
     assertThatThrownBy(() -> jobCreationService.createJob(customer.getId(), req))
         .isInstanceOf(BusinessException.class)
@@ -165,7 +172,8 @@ class JobCreationServiceTest {
         new com.uk.certifynow.certify_now.rest.dto.job.DayAvailability(
             "FUNDAY", List.of("MORNING"));
     final CreateJobRequest req =
-        new CreateJobRequest(property.getId(), "GAS_SAFETY", null, null, null, List.of(badDay));
+        new CreateJobRequest(
+            property.getId(), CertificateType.GAS_SAFETY.name(), null, null, null, List.of(badDay));
 
     assertThatThrownBy(() -> jobCreationService.createJob(customer.getId(), req))
         .isInstanceOf(BusinessException.class)
@@ -186,7 +194,13 @@ class JobCreationServiceTest {
     final var badSlot =
         new com.uk.certifynow.certify_now.rest.dto.job.DayAvailability("MON", List.of("MIDNIGHT"));
     final CreateJobRequest req =
-        new CreateJobRequest(property.getId(), "GAS_SAFETY", null, null, null, List.of(badSlot));
+        new CreateJobRequest(
+            property.getId(),
+            CertificateType.GAS_SAFETY.name(),
+            null,
+            null,
+            null,
+            List.of(badSlot));
 
     assertThatThrownBy(() -> jobCreationService.createJob(customer.getId(), req))
         .isInstanceOf(BusinessException.class)
@@ -214,7 +228,8 @@ class JobCreationServiceTest {
     when(paymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
     final CreateJobRequest req =
-        new CreateJobRequest(property.getId(), "GAS_SAFETY", null, null, null, null);
+        new CreateJobRequest(
+            property.getId(), CertificateType.GAS_SAFETY.name(), null, null, null, null);
 
     final JobResponse response = jobCreationService.createJob(customer.getId(), req);
 

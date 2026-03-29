@@ -10,6 +10,9 @@ import com.uk.certifynow.certify_now.domain.JobStatusHistory;
 import com.uk.certifynow.certify_now.domain.embeddable.ClientDetails;
 import com.uk.certifynow.certify_now.domain.embeddable.EpcPropertyDetails;
 import com.uk.certifynow.certify_now.domain.embeddable.OccupierDetails;
+import com.uk.certifynow.certify_now.domain.enums.CertificateResult;
+import com.uk.certifynow.certify_now.domain.enums.CertificateStatus;
+import com.uk.certifynow.certify_now.domain.enums.CertificateType;
 import com.uk.certifynow.certify_now.events.CertificateIssuedEvent;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.exception.EntityNotFoundException;
@@ -106,7 +109,7 @@ public class EpcInspectionService {
     }
 
     // 3. Validate certificate type is EPC
-    if (!"EPC".equals(job.getCertificateType())) {
+    if (!CertificateType.EPC.name().equals(job.getCertificateType())) {
       throw new BusinessException(
           HttpStatus.BAD_REQUEST,
           "INVALID_CERTIFICATE_TYPE",
@@ -184,11 +187,11 @@ public class EpcInspectionService {
     final String certNumber =
         "EPC-" + job.getReferenceNumber() + "-" + LocalDate.now(clock).getYear();
     certificate.setCertificateNumber(certNumber);
-    certificate.setCertificateType("EPC");
+    certificate.setCertificateType(CertificateType.EPC.name());
     certificate.setIssuedAt(LocalDate.now(clock));
     certificate.setExpiryAt(LocalDate.now(clock).plusYears(10));
-    certificate.setStatus("ACTIVE");
-    certificate.setResult("PASS");
+    certificate.setStatus(CertificateStatus.ACTIVE.name());
+    certificate.setResult(CertificateResult.PASS.name());
     certificate.setJob(job);
     certificate.setProperty(job.getProperty());
     certificate.setIssuedByEngineer(job.getEngineer());
@@ -201,10 +204,10 @@ public class EpcInspectionService {
     final UUID propertyId = job.getProperty().getId();
     final List<Certificate> activeCerts =
         certificateRepository.findByPropertyIdAndCertificateTypeAndStatus(
-            propertyId, "EPC", "ACTIVE");
+            propertyId, CertificateType.EPC.name(), CertificateStatus.ACTIVE.name());
     for (final Certificate existing : activeCerts) {
       if (!existing.getId().equals(newCertificate.getId())) {
-        existing.setStatus("SUPERSEDED");
+        existing.setStatus(CertificateStatus.SUPERSEDED.name());
         existing.setSupersededBy(newCertificate);
         existing.setUpdatedAt(OffsetDateTime.now(clock));
         certificateRepository.save(existing);

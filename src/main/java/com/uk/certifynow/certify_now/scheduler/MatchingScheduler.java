@@ -2,6 +2,7 @@ package com.uk.certifynow.certify_now.scheduler;
 
 import com.uk.certifynow.certify_now.domain.Job;
 import com.uk.certifynow.certify_now.repos.JobRepository;
+import com.uk.certifynow.certify_now.service.job.JobStatus;
 import com.uk.certifynow.certify_now.service.matching.MatchingService;
 import java.time.Clock;
 import java.time.OffsetDateTime;
@@ -57,7 +58,8 @@ public class MatchingScheduler {
     Page<Job> page;
     do {
       page =
-          jobRepository.findByStatusAndBroadcastAtIsNull("CREATED", PageRequest.of(0, BATCH_SIZE));
+          jobRepository.findByStatusAndBroadcastAtIsNull(
+              JobStatus.CREATED.name(), PageRequest.of(0, BATCH_SIZE));
       if (page.isEmpty()) {
         return;
       }
@@ -95,7 +97,7 @@ public class MatchingScheduler {
     do {
       page =
           jobRepository.findByStatusAndBroadcastAtBefore(
-              "AWAITING_ACCEPTANCE", cutoff, PageRequest.of(0, BATCH_SIZE));
+              JobStatus.AWAITING_ACCEPTANCE.name(), cutoff, PageRequest.of(0, BATCH_SIZE));
       if (page.isEmpty()) {
         return;
       }

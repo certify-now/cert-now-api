@@ -47,21 +47,24 @@ public class BookingService {
       switch (CertificateType.valueOf(item.type())) {
         case GAS_SAFETY -> {
           overdue =
-              countStatus(properties, "gasStatus", "EXPIRED")
-                  + countStatus(properties, "gasStatus", "MISSING");
-          expiringSoon = countStatus(properties, "gasStatus", "EXPIRING_SOON");
+              countStatus(properties, "gasStatus", ComplianceStatus.EXPIRED.name())
+                  + countStatus(properties, "gasStatus", ComplianceStatus.MISSING.name());
+          expiringSoon =
+              countStatus(properties, "gasStatus", ComplianceStatus.EXPIRING_SOON.name());
         }
         case EICR -> {
           overdue =
-              countStatus(properties, "eicrStatus", "EXPIRED")
-                  + countStatus(properties, "eicrStatus", "MISSING");
-          expiringSoon = countStatus(properties, "eicrStatus", "EXPIRING_SOON");
+              countStatus(properties, "eicrStatus", ComplianceStatus.EXPIRED.name())
+                  + countStatus(properties, "eicrStatus", ComplianceStatus.MISSING.name());
+          expiringSoon =
+              countStatus(properties, "eicrStatus", ComplianceStatus.EXPIRING_SOON.name());
         }
         case EPC -> {
           overdue =
-              countStatus(properties, "epcStatus", "EXPIRED")
-                  + countStatus(properties, "epcStatus", "MISSING");
-          expiringSoon = countStatus(properties, "epcStatus", "EXPIRING_SOON");
+              countStatus(properties, "epcStatus", ComplianceStatus.EXPIRED.name())
+                  + countStatus(properties, "epcStatus", ComplianceStatus.MISSING.name());
+          expiringSoon =
+              countStatus(properties, "epcStatus", ComplianceStatus.EXPIRING_SOON.name());
         }
         default -> {
           overdue = 0;

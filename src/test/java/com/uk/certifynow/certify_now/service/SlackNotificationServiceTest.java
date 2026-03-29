@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.uk.certifynow.certify_now.domain.enums.CertificateType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,7 +31,7 @@ class SlackNotificationServiceTest {
   private static final String WEBHOOK_URL = "https://hooks.slack.com/services/test/url";
   private static final String JOB_ID = "462c218e-63f4-4d7f-972e-da67a613872b";
   private static final String REF = "CN-0042";
-  private static final String CERT_TYPE = "GAS_SAFETY";
+  private static final String CERT_TYPE = CertificateType.GAS_SAFETY.name();
   private static final String URGENCY = "STANDARD";
   private static final int PRICE_PENCE = 7500;
 

@@ -99,7 +99,7 @@ public class EngineerInsuranceService {
     insurance.setExpiryDate(request.expiryDate());
     insurance.setCoverAmountPence(request.coverAmountPence());
     insurance.setDocumentUrl(request.documentUrl());
-    insurance.setVerificationStatus("PENDING");
+    insurance.setVerificationStatus(VerificationStatus.PENDING.name());
     insurance.setCreatedAt(now);
     insurance.setUpdatedAt(now);
     final InsuranceResponse response = toResponse(engineerInsuranceRepository.save(insurance));
@@ -121,6 +121,7 @@ public class EngineerInsuranceService {
   @Transactional
   public InsuranceResponse verifyInsurance(
       final UUID insuranceId, final UUID adminId, final String newStatus) {
+    VerificationStatus.valueOf(newStatus);
     final EngineerInsurance insurance =
         engineerInsuranceRepository.findById(insuranceId).orElseThrow(NotFoundException::new);
     insurance.setVerificationStatus(newStatus);

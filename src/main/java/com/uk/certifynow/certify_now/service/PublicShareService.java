@@ -5,6 +5,8 @@ import com.uk.certifynow.certify_now.domain.Certificate;
 import com.uk.certifynow.certify_now.domain.CertificateDocument;
 import com.uk.certifynow.certify_now.domain.Document;
 import com.uk.certifynow.certify_now.domain.ShareToken;
+import com.uk.certifynow.certify_now.domain.enums.CertificateStatus;
+import com.uk.certifynow.certify_now.domain.enums.CertificateType;
 import com.uk.certifynow.certify_now.repos.ShareTokenRepository;
 import com.uk.certifynow.certify_now.service.ShareRenderService.SharePageModel;
 import com.uk.certifynow.certify_now.service.ShareRenderService.SharePageModel.DocumentLink;
@@ -229,23 +231,27 @@ public class PublicShareService {
 
   private static String friendlyCertType(final String type) {
     if (type == null) return "Certificate";
-    return switch (type) {
-      case "GAS_SAFETY" -> "Gas Safety";
-      case "EICR" -> "EICR";
-      case "EPC" -> "EPC";
-      case "PAT" -> "PAT Testing";
-      case "FIRE_RISK_ASSESSMENT" -> "Fire Risk Assessment";
-      case "BOILER_SERVICE" -> "Boiler Service";
-      case "LEGIONELLA_RISK_ASSESSMENT" -> "Legionella Assessment";
-      default -> type.replace("_", " ");
-    };
+    try {
+      return switch (CertificateType.valueOf(type)) {
+        case GAS_SAFETY -> "Gas Safety";
+        case EICR -> "EICR";
+        case EPC -> "EPC";
+        case PAT -> "PAT Testing";
+        case FIRE_RISK_ASSESSMENT -> "Fire Risk Assessment";
+        case BOILER_SERVICE -> "Boiler Service";
+        case LEGIONELLA_RISK_ASSESSMENT -> "Legionella Assessment";
+      };
+    } catch (final IllegalArgumentException e) {
+      return type.replace("_", " ");
+    }
   }
 
   private static String calculateDisplayStatus(final Certificate cert, final Clock clock) {
-    if (cert.getExpiryAt() == null) return "VALID";
+    if (cert.getExpiryAt() == null) return CertificateStatus.VALID.name();
     final java.time.LocalDate today = java.time.LocalDate.now(clock);
-    if (cert.getExpiryAt().isBefore(today)) return "EXPIRED";
-    if (cert.getExpiryAt().isBefore(today.plusDays(90))) return "EXPIRING_SOON";
-    return "VALID";
+    if (cert.getExpiryAt().isBefore(today)) return CertificateStatus.EXPIRED.name();
+    if (cert.getExpiryAt().isBefore(today.plusDays(90)))
+      return CertificateStatus.EXPIRING_SOON.name();
+    return CertificateStatus.VALID.name();
   }
 }

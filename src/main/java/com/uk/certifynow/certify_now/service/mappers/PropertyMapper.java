@@ -6,6 +6,7 @@ import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.model.PropertyDTO;
 import com.uk.certifynow.certify_now.rest.dto.property.CreatePropertyRequest;
 import com.uk.certifynow.certify_now.rest.dto.property.UpdatePropertyRequest;
+import com.uk.certifynow.certify_now.service.ComplianceStatus;
 import java.util.UUID;
 import org.mapstruct.AfterMapping;
 import org.mapstruct.Mapper;
@@ -109,7 +110,7 @@ public interface PropertyMapper {
   @AfterMapping
   default void setDefaultComplianceStatus(PropertyDTO dto, @MappingTarget Property property) {
     if (property.getComplianceStatus() == null || property.getComplianceStatus().trim().isEmpty()) {
-      property.setComplianceStatus("PENDING");
+      property.setComplianceStatus(ComplianceStatus.MISSING.name());
     }
   }
 

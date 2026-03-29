@@ -1,5 +1,6 @@
 package com.uk.certifynow.certify_now.events;
 
+import com.uk.certifynow.certify_now.service.job.ActorType;
 import java.util.UUID;
 
 public class EmailVerifiedEvent extends DomainEvent {
@@ -10,7 +11,7 @@ public class EmailVerifiedEvent extends DomainEvent {
 
   public EmailVerifiedEvent(
       final UUID userId, final String email, final Long secondsSinceRegistration) {
-    super(userId, "USER");
+    super(userId, ActorType.CUSTOMER);
     this.userId = userId;
     this.email = email;
     this.secondsSinceRegistration = secondsSinceRegistration;

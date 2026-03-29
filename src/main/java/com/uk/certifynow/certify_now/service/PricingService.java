@@ -1,11 +1,15 @@
 package com.uk.certifynow.certify_now.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.uk.certifynow.certify_now.domain.PricingModifier;
 import com.uk.certifynow.certify_now.domain.PricingRule;
 import com.uk.certifynow.certify_now.domain.Property;
 import com.uk.certifynow.certify_now.domain.UrgencyMultiplier;
+import com.uk.certifynow.certify_now.domain.enums.AuditAction;
+import com.uk.certifynow.certify_now.domain.enums.AuditEntityType;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.exception.EntityNotFoundException;
+import com.uk.certifynow.certify_now.repos.AuditLogRepository;
 import com.uk.certifynow.certify_now.repos.PricingModifierRepository;
 import com.uk.certifynow.certify_now.repos.PricingRuleRepository;
 import com.uk.certifynow.certify_now.repos.PropertyRepository;
@@ -20,6 +24,7 @@ import com.uk.certifynow.certify_now.rest.dto.pricing.PricingRuleResponse;
 import com.uk.certifynow.certify_now.rest.dto.pricing.UpdatePricingRuleRequest;
 import com.uk.certifynow.certify_now.rest.dto.pricing.UpdateUrgencyMultiplierRequest;
 import com.uk.certifynow.certify_now.rest.dto.pricing.UrgencyMultiplierResponse;
+import com.uk.certifynow.certify_now.service.job.ActorType;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
@@ -36,6 +41,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,6 +56,8 @@ public class PricingService {
   private final PricingModifierRepository pricingModifierRepository;
   private final UrgencyMultiplierRepository urgencyMultiplierRepository;
   private final PropertyRepository propertyRepository;
+  private final AuditLogRepository auditLogRepository;
+  private final ObjectMapper objectMapper;
   private final BigDecimal commissionRate;
   private final Clock clock;
 
@@ -57,12 +66,16 @@ public class PricingService {
       final PricingModifierRepository pricingModifierRepository,
       final UrgencyMultiplierRepository urgencyMultiplierRepository,
       final PropertyRepository propertyRepository,
+      final AuditLogRepository auditLogRepository,
+      final ObjectMapper objectMapper,
       @Value("${app.pricing.commission-rate:0.15}") final BigDecimal commissionRate,
       final Clock clock) {
     this.pricingRuleRepository = pricingRuleRepository;
     this.pricingModifierRepository = pricingModifierRepository;
     this.urgencyMultiplierRepository = urgencyMultiplierRepository;
     this.propertyRepository = propertyRepository;
+    this.auditLogRepository = auditLogRepository;
+    this.objectMapper = objectMapper;
     this.commissionRate = commissionRate;
     this.clock = clock;
   }
@@ -379,12 +392,29 @@ public class PricingService {
     rule.setIsActive(true);
     rule.setCreatedAt(OffsetDateTime.now(clock));
 
-    final PricingRuleResponse response = toRuleResponse(pricingRuleRepository.save(rule));
+    final PricingRule saved = pricingRuleRepository.save(rule);
+    final PricingRuleResponse response = toRuleResponse(saved);
     log.info(
         "Pricing rule created for type={} region={} base={}",
         request.certificateType(),
         request.region(),
         request.basePricePence());
+
+    auditLogRepository.save(
+        AuditHelper.build(
+            clock,
+            currentActorId(),
+            ActorType.ADMIN,
+            AuditAction.PRICING_RULE_CREATED,
+            AuditEntityType.PricingRule,
+            saved.getId(),
+            null,
+            toJson(
+                Map.of(
+                    "certificateType", request.certificateType(),
+                    "region", String.valueOf(request.region()),
+                    "basePricePence", request.basePricePence()))));
+
     return response;
   }
 
@@ -399,6 +429,13 @@ public class PricingService {
             .findById(id)
             .orElseThrow(() -> new EntityNotFoundException("Pricing rule not found: " + id));
 
+    final String oldValues =
+        toJson(
+            Map.of(
+                "basePricePence", rule.getBasePricePence(),
+                "region", String.valueOf(rule.getRegion()),
+                "effectiveTo", String.valueOf(rule.getEffectiveTo())));
+
     if (request.basePricePence() != null) {
       rule.setBasePricePence(request.basePricePence());
     }
@@ -410,7 +447,24 @@ public class PricingService {
     }
 
     log.info("Pricing rule {} updated", id);
-    return toRuleResponse(pricingRuleRepository.save(rule));
+    final PricingRule saved = pricingRuleRepository.save(rule);
+
+    auditLogRepository.save(
+        AuditHelper.build(
+            clock,
+            currentActorId(),
+            ActorType.ADMIN,
+            AuditAction.PRICING_RULE_UPDATED,
+            AuditEntityType.PricingRule,
+            id,
+            oldValues,
+            toJson(
+                Map.of(
+                    "basePricePence", saved.getBasePricePence(),
+                    "region", String.valueOf(saved.getRegion()),
+                    "effectiveTo", String.valueOf(saved.getEffectiveTo())))));
+
+    return toRuleResponse(saved);
   }
 
   @Transactional
@@ -516,10 +570,50 @@ public class PricingService {
             .findById(id)
             .orElseThrow(() -> new EntityNotFoundException("Urgency multiplier not found: " + id));
 
+    final String oldValues = toJson(Map.of("multiplier", multiplier.getMultiplier()));
+
     multiplier.setMultiplier(request.multiplier());
 
     log.info("Urgency multiplier {} updated to {}", id, request.multiplier());
-    return toMultiplierResponse(urgencyMultiplierRepository.save(multiplier));
+    final UrgencyMultiplier saved = urgencyMultiplierRepository.save(multiplier);
+
+    auditLogRepository.save(
+        AuditHelper.build(
+            clock,
+            currentActorId(),
+            ActorType.ADMIN,
+            AuditAction.URGENCY_MULTIPLIER_UPDATED,
+            AuditEntityType.UrgencyMultiplier,
+            id,
+            oldValues,
+            toJson(Map.of("multiplier", saved.getMultiplier()))));
+
+    return toMultiplierResponse(saved);
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // AUDIT HELPERS
+  // ═══════════════════════════════════════════════════════
+
+  private UUID currentActorId() {
+    final Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+    if (auth != null && auth.getPrincipal() instanceof String principal) {
+      try {
+        return UUID.fromString(principal);
+      } catch (final IllegalArgumentException ignored) {
+        // principal is not a UUID (e.g. "anonymousUser")
+      }
+    }
+    return null;
+  }
+
+  private String toJson(final Object value) {
+    try {
+      return objectMapper.writeValueAsString(value);
+    } catch (final Exception e) {
+      log.warn("Failed to serialize audit values", e);
+      return null;
+    }
   }
 
   // ═══════════════════════════════════════════════════════

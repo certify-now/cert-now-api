@@ -1,5 +1,6 @@
 package com.uk.certifynow.certify_now.events;
 
+import com.uk.certifynow.certify_now.service.job.ActorType;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -19,7 +20,7 @@ public class EngineerApprovedEvent extends DomainEvent {
       final UUID engineerProfileId,
       final UUID approvedBy,
       final OffsetDateTime approvedAt) {
-    super(approvedBy, "ADMIN");
+    super(approvedBy, ActorType.ADMIN);
     this.engineerUserId = engineerUserId;
     this.engineerProfileId = engineerProfileId;
     this.approvedBy = approvedBy;

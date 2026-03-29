@@ -1,5 +1,6 @@
 package com.uk.certifynow.certify_now.events;
 
+import com.uk.certifynow.certify_now.service.job.ActorType;
 import java.util.UUID;
 
 /**
@@ -12,7 +13,7 @@ public class EngineerWentOnlineEvent extends DomainEvent {
   private final UUID engineerProfileId;
 
   public EngineerWentOnlineEvent(final UUID engineerUserId, final UUID engineerProfileId) {
-    super(engineerUserId, "ENGINEER");
+    super(engineerUserId, ActorType.ENGINEER);
     this.engineerUserId = engineerUserId;
     this.engineerProfileId = engineerProfileId;
   }

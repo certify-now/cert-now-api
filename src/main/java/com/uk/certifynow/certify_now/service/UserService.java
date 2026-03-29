@@ -24,6 +24,7 @@ import com.uk.certifynow.certify_now.repos.RefreshTokenRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
 import com.uk.certifynow.certify_now.service.auth.UserRole;
 import com.uk.certifynow.certify_now.service.auth.UserStatus;
+import com.uk.certifynow.certify_now.service.job.ActorType;
 import com.uk.certifynow.certify_now.service.job.JobStatus;
 import com.uk.certifynow.certify_now.service.mappers.UserMapper;
 import java.time.Clock;
@@ -337,12 +338,14 @@ public class UserService {
     // Invalidate all refresh tokens
     refreshTokenRepository.deleteAllByUserId(userId);
 
-    log.info("User {} soft-deleted by {}", userId, deletedByUserId);
-    publisher.publishEvent(new UserSoftDeletedEvent(userId, deletedByUserId));
+    final boolean isSelfAction = userId.equals(deletedByUserId);
+    final ActorType actorType = isSelfAction ? actorTypeFromRole(user.getRole()) : ActorType.ADMIN;
 
-    final String initiatedBy = userId.equals(deletedByUserId) ? "USER" : "ADMIN";
+    log.info("User {} soft-deleted by {}", userId, deletedByUserId);
+    publisher.publishEvent(new UserSoftDeletedEvent(userId, deletedByUserId, actorType));
     final Long accountAgeInDays =
         user.getCreatedAt() != null ? ChronoUnit.DAYS.between(user.getCreatedAt(), now) : null;
+    final String initiatedBy = isSelfAction ? "USER" : "ADMIN";
     publisher.publishEvent(
         new AccountDeactivatedEvent(
             userId, user.getEmail(), "ACCOUNT_DEACTIVATED", initiatedBy, accountAgeInDays, null));
@@ -372,9 +375,19 @@ public class UserService {
     cascadeRestoreProfile(user, now);
 
     log.info("User {} restored by {}", userId, restoredByUserId);
-    publisher.publishEvent(new UserRestoredEvent(userId, restoredByUserId));
+    final ActorType actorType =
+        userId.equals(restoredByUserId) ? actorTypeFromRole(user.getRole()) : ActorType.ADMIN;
+    publisher.publishEvent(new UserRestoredEvent(userId, restoredByUserId, actorType));
 
     return userMapper.toDTO(saved);
+  }
+
+  private static ActorType actorTypeFromRole(final UserRole role) {
+    return switch (role) {
+      case CUSTOMER -> ActorType.CUSTOMER;
+      case ENGINEER -> ActorType.ENGINEER;
+      case ADMIN -> ActorType.ADMIN;
+    };
   }
 
   private void cascadeSoftDeleteProfile(

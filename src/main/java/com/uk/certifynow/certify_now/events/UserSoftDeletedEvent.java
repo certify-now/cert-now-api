@@ -1,13 +1,22 @@
 package com.uk.certifynow.certify_now.events;
 
+import com.uk.certifynow.certify_now.service.job.ActorType;
 import java.util.UUID;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 @Getter
-@AllArgsConstructor
-public class UserSoftDeletedEvent {
+public class UserSoftDeletedEvent extends DomainEvent {
 
-  private UUID userId;
-  private UUID deletedBy;
+  private final UUID userId;
+  private final UUID deletedBy;
+
+  public UserSoftDeletedEvent(final UUID userId, final UUID deletedBy, final ActorType actorType) {
+    super(deletedBy, actorType);
+    this.userId = userId;
+    this.deletedBy = deletedBy;
+  }
+
+  public UserSoftDeletedEvent(final UUID userId, final UUID deletedBy) {
+    this(userId, deletedBy, ActorType.ADMIN);
+  }
 }

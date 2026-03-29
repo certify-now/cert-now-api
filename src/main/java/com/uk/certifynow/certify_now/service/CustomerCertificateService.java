@@ -50,6 +50,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -103,6 +106,11 @@ public class CustomerCertificateService {
 
   // ── POST /upload ──────────────────────────────────────────────────────────
 
+  @Caching(
+      evict = {
+        @CacheEvict(value = "customer-certificates", allEntries = true),
+        @CacheEvict(value = "my-properties", allEntries = true)
+      })
   @Transactional
   public CertificateListItemResponse uploadCertificate(
       final UUID customerId,
@@ -214,6 +222,7 @@ public class CustomerCertificateService {
 
   // ── GET /my-certificates ─────────────────────────────────────────────────
 
+  @Cacheable(value = "customer-certificates", key = "{#customerId, #filters.hashCode()}")
   @Transactional(readOnly = true)
   public CertificatesListResponse getCustomerCertificates(
       final UUID customerId, final GetCertificatesRequest filters) {
@@ -560,6 +569,11 @@ public class CustomerCertificateService {
 
   // ── DELETE /{id} ─────────────────────────────────────────────────────────
 
+  @Caching(
+      evict = {
+        @CacheEvict(value = "customer-certificates", allEntries = true),
+        @CacheEvict(value = "my-properties", allEntries = true)
+      })
   @Transactional
   public void deleteCertificate(final UUID certId, final UUID customerId) {
     final Certificate cert =
@@ -579,6 +593,11 @@ public class CustomerCertificateService {
 
   // ── PATCH /{id} ───────────────────────────────────────────────────────────
 
+  @Caching(
+      evict = {
+        @CacheEvict(value = "customer-certificates", allEntries = true),
+        @CacheEvict(value = "my-properties", allEntries = true)
+      })
   @Transactional
   public CertificateListItemResponse updateCertificate(
       final UUID certId, final UUID customerId, final UpdateCertificateRequest request) {

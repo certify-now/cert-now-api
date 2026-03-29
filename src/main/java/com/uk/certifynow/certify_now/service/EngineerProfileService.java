@@ -24,6 +24,8 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Page;
@@ -73,6 +75,7 @@ public class EngineerProfileService {
     return engineerProfileRepository.findAll(pageable).map(this::toResponse);
   }
 
+  @Cacheable(value = "engineer-profiles", key = "#profileId")
   @Transactional(readOnly = true)
   public EngineerProfileResponse getProfile(final UUID profileId) {
     final EngineerProfile profile =
@@ -104,6 +107,7 @@ public class EngineerProfileService {
     return savedId;
   }
 
+  @CacheEvict(value = "engineer-profiles", allEntries = true)
   @Transactional
   public void update(final UUID id, final EngineerProfileDTO engineerProfileDTO) {
     final EngineerProfile engineerProfile =
@@ -121,6 +125,7 @@ public class EngineerProfileService {
     log.info("EngineerProfile {} updated", id);
   }
 
+  @CacheEvict(value = "engineer-profiles", allEntries = true)
   @Transactional
   public void delete(final UUID id) {
     final EngineerProfile engineerProfile =
@@ -132,11 +137,13 @@ public class EngineerProfileService {
 
   // -- New business methods (Phase 5) -----------------------------------------
 
+  @Cacheable(value = "engineer-profiles", key = "'user-' + #userId")
   public EngineerProfileResponse getMyProfile(final UUID userId) {
     final EngineerProfile profile = resolveProfileByUserId(userId);
     return toResponse(profile);
   }
 
+  @CacheEvict(value = "engineer-profiles", allEntries = true)
   @Transactional
   public EngineerProfileResponse updateProfile(
       final UUID userId, final UpdateEngineerProfileRequest request) {
@@ -161,6 +168,7 @@ public class EngineerProfileService {
     return toResponse(engineerProfileRepository.save(profile));
   }
 
+  @CacheEvict(value = "engineer-profiles", allEntries = true)
   @Transactional
   public void updateLocation(final UUID userId, final double latitude, final double longitude) {
     final EngineerProfile profile = resolveProfileByUserId(userId);
@@ -174,6 +182,7 @@ public class EngineerProfileService {
     }
   }
 
+  @CacheEvict(value = "engineer-profiles", allEntries = true)
   @Transactional
   public void setOnlineStatus(final UUID userId, final boolean online) {
     final EngineerProfile profile = resolveProfileByUserId(userId);
@@ -195,6 +204,7 @@ public class EngineerProfileService {
     }
   }
 
+  @CacheEvict(value = "engineer-profiles", allEntries = true)
   @Transactional
   public EngineerProfileResponse transitionStatus(
       final UUID profileId, final EngineerApplicationStatus targetStatus, final UUID adminId) {

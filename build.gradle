@@ -47,6 +47,8 @@ dependencies {
     implementation('commons-codec:commons-codec:1.16.0')  // For SHA-256 hashing
     // MinIO Java SDK — S3-compatible object storage (Apache 2.0)
     implementation('io.minio:minio:8.6.0')
+    // Caffeine — high-performance in-process cache with TTL and max-size support
+    implementation('com.github.ben-manes.caffeine:caffeine')
     // PostGIS / Hibernate Spatial — geospatial queries for engineer radius matching
     implementation('org.hibernate.orm:hibernate-spatial')
     implementation('org.locationtech.jts:jts-core:1.19.0')

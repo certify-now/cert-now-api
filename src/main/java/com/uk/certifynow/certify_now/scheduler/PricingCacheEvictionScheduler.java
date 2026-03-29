@@ -11,8 +11,9 @@ import org.springframework.stereotype.Component;
  * Evicts date-sensitive pricing caches at midnight UTC so that rule effectiveFrom / effectiveTo
  * boundaries take effect without requiring an admin write to trigger eviction.
  *
- * <p>Both certificate-types and pricing-calc use CURRENT_DATE in their underlying queries. Without
- * this eviction the ConcurrentMapCacheManager would hold yesterday's results indefinitely.
+ * <p>Both certificate-types and pricing-calc use CURRENT_DATE in their underlying queries. Although
+ * Caffeine TTLs will eventually expire stale entries, this scheduler acts as a safety net to ensure
+ * pricing rules always refresh at midnight regardless of TTL timing.
  */
 @Component
 public class PricingCacheEvictionScheduler {

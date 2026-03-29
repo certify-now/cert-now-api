@@ -22,7 +22,9 @@ import com.uk.certifynow.certify_now.util.ReferencedException;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
@@ -70,7 +72,23 @@ public class EngineerProfileService {
 
   @Transactional(readOnly = true)
   public Page<EngineerProfileResponse> findAllPaginated(final Pageable pageable) {
-    return engineerProfileRepository.findAll(pageable).map(this::toResponse);
+    final Page<EngineerProfile> page = engineerProfileRepository.findAll(pageable);
+    final List<UUID> profileIds = page.getContent().stream().map(EngineerProfile::getId).toList();
+
+    final Map<UUID, Integer> qualificationsCounts =
+        engineerQualificationRepository.countByEngineerProfileIds(profileIds).stream()
+            .collect(Collectors.toMap(row -> (UUID) row[0], row -> ((Long) row[1]).intValue()));
+
+    final Map<UUID, Integer> insuranceCounts =
+        engineerInsuranceRepository.countByEngineerProfileIds(profileIds).stream()
+            .collect(Collectors.toMap(row -> (UUID) row[0], row -> ((Long) row[1]).intValue()));
+
+    return page.map(
+        profile ->
+            toResponse(
+                profile,
+                qualificationsCounts.getOrDefault(profile.getId(), 0),
+                insuranceCounts.getOrDefault(profile.getId(), 0)));
   }
 
   @Transactional(readOnly = true)
@@ -246,6 +264,11 @@ public class EngineerProfileService {
         (int) engineerQualificationRepository.countByEngineerProfileId(profile.getId());
     final int insuranceCount =
         (int) engineerInsuranceRepository.countByEngineerProfileId(profile.getId());
+    return toResponse(profile, qualificationsCount, insuranceCount);
+  }
+
+  private EngineerProfileResponse toResponse(
+      final EngineerProfile profile, final int qualificationsCount, final int insuranceCount) {
     final String availabilitySummary = profile.getIsOnline() ? "Online" : "Offline";
     return new EngineerProfileResponse(
         profile.getId(),

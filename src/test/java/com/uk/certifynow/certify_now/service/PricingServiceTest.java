@@ -4,19 +4,25 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.uk.certifynow.certify_now.domain.AuditLog;
 import com.uk.certifynow.certify_now.domain.PricingModifier;
 import com.uk.certifynow.certify_now.domain.PricingRule;
 import com.uk.certifynow.certify_now.domain.UrgencyMultiplier;
 import com.uk.certifynow.certify_now.domain.enums.CertificateType;
 import com.uk.certifynow.certify_now.exception.BusinessException;
+import com.uk.certifynow.certify_now.repos.AuditLogRepository;
 import com.uk.certifynow.certify_now.repos.PricingModifierRepository;
 import com.uk.certifynow.certify_now.repos.PricingRuleRepository;
 import com.uk.certifynow.certify_now.repos.PropertyRepository;
 import com.uk.certifynow.certify_now.repos.UrgencyMultiplierRepository;
 import com.uk.certifynow.certify_now.rest.dto.pricing.CreatePricingRuleRequest;
 import com.uk.certifynow.certify_now.rest.dto.pricing.PriceBreakdown;
+import com.uk.certifynow.certify_now.rest.dto.pricing.UpdatePricingRuleRequest;
+import com.uk.certifynow.certify_now.rest.dto.pricing.UpdateUrgencyMultiplierRequest;
 import com.uk.certifynow.certify_now.util.TestConstants;
 import com.uk.certifynow.certify_now.util.TestPricingBuilder;
 import java.math.BigDecimal;
@@ -29,6 +35,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
@@ -42,7 +50,10 @@ class PricingServiceTest {
   @Mock private PricingModifierRepository pricingModifierRepository;
   @Mock private UrgencyMultiplierRepository urgencyMultiplierRepository;
   @Mock private PropertyRepository propertyRepository;
+  @Mock private AuditLogRepository auditLogRepository;
+  @Captor private ArgumentCaptor<AuditLog> auditLogCaptor;
 
+  private final ObjectMapper objectMapper = new ObjectMapper();
   private PricingService service;
 
   @BeforeEach
@@ -53,6 +64,8 @@ class PricingServiceTest {
             pricingModifierRepository,
             urgencyMultiplierRepository,
             propertyRepository,
+            auditLogRepository,
+            objectMapper,
             new BigDecimal("0.200"),
             clock);
   }
@@ -242,6 +255,73 @@ class PricingServiceTest {
 
     // Existing rule should be terminated at day before new rule starts
     assertThat(existing.getEffectiveTo()).isEqualTo(LocalDate.of(2025, 12, 31));
+  }
+
+  @Test
+  void createPricingRule_savesAuditLog() {
+    when(pricingRuleRepository.findByCertificateTypeAndRegion(
+            CertificateType.GAS_SAFETY.name(), null))
+        .thenReturn(List.of());
+    when(pricingRuleRepository.save(any()))
+        .thenAnswer(
+            inv -> {
+              final PricingRule r = inv.getArgument(0);
+              if (r.getId() == null) {
+                r.setId(UUID.randomUUID());
+              }
+              return r;
+            });
+
+    final CreatePricingRuleRequest req =
+        new CreatePricingRuleRequest(
+            CertificateType.GAS_SAFETY.name(), null, 9900, LocalDate.of(2026, 1, 1), null);
+
+    service.createPricingRule(req);
+
+    verify(auditLogRepository).save(auditLogCaptor.capture());
+    final AuditLog log = auditLogCaptor.getValue();
+    assertThat(log.getAction()).isEqualTo("PRICING_RULE_CREATED");
+    assertThat(log.getEntityType()).isEqualTo("PricingRule");
+    assertThat(log.getActorType()).isEqualTo("ADMIN");
+    assertThat(log.getNewValues()).contains("GAS_SAFETY");
+    assertThat(log.getOldValues()).isNull();
+  }
+
+  @Test
+  void updatePricingRule_capturesOldAndNewValues() {
+    final PricingRule existing = TestPricingBuilder.buildGasSafetyRule();
+    when(pricingRuleRepository.findById(existing.getId())).thenReturn(Optional.of(existing));
+    when(pricingRuleRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+    final UpdatePricingRuleRequest req = new UpdatePricingRuleRequest(12000, null, null);
+    service.updatePricingRule(existing.getId(), req);
+
+    verify(auditLogRepository).save(auditLogCaptor.capture());
+    final AuditLog log = auditLogCaptor.getValue();
+    assertThat(log.getAction()).isEqualTo("PRICING_RULE_UPDATED");
+    assertThat(log.getEntityType()).isEqualTo("PricingRule");
+    assertThat(log.getOldValues()).contains("9900");
+    assertThat(log.getNewValues()).contains("12000");
+  }
+
+  @Test
+  void updateUrgencyMultiplier_capturesOldAndNewValues() {
+    final UrgencyMultiplier multiplier =
+        buildUrgencyMultiplier("STANDARD", new BigDecimal("1.000"));
+    when(urgencyMultiplierRepository.findById(multiplier.getId()))
+        .thenReturn(Optional.of(multiplier));
+    when(urgencyMultiplierRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+    final UpdateUrgencyMultiplierRequest req =
+        new UpdateUrgencyMultiplierRequest(new BigDecimal("1.500"));
+    service.updateUrgencyMultiplier(multiplier.getId(), req);
+
+    verify(auditLogRepository).save(auditLogCaptor.capture());
+    final AuditLog log = auditLogCaptor.getValue();
+    assertThat(log.getAction()).isEqualTo("URGENCY_MULTIPLIER_UPDATED");
+    assertThat(log.getEntityType()).isEqualTo("UrgencyMultiplier");
+    assertThat(log.getOldValues()).contains("1.000");
+    assertThat(log.getNewValues()).contains("1.500");
   }
 
   private UrgencyMultiplier buildUrgencyMultiplier(

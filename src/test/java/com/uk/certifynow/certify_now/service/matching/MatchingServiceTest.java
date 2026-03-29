@@ -118,20 +118,19 @@ class MatchingServiceTest {
   }
 
   @Test
-  void findCandidates_propertyNoLocation_fallsBackToAllApproved() {
+  void findCandidates_propertyNoLocation_throwsBusinessException() {
     final User customer = TestUserBuilder.buildActiveCustomer();
     final Property property = TestPropertyBuilder.buildWithGas(customer);
     final Job job = TestJobBuilder.buildCreated(customer, property);
 
-    final User engineerUser = TestUserBuilder.buildActiveEngineer();
-    final EngineerProfile ep = buildEngineerProfile(engineerUser, 5);
-
-    when(engineerProfileRepository.findByStatus(EngineerApplicationStatus.APPROVED))
-        .thenReturn(List.of(ep));
-
-    final List<EngineerProfile> candidates = matchingService.findCandidates(job);
-
-    assertThat(candidates).hasSize(1);
+    assertThatThrownBy(() -> matchingService.findCandidates(job))
+        .isInstanceOf(BusinessException.class)
+        .satisfies(
+            e -> {
+              final BusinessException ex = (BusinessException) e;
+              assertThat(ex.getErrorCode()).isEqualTo("GEOCODING_REQUIRED");
+              assertThat(ex.getStatus()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+            });
     verify(engineerProfileRepository, never()).findNearbyApproved(anyDouble(), anyDouble());
   }
 
@@ -141,11 +140,13 @@ class MatchingServiceTest {
   void broadcastToEligible_noCandidates_escalatesImmediately() {
     final User customer = TestUserBuilder.buildActiveCustomer();
     final Property property = TestPropertyBuilder.buildWithGas(customer);
+    property.setCoordinates(makePoint(-0.1278, 51.5074));
     final Job job = TestJobBuilder.buildCreated(customer, property);
 
     when(jobRepository.findByIdWithProperty(job.getId())).thenReturn(Optional.of(job));
-    when(engineerProfileRepository.findByStatus(EngineerApplicationStatus.APPROVED))
+    when(engineerProfileRepository.findNearbyApproved(anyDouble(), anyDouble()))
         .thenReturn(List.of());
+    when(jobRepository.countEngineerJobsTodayBatch(any(), any())).thenReturn(List.of());
     when(jobRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
     matchingService.broadcastToEligible(job);
@@ -157,14 +158,16 @@ class MatchingServiceTest {
   void broadcastToEligible_setsStatusToAwaitingAcceptance_createsMatchLogs() {
     final User customer = TestUserBuilder.buildActiveCustomer();
     final Property property = TestPropertyBuilder.buildWithGas(customer);
+    property.setCoordinates(makePoint(-0.1278, 51.5074));
     final Job job = TestJobBuilder.buildCreated(customer, property);
 
     final User engineerUser = TestUserBuilder.buildActiveEngineer();
     final EngineerProfile ep = buildEngineerProfile(engineerUser, 5);
 
     when(jobRepository.findByIdWithProperty(job.getId())).thenReturn(Optional.of(job));
-    when(engineerProfileRepository.findByStatus(EngineerApplicationStatus.APPROVED))
+    when(engineerProfileRepository.findNearbyApproved(anyDouble(), anyDouble()))
         .thenReturn(List.of(ep));
+    when(jobRepository.countEngineerJobsTodayBatch(any(), any())).thenReturn(List.of());
     when(jobRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
     when(matchLogRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
 

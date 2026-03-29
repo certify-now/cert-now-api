@@ -152,7 +152,14 @@ public class PropertyService {
     property.setOwner(owner);
     property.setIsActive(true);
     property.setComplianceStatus("MISSING");
-    property.setCoordinates(resolveCoordinates(request));
+    final Point coordinates = resolveCoordinates(request);
+    if (coordinates == null) {
+      throw new BusinessException(
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          "GEOCODING_REQUIRED",
+          "Could not resolve coordinates for the property address. Please verify the postcode and try again.");
+    }
+    property.setCoordinates(coordinates);
     final OffsetDateTime now = OffsetDateTime.now(clock);
     property.setCreatedAt(now);
     property.setUpdatedAt(now);
@@ -334,8 +341,7 @@ public class PropertyService {
     }
 
     log.warn(
-        "Could not resolve coordinates for postcode {} — property will be stored without location",
-        request.postcode());
+        "Could not resolve coordinates for postcode {} — geocoding failed", request.postcode());
     return null;
   }
 

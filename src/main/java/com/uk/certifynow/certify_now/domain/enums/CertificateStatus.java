@@ -24,6 +24,13 @@ public enum CertificateStatus {
   MISSING;
 
   public static CertificateStatus fromString(final String status) {
-    return valueOf(status.toUpperCase());
+    if (status == null) {
+      throw new IllegalArgumentException("CertificateStatus value must not be null");
+    }
+    try {
+      return valueOf(status.toUpperCase());
+    } catch (final IllegalArgumentException e) {
+      throw new IllegalArgumentException("Unknown CertificateStatus: " + status);
+    }
   }
 }

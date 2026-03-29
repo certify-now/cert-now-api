@@ -33,16 +33,16 @@ public class MinioDocumentStorageService implements DocumentStorageService {
 
   private static final String PUBLIC_READ_POLICY =
       """
-      {
-        "Version": "2012-10-17",
-        "Statement": [{
-          "Effect": "Allow",
-          "Principal": {"AWS": ["*"]},
-          "Action": ["s3:GetObject"],
-          "Resource": ["arn:aws:s3:::%s/*"]
-        }]
-      }
-      """;
+          {
+            "Version": "2012-10-17",
+            "Statement": [{
+              "Effect": "Allow",
+              "Principal": {"AWS": ["*"]},
+              "Action": ["s3:GetObject"],
+              "Resource": ["arn:aws:s3:::%s/*"]
+            }]
+          }
+          """;
 
   private final MinioClient minioClient;
   private final MinioProperties properties;
@@ -129,9 +129,24 @@ public class MinioDocumentStorageService implements DocumentStorageService {
             GetObjectArgs.builder().bucket(properties.getBucketName()).object(objectKey).build())) {
       return stream.readAllBytes();
     } catch (Exception e) {
-      // MinIO throws ErrorResponseException with code "NoSuchKey" when the object doesn't exist.
-      // We catch broadly here and return null so callers treat it as "not found".
       log.warn("Could not retrieve object from MinIO: url={} error={}", storageUrl, e.getMessage());
+      return null;
+    }
+  }
+
+  /**
+   * Opens a raw MinIO {@link InputStream} without buffering into heap memory. The caller must close
+   * the stream (use try-with-resources).
+   */
+  @Override
+  @Nullable
+  public InputStream streamByUrl(final String storageUrl) {
+    final String objectKey = extractObjectKey(storageUrl);
+    try {
+      return minioClient.getObject(
+          GetObjectArgs.builder().bucket(properties.getBucketName()).object(objectKey).build());
+    } catch (Exception e) {
+      log.warn("Could not open stream from MinIO: url={} error={}", storageUrl, e.getMessage());
       return null;
     }
   }

@@ -1,5 +1,6 @@
 package com.uk.certifynow.certify_now.service.storage;
 
+import java.io.InputStream;
 import java.util.UUID;
 
 /** Abstraction over object storage (MinIO, S3, local filesystem). */
@@ -32,9 +33,24 @@ public interface DocumentStorageService {
   /**
    * Retrieves the raw bytes for a document given its full storage URL.
    *
+   * <p>Prefer {@link #streamByUrl} for download paths to avoid loading the entire file into heap
+   * memory.
+   *
    * @param storageUrl the URL returned by {@link #store} (or persisted in {@code
    *     Document.storageUrl})
    * @return the document bytes, or {@code null} if no document exists at this URL
    */
   byte[] retrieveByUrl(String storageUrl);
+
+  /**
+   * Opens a streaming {@link InputStream} for a document given its full storage URL.
+   *
+   * <p>The caller is responsible for closing the stream (use try-with-resources). Returns {@code
+   * null} if no document exists at this URL.
+   *
+   * @param storageUrl the URL returned by {@link #store} (or persisted in {@code
+   *     Document.storageUrl})
+   * @return an open {@link InputStream} over the document bytes, or {@code null} if not found
+   */
+  InputStream streamByUrl(String storageUrl);
 }

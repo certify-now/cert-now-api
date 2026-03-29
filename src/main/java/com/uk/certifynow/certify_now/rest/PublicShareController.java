@@ -1,13 +1,12 @@
 package com.uk.certifynow.certify_now.rest;
 
 import com.uk.certifynow.certify_now.service.PublicShareService;
-import com.uk.certifynow.certify_now.service.PublicShareService.DocumentResult;
-import com.uk.certifynow.certify_now.service.PublicShareService.DocumentWithMetadata;
+import com.uk.certifynow.certify_now.service.PublicShareService.DocumentMeta;
+import com.uk.certifynow.certify_now.service.PublicShareService.DocumentMetaWithLabel;
 import com.uk.certifynow.certify_now.service.PublicShareService.SharePageResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -23,6 +22,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 @Slf4j
 @RestController
@@ -63,18 +63,34 @@ public class PublicShareController {
           "Public endpoint. Streams a specific document attached to the shared certificate."
               + " The docId must belong to the certificate linked to the token."
               + " Returns 410 Gone if the token is expired or invalid.")
-  public ResponseEntity<byte[]> downloadDocument(
+  public ResponseEntity<StreamingResponseBody> downloadDocument(
       @PathVariable final String token, @PathVariable final UUID docId) {
-    final Optional<DocumentResult> result = publicShareService.resolveDocument(token, docId);
-    if (result.isEmpty()) {
+
+    final Optional<DocumentMeta> metaOpt = publicShareService.resolveDocument(token, docId);
+    if (metaOpt.isEmpty()) {
       return ResponseEntity.status(HttpStatus.GONE).build();
     }
-    final DocumentResult doc = result.get();
-    final HttpHeaders headers = new HttpHeaders();
-    headers.setContentType(MediaType.parseMediaType(doc.mimeType()));
-    headers.setContentDisposition(ContentDisposition.attachment().filename(doc.filename()).build());
-    headers.setContentLength(doc.bytes().length);
-    return new ResponseEntity<>(doc.bytes(), headers, HttpStatus.OK);
+
+    final DocumentMeta meta = metaOpt.get();
+    final HttpHeaders headers = buildDownloadHeaders(meta.mimeType(), meta.filename());
+
+    final StreamingResponseBody body =
+        outputStream -> {
+          try (InputStream in = publicShareService.openDocumentStream(meta.storageUrl())) {
+            if (in == null) {
+              log.warn("Document stream not found in storage: docId={}", docId);
+              return;
+            }
+            in.transferTo(outputStream);
+            log.info(
+                "Shared document streamed: token={} docId={} filename={}",
+                token,
+                docId,
+                meta.filename());
+          }
+        };
+
+    return new ResponseEntity<>(body, headers, HttpStatus.OK);
   }
 
   // ── GET /share/{token}/download ───────────────────────────────────────────
@@ -83,49 +99,76 @@ public class PublicShareController {
   @Operation(
       summary = "Download all shared certificate documents",
       description =
-          "Public endpoint. Downloads a single file directly, or bundles multiple documents into"
-              + " a zip archive. Returns 410 Gone if the token is expired or invalid.")
-  public ResponseEntity<byte[]> downloadAll(@PathVariable final String token) {
-    final Optional<List<DocumentWithMetadata>> result =
+          "Public endpoint. Streams a single file directly, or pipes multiple documents into"
+              + " a zip archive without buffering into heap memory."
+              + " Returns 410 Gone if the token is expired or invalid.")
+  public ResponseEntity<StreamingResponseBody> downloadAll(@PathVariable final String token) {
+
+    final Optional<List<DocumentMetaWithLabel>> metaOpt =
         publicShareService.resolveAllDocuments(token);
-    if (result.isEmpty()) {
+    if (metaOpt.isEmpty()) {
       return ResponseEntity.status(HttpStatus.GONE).build();
     }
 
-    final List<DocumentWithMetadata> docs = result.get();
+    final List<DocumentMetaWithLabel> docs = metaOpt.get();
 
     if (docs.size() == 1) {
-      final DocumentWithMetadata doc = docs.get(0);
-      if (doc.bytes() == null) return ResponseEntity.notFound().build();
-      final HttpHeaders headers = new HttpHeaders();
-      headers.setContentType(MediaType.parseMediaType(doc.mimeType()));
-      headers.setContentDisposition(
-          ContentDisposition.attachment().filename(doc.filename()).build());
-      headers.setContentLength(doc.bytes().length);
-      return new ResponseEntity<>(doc.bytes(), headers, HttpStatus.OK);
+      // Single document — stream directly, no zip needed.
+      final DocumentMetaWithLabel doc = docs.get(0);
+      final HttpHeaders headers = buildDownloadHeaders(doc.mimeType(), doc.filename());
+
+      final StreamingResponseBody body =
+          outputStream -> {
+            try (InputStream in = publicShareService.openDocumentStream(doc.storageUrl())) {
+              if (in == null) {
+                log.warn(
+                    "Document stream not found for single-doc download: token={} url={}",
+                    token,
+                    doc.storageUrl());
+                return;
+              }
+              in.transferTo(outputStream);
+            }
+          };
+
+      return new ResponseEntity<>(body, headers, HttpStatus.OK);
     }
 
-    try {
-      final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-      try (final ZipOutputStream zip = new ZipOutputStream(baos)) {
-        for (final DocumentWithMetadata doc : docs) {
-          if (doc.bytes() == null) continue;
-          zip.putNextEntry(new ZipEntry(doc.filename()));
-          zip.write(doc.bytes());
-          zip.closeEntry();
-        }
-      }
-      final byte[] zipBytes = baos.toByteArray();
-      final String zipName = docs.get(0).certTypeLabel().replace(" ", "_") + "_documents.zip";
-      final HttpHeaders headers = new HttpHeaders();
-      headers.setContentType(MediaType.parseMediaType("application/zip"));
-      headers.setContentDisposition(ContentDisposition.attachment().filename(zipName).build());
-      headers.setContentLength(zipBytes.length);
-      log.info("Shared zip downloaded: token={} docs={}", token, docs.size());
-      return new ResponseEntity<>(zipBytes, headers, HttpStatus.OK);
-    } catch (final IOException e) {
-      log.error("Failed to build zip for token={}", token, e);
-      return ResponseEntity.internalServerError().build();
-    }
+    // Multiple documents — pipe each into a ZipOutputStream as it arrives, so no full zip
+    // accumulates in heap. The Content-Length cannot be known upfront, which is fine for zip.
+    final String zipName = docs.get(0).certTypeLabel().replace(" ", "_") + "_documents.zip";
+    final HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.parseMediaType("application/zip"));
+    headers.setContentDisposition(ContentDisposition.attachment().filename(zipName).build());
+
+    final StreamingResponseBody body =
+        outputStream -> {
+          try (ZipOutputStream zip = new ZipOutputStream(outputStream)) {
+            for (final DocumentMetaWithLabel doc : docs) {
+              try (InputStream in = publicShareService.openDocumentStream(doc.storageUrl())) {
+                if (in == null) {
+                  log.warn(
+                      "Skipping missing document in zip: token={} url={}", token, doc.storageUrl());
+                  continue;
+                }
+                zip.putNextEntry(new ZipEntry(doc.filename()));
+                in.transferTo(zip);
+                zip.closeEntry();
+              }
+            }
+          }
+          log.info("Shared zip streamed: token={} docs={}", token, docs.size());
+        };
+
+    return new ResponseEntity<>(body, headers, HttpStatus.OK);
+  }
+
+  // ── Private helpers ───────────────────────────────────────────────────────
+
+  private static HttpHeaders buildDownloadHeaders(final String mimeType, final String filename) {
+    final HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.parseMediaType(mimeType));
+    headers.setContentDisposition(ContentDisposition.attachment().filename(filename).build());
+    return headers;
   }
 }

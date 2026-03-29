@@ -5,12 +5,12 @@ import com.uk.certifynow.certify_now.domain.Certificate;
 import com.uk.certifynow.certify_now.domain.CertificateDocument;
 import com.uk.certifynow.certify_now.domain.Document;
 import com.uk.certifynow.certify_now.domain.ShareToken;
-import com.uk.certifynow.certify_now.domain.enums.CertificateStatus;
 import com.uk.certifynow.certify_now.domain.enums.CertificateType;
 import com.uk.certifynow.certify_now.repos.ShareTokenRepository;
 import com.uk.certifynow.certify_now.service.ShareRenderService.SharePageModel;
 import com.uk.certifynow.certify_now.service.ShareRenderService.SharePageModel.DocumentLink;
 import com.uk.certifynow.certify_now.service.storage.DocumentStorageService;
+import java.io.InputStream;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -49,8 +49,18 @@ public class PublicShareService {
   /** Result returned when a valid share token is resolved for the share page. */
   public record SharePageResult(boolean expired, String html) {}
 
-  /** Result returned when a document is resolved for download. */
-  public record DocumentResult(byte[] bytes, String mimeType, String filename) {}
+  /**
+   * Metadata returned when a document is resolved for download. No bytes are loaded here — the
+   * controller opens the stream directly via {@link #openDocumentStream}.
+   */
+  public record DocumentMeta(String storageUrl, String mimeType, String filename) {}
+
+  /**
+   * Metadata for one document in a bulk download. No bytes are loaded here — the controller opens
+   * each stream directly via {@link #openDocumentStream}.
+   */
+  public record DocumentMetaWithLabel(
+      String storageUrl, String mimeType, String filename, String certTypeLabel) {}
 
   /**
    * Validates the share token, records an access hit, and renders the HTML page. Returns a result
@@ -82,48 +92,37 @@ public class PublicShareService {
   }
 
   /**
-   * Validates the share token and returns the bytes and metadata for a single document. Returns
-   * empty if the token is expired or the document does not belong to the certificate.
+   * Validates the share token and returns metadata for a single document. Returns empty if the
+   * token is expired or the document does not belong to the certificate. No bytes are loaded.
    */
   @Transactional(readOnly = true)
-  public Optional<DocumentResult> resolveDocument(final String token, final UUID docId) {
+  public Optional<DocumentMeta> resolveDocument(final String token, final UUID docId) {
     final Optional<ShareToken> shareTokenOpt = shareTokenRepository.findByToken(token);
     if (shareTokenOpt.isEmpty() || shareTokenOpt.get().isExpired(clock)) {
       return Optional.empty();
     }
 
     final Certificate cert = shareTokenOpt.get().getCertificate();
-    final Optional<Document> documentOpt =
-        cert.getDocuments().stream()
-            .filter(cd -> cd.getDocument() != null && docId.equals(cd.getDocument().getId()))
-            .map(CertificateDocument::getDocument)
-            .findFirst();
-
-    if (documentOpt.isEmpty()) {
-      return Optional.empty();
-    }
-
-    final Document doc = documentOpt.get();
-    final byte[] bytes = documentStorageService.retrieveByUrl(doc.getStorageUrl());
-    if (bytes == null) {
-      log.warn("Document bytes not found in storage: docId={}", docId);
-      return Optional.empty();
-    }
-
-    final String mimeType =
-        doc.getMimeType() != null ? doc.getMimeType() : "application/octet-stream";
-    final String filename =
-        decodeFilename(doc.getFileName() != null ? doc.getFileName() : "certificate");
-    log.info("Shared document downloaded: token={} docId={} filename={}", token, docId, filename);
-    return Optional.of(new DocumentResult(bytes, mimeType, filename));
+    return cert.getDocuments().stream()
+        .filter(cd -> cd.getDocument() != null && docId.equals(cd.getDocument().getId()))
+        .map(CertificateDocument::getDocument)
+        .findFirst()
+        .map(
+            doc -> {
+              final String mimeType =
+                  doc.getMimeType() != null ? doc.getMimeType() : "application/octet-stream";
+              final String filename =
+                  decodeFilename(doc.getFileName() != null ? doc.getFileName() : "certificate");
+              return new DocumentMeta(doc.getStorageUrl(), mimeType, filename);
+            });
   }
 
   /**
-   * Validates the share token and returns the documents for a bulk download. Returns empty if the
-   * token is expired or there are no documents attached.
+   * Validates the share token and returns metadata for all documents on the certificate. Returns
+   * empty if the token is expired or there are no documents. No bytes are loaded.
    */
   @Transactional(readOnly = true)
-  public Optional<List<DocumentWithMetadata>> resolveAllDocuments(final String token) {
+  public Optional<List<DocumentMetaWithLabel>> resolveAllDocuments(final String token) {
     final Optional<ShareToken> shareTokenOpt = shareTokenRepository.findByToken(token);
     if (shareTokenOpt.isEmpty() || shareTokenOpt.get().isExpired(clock)) {
       return Optional.empty();
@@ -141,26 +140,30 @@ public class PublicShareService {
     }
 
     final String certTypeLabel = friendlyCertType(cert.getCertificateType());
-    final List<DocumentWithMetadata> results =
+    final List<DocumentMetaWithLabel> results =
         docs.stream()
             .map(
                 cd -> {
                   final Document doc = cd.getDocument();
-                  final byte[] bytes = documentStorageService.retrieveByUrl(doc.getStorageUrl());
                   final String mimeType =
                       doc.getMimeType() != null ? doc.getMimeType() : "application/octet-stream";
                   final String filename =
                       decodeFilename(doc.getFileName() != null ? doc.getFileName() : "certificate");
-                  return new DocumentWithMetadata(bytes, mimeType, filename, certTypeLabel);
+                  return new DocumentMetaWithLabel(
+                      doc.getStorageUrl(), mimeType, filename, certTypeLabel);
                 })
             .toList();
 
     return Optional.of(results);
   }
 
-  /** Carries bytes + metadata for a document in a multi-document download response. */
-  public record DocumentWithMetadata(
-      byte[] bytes, String mimeType, String filename, String certTypeLabel) {}
+  /**
+   * Opens a streaming {@link InputStream} for the given storage URL. The caller is responsible for
+   * closing the stream (use try-with-resources). Returns {@code null} if the object is not found.
+   */
+  public InputStream openDocumentStream(final String storageUrl) {
+    return documentStorageService.streamByUrl(storageUrl);
+  }
 
   // ── Private helpers ──────────────────────────────────────────────────────
 
@@ -232,26 +235,17 @@ public class PublicShareService {
   private static String friendlyCertType(final String type) {
     if (type == null) return "Certificate";
     try {
-      return switch (CertificateType.valueOf(type)) {
-        case GAS_SAFETY -> "Gas Safety";
-        case EICR -> "EICR";
-        case EPC -> "EPC";
-        case PAT -> "PAT Testing";
-        case FIRE_RISK_ASSESSMENT -> "Fire Risk Assessment";
-        case BOILER_SERVICE -> "Boiler Service";
-        case LEGIONELLA_RISK_ASSESSMENT -> "Legionella Assessment";
-      };
+      return CertificateType.valueOf(type).getDisplayName();
     } catch (final IllegalArgumentException e) {
       return type.replace("_", " ");
     }
   }
 
   private static String calculateDisplayStatus(final Certificate cert, final Clock clock) {
-    if (cert.getExpiryAt() == null) return CertificateStatus.VALID.name();
+    if (cert.getExpiryAt() == null) return "VALID";
     final java.time.LocalDate today = java.time.LocalDate.now(clock);
-    if (cert.getExpiryAt().isBefore(today)) return CertificateStatus.EXPIRED.name();
-    if (cert.getExpiryAt().isBefore(today.plusDays(90)))
-      return CertificateStatus.EXPIRING_SOON.name();
-    return CertificateStatus.VALID.name();
+    if (cert.getExpiryAt().isBefore(today)) return "EXPIRED";
+    if (cert.getExpiryAt().isBefore(today.plusDays(90))) return "EXPIRING_SOON";
+    return "VALID";
   }
 }

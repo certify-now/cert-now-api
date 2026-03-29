@@ -222,7 +222,7 @@ public class CustomerCertificateService {
 
   // ── GET /my-certificates ─────────────────────────────────────────────────
 
-  @Cacheable(value = "customer-certificates", key = "{#customerId, #filters.hashCode()}")
+  @Cacheable(value = "customer-certificates", key = "{#customerId, #filters}")
   @Transactional(readOnly = true)
   public CertificatesListResponse getCustomerCertificates(
       final UUID customerId, final GetCertificatesRequest filters) {

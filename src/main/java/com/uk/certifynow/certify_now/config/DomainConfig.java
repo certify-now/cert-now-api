@@ -44,6 +44,7 @@ public class DomainConfig {
             buildCache("my-properties", Duration.ofMinutes(2), 500),
             buildCache("customer-certificates", Duration.ofMinutes(2), 500),
             buildCache("users", Duration.ofMinutes(10), 500),
+            buildCache("users_all", Duration.ofMinutes(10), 500),
             buildCache("users_email", Duration.ofMinutes(10), 500),
             buildCache("users_me", Duration.ofMinutes(10), 500),
             buildCache("pricing-calc", Duration.ofHours(24), 1000),

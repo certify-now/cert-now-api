@@ -33,6 +33,7 @@ class DomainConfigCacheTest {
             "my-properties",
             "customer-certificates",
             "users",
+            "users_all",
             "users_email",
             "users_me",
             "pricing-calc",
@@ -50,7 +51,7 @@ class DomainConfigCacheTest {
 
   @Test
   void cacheManager_cacheNamesMatchExpected() {
-    assertThat(cacheManager.getCacheNames()).hasSize(16);
+    assertThat(cacheManager.getCacheNames()).hasSize(17);
   }
 
   @Test

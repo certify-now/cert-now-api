@@ -36,6 +36,7 @@ import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
@@ -230,6 +231,11 @@ public class UserService {
   }
 
   @Transactional
+  @Caching(
+      evict = {
+        @CacheEvict(value = "my-properties", allEntries = true),
+        @CacheEvict(value = "customer-certificates", allEntries = true)
+      })
   public void updateNotificationPrefs(final UUID userId, final UpdateNotificationPrefsRequest req) {
     final CustomerProfile profile = requireCustomerProfile(userId);
     final NotificationPrefsDTO current = parseNotificationPrefs(profile.getNotificationPrefs());
@@ -248,6 +254,25 @@ public class UserService {
     profile.setUpdatedAt(OffsetDateTime.now(clock));
     customerProfileRepository.save(profile);
     log.info("Notification prefs updated for user {}", userId);
+  }
+
+  /**
+   * Resolves the "expiring soon" threshold (in days) from the user's notification preferences.
+   * Returns {@link NotificationPrefsDTO#DEFAULT_EXPIRING_SOON_DAYS} if the profile is missing or
+   * the preferences cannot be parsed.
+   */
+  public int resolveExpiringSoonDays(final UUID userId) {
+    try {
+      final CustomerProfile profile = customerProfileRepository.findFirstByUserId(userId);
+      if (profile == null) {
+        return NotificationPrefsDTO.DEFAULT_EXPIRING_SOON_DAYS;
+      }
+      final NotificationPrefsDTO prefs = parseNotificationPrefs(profile.getNotificationPrefs());
+      return prefs.getExpiringSoonDays();
+    } catch (Exception e) {
+      log.warn("Failed to resolve expiring-soon threshold for user {}: {}", userId, e.getMessage());
+      return NotificationPrefsDTO.DEFAULT_EXPIRING_SOON_DAYS;
+    }
   }
 
   private CustomerProfile requireCustomerProfile(final UUID userId) {
@@ -270,7 +295,7 @@ public class UserService {
       final List<Integer> days =
           raw.containsKey("reminderDays")
               ? (List<Integer>) raw.get("reminderDays")
-              : List.of(90, 60, 30);
+              : List.of(NotificationPrefsDTO.DEFAULT_EXPIRING_SOON_DAYS);
       dto.setReminderDays(days);
       return dto;
     } catch (JacksonException e) {
@@ -278,13 +303,19 @@ public class UserService {
           "Could not parse notificationPrefs JSON (malformed input), returning defaults: {}",
           e.getMessage());
       return new NotificationPrefsDTO(
-          Boolean.TRUE, Boolean.TRUE, Boolean.FALSE, List.of(90, 60, 30));
+          Boolean.TRUE,
+          Boolean.TRUE,
+          Boolean.FALSE,
+          List.of(NotificationPrefsDTO.DEFAULT_EXPIRING_SOON_DAYS));
     } catch (ClassCastException e) {
       log.warn(
           "Could not parse notificationPrefs JSON (unexpected value types), returning defaults: {}",
           e.getMessage());
       return new NotificationPrefsDTO(
-          Boolean.TRUE, Boolean.TRUE, Boolean.FALSE, List.of(90, 60, 30));
+          Boolean.TRUE,
+          Boolean.TRUE,
+          Boolean.FALSE,
+          List.of(NotificationPrefsDTO.DEFAULT_EXPIRING_SOON_DAYS));
     }
   }
 

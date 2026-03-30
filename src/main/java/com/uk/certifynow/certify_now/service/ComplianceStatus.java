@@ -12,7 +12,8 @@ package com.uk.certifynow.certify_now.service;
  *
  * <ul>
  *   <li>{@code COMPLIANT} — certificate is valid and not due soon
- *   <li>{@code EXPIRING_SOON} — certificate expires within 30 days
+ *   <li>{@code EXPIRING_SOON} — certificate expires within the user's configured threshold (default
+ *       60 days)
  *   <li>{@code EXPIRED} — certificate has passed its expiry date
  *   <li>{@code MISSING} — no certificate on record for this obligation
  *   <li>{@code NOT_APPLICABLE} — this obligation does not apply to the property (e.g. gas cert when

@@ -7,9 +7,11 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.uk.certifynow.certify_now.domain.CustomerProfile;
 import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.events.UserSoftDeletedEvent;
 import com.uk.certifynow.certify_now.exception.BusinessException;
+import com.uk.certifynow.certify_now.model.NotificationPrefsDTO;
 import com.uk.certifynow.certify_now.model.UpdateMeRequest;
 import com.uk.certifynow.certify_now.repos.CustomerProfileRepository;
 import com.uk.certifynow.certify_now.repos.EngineerProfileRepository;
@@ -190,5 +192,27 @@ class UserServiceTest {
     assertThat(user.getDeletedAt()).isNull();
     assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
     verify(publisher).publishEvent(any(Object.class));
+  }
+
+  // ── resolveExpiringSoonDays ───────────────────────────────────────────────
+
+  @Test
+  void resolveExpiringSoonDays_noProfile_returnsDefault() {
+    final UUID userId = UUID.randomUUID();
+    when(customerProfileRepository.findFirstByUserId(userId)).thenReturn(null);
+
+    assertThat(service.resolveExpiringSoonDays(userId))
+        .isEqualTo(NotificationPrefsDTO.DEFAULT_EXPIRING_SOON_DAYS);
+  }
+
+  @Test
+  void resolveExpiringSoonDays_nullPrefsJson_returnsDefault() {
+    final UUID userId = UUID.randomUUID();
+    final CustomerProfile profile = new CustomerProfile();
+    profile.setNotificationPrefs(null);
+    when(customerProfileRepository.findFirstByUserId(userId)).thenReturn(profile);
+
+    assertThat(service.resolveExpiringSoonDays(userId))
+        .isEqualTo(NotificationPrefsDTO.DEFAULT_EXPIRING_SOON_DAYS);
   }
 }

@@ -1,7 +1,5 @@
 package com.uk.certifynow.certify_now.service.inspection;
 
-import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.ObjectMapper;
 import com.uk.certifynow.certify_now.domain.Certificate;
 import com.uk.certifynow.certify_now.domain.EpcAssessment;
 import com.uk.certifynow.certify_now.domain.Job;
@@ -47,6 +45,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 @Service
 public class EpcInspectionService {

@@ -1,6 +1,5 @@
 package com.uk.certifynow.certify_now.service;
 
-import tools.jackson.databind.ObjectMapper;
 import com.uk.certifynow.certify_now.domain.PricingModifier;
 import com.uk.certifynow.certify_now.domain.PricingRule;
 import com.uk.certifynow.certify_now.domain.Property;
@@ -45,6 +44,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
 
 @Slf4j
 @Service

@@ -603,6 +603,20 @@ public class CustomerCertificateService {
     // if anything references this certificate.
     eventPublisher.publishEvent(new BeforeDeleteCertificate(certId));
 
+    // Null out any Property.current*Certificate FK that points to this cert
+    // before deletion to avoid TransientPropertyValueException on flush.
+    final List<Property> referencingProperties =
+        propertyRepository.findAllReferencingCertificate(certId);
+    for (final Property p : referencingProperties) {
+      if (cert.equals(p.getCurrentGasCertificate())) p.setCurrentGasCertificate(null);
+      if (cert.equals(p.getCurrentEicrCertificate())) p.setCurrentEicrCertificate(null);
+      if (cert.equals(p.getCurrentEpcCertificate())) p.setCurrentEpcCertificate(null);
+    }
+    if (!referencingProperties.isEmpty()) {
+      propertyRepository.saveAll(referencingProperties);
+    }
+
+    shareTokenRepository.deleteByCertificateId(certId);
     certificateRepository.delete(cert);
     log.info("Certificate deleted: certId={} customerId={}", certId, customerId);
   }

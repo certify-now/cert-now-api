@@ -15,6 +15,13 @@ public interface PropertyRepository extends JpaRepository<Property, UUID> {
 
   Property findFirstByOwnerId(UUID id);
 
+  @Query(
+      "SELECT p FROM Property p WHERE"
+          + " (p.currentGasCertificate IS NOT NULL AND p.currentGasCertificate.id = :certId)"
+          + " OR (p.currentEicrCertificate IS NOT NULL AND p.currentEicrCertificate.id = :certId)"
+          + " OR (p.currentEpcCertificate IS NOT NULL AND p.currentEpcCertificate.id = :certId)")
+  List<Property> findAllReferencingCertificate(@Param("certId") UUID certId);
+
   Page<Property> findByOwnerId(UUID ownerId, Pageable pageable);
 
   Page<Property> findByOwnerIdAndIsActiveTrue(UUID ownerId, Pageable pageable);

@@ -1,6 +1,7 @@
 package com.uk.certifynow.certify_now.exception;
 
 import com.uk.certifynow.certify_now.config.RequestIdFilter;
+import com.uk.certifynow.certify_now.util.ReferencedException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.List;
@@ -24,6 +25,12 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 public class GlobalExceptionHandler {
 
   private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+  @ExceptionHandler(ReferencedException.class)
+  public ResponseEntity<Map<String, Object>> handleReferenced(
+      final ReferencedException ex, final HttpServletRequest request) {
+    return build(request, HttpStatus.CONFLICT, "REFERENCED", ex.getMessage(), List.of());
+  }
 
   @ExceptionHandler(BusinessException.class)
   public ResponseEntity<Map<String, Object>> handleBusiness(

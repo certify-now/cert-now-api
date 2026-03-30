@@ -25,9 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ComplianceService {
 
-  /** Certs expiring within this many days are flagged EXPIRING_SOON. */
-  private static final int EXPIRY_WARNING_DAYS = 30;
-
   private final Clock clock;
 
   public ComplianceService(final Clock clock) {
@@ -45,11 +42,14 @@ public class ComplianceService {
    * @param expiryDate the certificate's expiry date
    */
   public ComplianceStatus computeCertStatus(
-      final Boolean hasSupply, final Boolean hasCert, final LocalDate expiryDate) {
+      final Boolean hasSupply,
+      final Boolean hasCert,
+      final LocalDate expiryDate,
+      final int expiringSoonDays) {
     if (!Boolean.TRUE.equals(hasSupply)) {
       return ComplianceStatus.NOT_APPLICABLE;
     }
-    return computeExpiryStatus(hasCert, expiryDate);
+    return computeExpiryStatus(hasCert, expiryDate, expiringSoonDays);
   }
 
   /**
@@ -58,11 +58,13 @@ public class ComplianceService {
    * @param hasCert whether a certificate is on record
    * @param expiryDate the certificate's expiry date
    */
-  public ComplianceStatus computeEpcStatus(final Boolean hasCert, final LocalDate expiryDate) {
-    return computeExpiryStatus(hasCert, expiryDate);
+  public ComplianceStatus computeEpcStatus(
+      final Boolean hasCert, final LocalDate expiryDate, final int expiringSoonDays) {
+    return computeExpiryStatus(hasCert, expiryDate, expiringSoonDays);
   }
 
-  private ComplianceStatus computeExpiryStatus(final Boolean hasCert, final LocalDate expiryDate) {
+  private ComplianceStatus computeExpiryStatus(
+      final Boolean hasCert, final LocalDate expiryDate, final int expiringSoonDays) {
     if (!Boolean.TRUE.equals(hasCert) || expiryDate == null) {
       return ComplianceStatus.MISSING;
     }
@@ -70,7 +72,7 @@ public class ComplianceService {
     if (expiryDate.isBefore(today)) {
       return ComplianceStatus.EXPIRED;
     }
-    if (expiryDate.isBefore(today.plusDays(EXPIRY_WARNING_DAYS))) {
+    if (expiryDate.isBefore(today.plusDays(expiringSoonDays))) {
       return ComplianceStatus.EXPIRING_SOON;
     }
     return ComplianceStatus.COMPLIANT;
@@ -156,7 +158,7 @@ public class ComplianceService {
    * <p>Gas and EICR are gated by supply flags (NOT_APPLICABLE when the utility is absent). EPC
    * always applies — all UK rental properties require one.
    */
-  public void enrich(final PropertyDTO dto) {
+  public void enrich(final PropertyDTO dto, final int expiringSoonDays) {
     record EnrichSpec(
         Boolean hasSupply,
         Boolean hasCert,
@@ -184,7 +186,7 @@ public class ComplianceService {
 
     for (final EnrichSpec spec : specs) {
       final ComplianceStatus status =
-          computeCertStatus(spec.hasSupply(), spec.hasCert(), spec.expiryDate());
+          computeCertStatus(spec.hasSupply(), spec.hasCert(), spec.expiryDate(), expiringSoonDays);
       spec.statusSetter().accept(dto, status.name());
       spec.daysSetter().accept(dto, computeDaysUntilExpiry(status, spec.expiryDate()));
       if (spec.statusSetter() == (BiConsumer<PropertyDTO, String>) PropertyDTO::setGasStatus) {
@@ -208,7 +210,7 @@ public class ComplianceService {
     final ComplianceStatus epcStatus =
         (!hasEpcCert || dto.getEpcExpiryDate() == null)
             ? ComplianceStatus.EXPIRED
-            : computeEpcStatus(true, dto.getEpcExpiryDate());
+            : computeEpcStatus(true, dto.getEpcExpiryDate(), expiringSoonDays);
     dto.setEpcStatus(epcStatus.name());
     dto.setEpcDaysUntilExpiry(computeDaysUntilExpiry(epcStatus, dto.getEpcExpiryDate()));
 
@@ -220,7 +222,7 @@ public class ComplianceService {
 
   /**
    * Computes the aggregate ComplianceHealthDTO from an already-enriched list of properties. Expects
-   * {@link #enrich(PropertyDTO)} to have been called on each DTO first.
+   * {@link #enrich(PropertyDTO, int)} to have been called on each DTO first.
    */
   public ComplianceHealthDTO computeHealth(final List<PropertyDTO> properties) {
     int total = properties.size();

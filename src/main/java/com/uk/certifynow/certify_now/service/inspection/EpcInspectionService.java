@@ -4,6 +4,7 @@ import com.uk.certifynow.certify_now.domain.Certificate;
 import com.uk.certifynow.certify_now.domain.EpcAssessment;
 import com.uk.certifynow.certify_now.domain.Job;
 import com.uk.certifynow.certify_now.domain.JobStatusHistory;
+import com.uk.certifynow.certify_now.domain.Property;
 import com.uk.certifynow.certify_now.domain.embeddable.ClientDetails;
 import com.uk.certifynow.certify_now.domain.embeddable.EpcPropertyDetails;
 import com.uk.certifynow.certify_now.domain.embeddable.OccupierDetails;
@@ -17,6 +18,7 @@ import com.uk.certifynow.certify_now.repos.CertificateRepository;
 import com.uk.certifynow.certify_now.repos.EpcAssessmentRepository;
 import com.uk.certifynow.certify_now.repos.JobRepository;
 import com.uk.certifynow.certify_now.repos.JobStatusHistoryRepository;
+import com.uk.certifynow.certify_now.repos.PropertyRepository;
 import com.uk.certifynow.certify_now.rest.dto.inspection.EpcBookingDetailsRequest;
 import com.uk.certifynow.certify_now.rest.dto.inspection.EpcClientDetailsRequest;
 import com.uk.certifynow.certify_now.rest.dto.inspection.EpcDocumentsRequest;
@@ -40,6 +42,7 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
@@ -58,6 +61,7 @@ public class EpcInspectionService {
   private final JobRepository jobRepository;
   private final CertificateRepository certificateRepository;
   private final JobStatusHistoryRepository historyRepository;
+  private final PropertyRepository propertyRepository;
   private final ApplicationEventPublisher publisher;
   private final Clock clock;
   private final JobService jobService;
@@ -68,6 +72,7 @@ public class EpcInspectionService {
       final JobRepository jobRepository,
       final CertificateRepository certificateRepository,
       final JobStatusHistoryRepository historyRepository,
+      final PropertyRepository propertyRepository,
       final ApplicationEventPublisher publisher,
       final Clock clock,
       final JobService jobService) {
@@ -76,6 +81,7 @@ public class EpcInspectionService {
     this.jobRepository = jobRepository;
     this.certificateRepository = certificateRepository;
     this.historyRepository = historyRepository;
+    this.propertyRepository = propertyRepository;
     this.publisher = publisher;
     this.clock = clock;
     this.jobService = jobService;
@@ -85,7 +91,12 @@ public class EpcInspectionService {
   // SUBMIT
   // ────────────────────────────────────────────────────────────────────────────
 
-  @CacheEvict(value = "jobs", key = "#jobId")
+  @Caching(
+      evict = {
+        @CacheEvict(value = "jobs", key = "#jobId"),
+        @CacheEvict(value = "customer-certificates", allEntries = true),
+        @CacheEvict(value = "my-properties", allEntries = true)
+      })
   @Transactional
   public EpcRecordResponse submitEpcRecord(
       final UUID jobId, final UUID engineerId, final EpcRecordRequest request) {
@@ -195,7 +206,15 @@ public class EpcInspectionService {
     certificate.setIssuedByEngineer(job.getEngineer());
     certificate.setCreatedAt(OffsetDateTime.now(clock));
     certificate.setUpdatedAt(OffsetDateTime.now(clock));
-    return certificateRepository.save(certificate);
+    final Certificate saved = certificateRepository.save(certificate);
+
+    // Sync denormalised property fields so GET /properties/with-compliance
+    // reflects the new EPC certificate immediately.
+    final Property property = job.getProperty();
+    property.setCurrentEpcCertificate(saved);
+    propertyRepository.save(property);
+
+    return saved;
   }
 
   private void supersedePreviousCertificates(final Job job, final Certificate newCertificate) {

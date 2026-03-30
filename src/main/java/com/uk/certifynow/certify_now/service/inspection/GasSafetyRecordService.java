@@ -4,6 +4,7 @@ import com.uk.certifynow.certify_now.domain.Certificate;
 import com.uk.certifynow.certify_now.domain.GasSafetyAppliance;
 import com.uk.certifynow.certify_now.domain.GasSafetyRecord;
 import com.uk.certifynow.certify_now.domain.Job;
+import com.uk.certifynow.certify_now.domain.Property;
 import com.uk.certifynow.certify_now.domain.enums.CertificateResult;
 import com.uk.certifynow.certify_now.domain.enums.CertificateStatus;
 import com.uk.certifynow.certify_now.domain.enums.CertificateType;
@@ -13,6 +14,7 @@ import com.uk.certifynow.certify_now.exception.EntityNotFoundException;
 import com.uk.certifynow.certify_now.repos.CertificateRepository;
 import com.uk.certifynow.certify_now.repos.GasSafetyRecordRepository;
 import com.uk.certifynow.certify_now.repos.JobRepository;
+import com.uk.certifynow.certify_now.repos.PropertyRepository;
 import com.uk.certifynow.certify_now.rest.dto.inspection.GasSafetyRecordRequest;
 import com.uk.certifynow.certify_now.rest.dto.inspection.GasSafetyRecordResponse;
 import com.uk.certifynow.certify_now.service.job.JobService;
@@ -24,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
@@ -36,6 +39,7 @@ public class GasSafetyRecordService {
   private final GasSafetyRecordRepository gasSafetyRecordRepository;
   private final JobRepository jobRepository;
   private final CertificateRepository certificateRepository;
+  private final PropertyRepository propertyRepository;
   private final ApplicationEventPublisher publisher;
   private final Clock clock;
   private final JobService jobService;
@@ -45,6 +49,7 @@ public class GasSafetyRecordService {
       final GasSafetyRecordRepository gasSafetyRecordRepository,
       final JobRepository jobRepository,
       final CertificateRepository certificateRepository,
+      final PropertyRepository propertyRepository,
       final ApplicationEventPublisher publisher,
       final Clock clock,
       final JobService jobService,
@@ -52,13 +57,19 @@ public class GasSafetyRecordService {
     this.gasSafetyRecordRepository = gasSafetyRecordRepository;
     this.jobRepository = jobRepository;
     this.certificateRepository = certificateRepository;
+    this.propertyRepository = propertyRepository;
     this.publisher = publisher;
     this.clock = clock;
     this.jobService = jobService;
     this.gasSafetyRecordMapper = gasSafetyRecordMapper;
   }
 
-  @CacheEvict(value = "jobs", key = "#jobId")
+  @Caching(
+      evict = {
+        @CacheEvict(value = "jobs", key = "#jobId"),
+        @CacheEvict(value = "customer-certificates", allEntries = true),
+        @CacheEvict(value = "my-properties", allEntries = true)
+      })
   @Transactional
   public GasSafetyRecordResponse submitGasSafetyRecord(
       final UUID jobId, final UUID engineerId, final GasSafetyRecordRequest request) {
@@ -187,7 +198,17 @@ public class GasSafetyRecordService {
     certificate.setIssuedByEngineer(job.getEngineer());
     certificate.setCreatedAt(OffsetDateTime.now(clock));
     certificate.setUpdatedAt(OffsetDateTime.now(clock));
-    return certificateRepository.save(certificate);
+    final Certificate saved = certificateRepository.save(certificate);
+
+    // Sync denormalised property fields so GET /properties/with-compliance
+    // reflects the new certificate immediately.
+    final Property property = job.getProperty();
+    property.setHasGasCertificate(true);
+    property.setGasExpiryDate(saved.getExpiryAt());
+    property.setCurrentGasCertificate(saved);
+    propertyRepository.save(property);
+
+    return saved;
   }
 
   private void supersedePreviousCertificates(final Job job, final Certificate newCertificate) {

@@ -605,12 +605,24 @@ public class CustomerCertificateService {
 
     // Null out any Property.current*Certificate FK that points to this cert
     // before deletion to avoid TransientPropertyValueException on flush.
+    // Also clear the denormalised compliance flags so that
+    // GET /properties/with-compliance stays in sync.
     final List<Property> referencingProperties =
         propertyRepository.findAllReferencingCertificate(certId);
     for (final Property p : referencingProperties) {
-      if (cert.equals(p.getCurrentGasCertificate())) p.setCurrentGasCertificate(null);
-      if (cert.equals(p.getCurrentEicrCertificate())) p.setCurrentEicrCertificate(null);
-      if (cert.equals(p.getCurrentEpcCertificate())) p.setCurrentEpcCertificate(null);
+      if (cert.equals(p.getCurrentGasCertificate())) {
+        p.setHasGasCertificate(false);
+        p.setGasExpiryDate(null);
+        p.setCurrentGasCertificate(null);
+      }
+      if (cert.equals(p.getCurrentEicrCertificate())) {
+        p.setHasEicr(false);
+        p.setEicrExpiryDate(null);
+        p.setCurrentEicrCertificate(null);
+      }
+      if (cert.equals(p.getCurrentEpcCertificate())) {
+        p.setCurrentEpcCertificate(null);
+      }
     }
     if (!referencingProperties.isEmpty()) {
       propertyRepository.saveAll(referencingProperties);
@@ -653,6 +665,36 @@ public class CustomerCertificateService {
     }
     cert.setUpdatedAt(OffsetDateTime.now(clock));
     certificateRepository.save(cert);
+
+    // Sync denormalised property fields so GET /properties/with-compliance
+    // reflects any expiry-date or type changes immediately.
+    final Property property = cert.getProperty();
+    if (property != null) {
+      try {
+        switch (CertificateType.valueOf(cert.getCertificateType())) {
+          case GAS_SAFETY -> {
+            if (cert.equals(property.getCurrentGasCertificate())) {
+              property.setGasExpiryDate(cert.getExpiryAt());
+            }
+          }
+          case EICR -> {
+            if (cert.equals(property.getCurrentEicrCertificate())) {
+              property.setEicrExpiryDate(cert.getExpiryAt());
+            }
+          }
+          case EPC -> {
+            // EPC expiry is derived from the Certificate entity via the mapper,
+            // so no extra property field to update here.
+          }
+          default -> {
+            // BOILER_SERVICE, etc. — no property-level compliance fields
+          }
+        }
+      } catch (final IllegalArgumentException e) {
+        // CUSTOM type — no property-level compliance fields to sync
+      }
+      propertyRepository.save(property);
+    }
 
     final LocalDate today = LocalDate.now(clock);
     final int expiringSoonDays = userService.resolveExpiringSoonDays(customerId);

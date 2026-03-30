@@ -12,6 +12,7 @@ import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.repos.CertificateRepository;
 import com.uk.certifynow.certify_now.repos.GasSafetyRecordRepository;
 import com.uk.certifynow.certify_now.repos.JobRepository;
+import com.uk.certifynow.certify_now.repos.PropertyRepository;
 import com.uk.certifynow.certify_now.rest.dto.inspection.CertificateDetailsRequest;
 import com.uk.certifynow.certify_now.rest.dto.inspection.GasSafetyApplianceRequest;
 import com.uk.certifynow.certify_now.rest.dto.inspection.GasSafetyRecordRequest;
@@ -42,6 +43,7 @@ class GasSafetyRecordServiceTest {
   @Mock private GasSafetyRecordRepository gasSafetyRecordRepository;
   @Mock private JobRepository jobRepository;
   @Mock private CertificateRepository certificateRepository;
+  @Mock private PropertyRepository propertyRepository;
   @Mock private ApplicationEventPublisher publisher;
   @Mock private JobService jobService;
   @Mock private GasSafetyRecordMapper gasSafetyRecordMapper;
@@ -55,6 +57,7 @@ class GasSafetyRecordServiceTest {
             gasSafetyRecordRepository,
             jobRepository,
             certificateRepository,
+            propertyRepository,
             publisher,
             clock,
             jobService,

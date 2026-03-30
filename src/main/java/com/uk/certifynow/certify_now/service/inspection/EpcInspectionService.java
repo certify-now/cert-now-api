@@ -1,8 +1,7 @@
 package com.uk.certifynow.certify_now.service.inspection;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 import com.uk.certifynow.certify_now.domain.Certificate;
 import com.uk.certifynow.certify_now.domain.EpcAssessment;
 import com.uk.certifynow.certify_now.domain.Job;
@@ -54,10 +53,7 @@ public class EpcInspectionService {
 
   private static final Logger log = LoggerFactory.getLogger(EpcInspectionService.class);
 
-  // Static mapper — ObjectMapper is not a registered Spring bean in this project
-  private static final ObjectMapper MAPPER =
-      new ObjectMapper().registerModule(new JavaTimeModule());
-
+  private final ObjectMapper objectMapper;
   private final EpcAssessmentRepository epcAssessmentRepository;
   private final JobRepository jobRepository;
   private final CertificateRepository certificateRepository;
@@ -67,6 +63,7 @@ public class EpcInspectionService {
   private final JobService jobService;
 
   public EpcInspectionService(
+      final ObjectMapper objectMapper,
       final EpcAssessmentRepository epcAssessmentRepository,
       final JobRepository jobRepository,
       final CertificateRepository certificateRepository,
@@ -74,6 +71,7 @@ public class EpcInspectionService {
       final ApplicationEventPublisher publisher,
       final Clock clock,
       final JobService jobService) {
+    this.objectMapper = objectMapper;
     this.epcAssessmentRepository = epcAssessmentRepository;
     this.jobRepository = jobRepository;
     this.certificateRepository = certificateRepository;
@@ -382,7 +380,7 @@ public class EpcInspectionService {
   private String toJson(final List<String> list) {
     if (list == null || list.isEmpty()) return null;
     try {
-      return MAPPER.writeValueAsString(list);
+      return objectMapper.writeValueAsString(list);
     } catch (final Exception e) {
       log.warn("Failed to serialise list to JSON", e);
       return null;
@@ -393,7 +391,7 @@ public class EpcInspectionService {
   private List<String> fromJson(final String json) {
     if (json == null || json.isBlank()) return Collections.emptyList();
     try {
-      return MAPPER.readValue(json, new TypeReference<List<String>>() {});
+      return objectMapper.readValue(json, new TypeReference<List<String>>() {});
     } catch (final Exception e) {
       log.warn("Failed to deserialise JSON list: {}", json, e);
       return Collections.emptyList();

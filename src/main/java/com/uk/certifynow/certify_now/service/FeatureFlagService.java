@@ -1,6 +1,6 @@
 package com.uk.certifynow.certify_now.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.uk.certifynow.certify_now.domain.FeatureFlag;
 import com.uk.certifynow.certify_now.domain.enums.AuditAction;
 import com.uk.certifynow.certify_now.domain.enums.AuditEntityType;

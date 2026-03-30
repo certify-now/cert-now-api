@@ -1,6 +1,6 @@
 package com.uk.certifynow.certify_now.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.uk.certifynow.certify_now.domain.PricingModifier;
 import com.uk.certifynow.certify_now.domain.PricingRule;
 import com.uk.certifynow.certify_now.domain.Property;

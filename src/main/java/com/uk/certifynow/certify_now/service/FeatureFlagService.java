@@ -1,6 +1,5 @@
 package com.uk.certifynow.certify_now.service;
 
-import tools.jackson.databind.ObjectMapper;
 import com.uk.certifynow.certify_now.domain.FeatureFlag;
 import com.uk.certifynow.certify_now.domain.enums.AuditAction;
 import com.uk.certifynow.certify_now.domain.enums.AuditEntityType;
@@ -22,6 +21,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
 
 @Service
 public class FeatureFlagService {

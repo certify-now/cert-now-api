@@ -36,6 +36,7 @@ import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
@@ -230,6 +231,11 @@ public class UserService {
   }
 
   @Transactional
+  @Caching(
+      evict = {
+        @CacheEvict(value = "my-properties", allEntries = true),
+        @CacheEvict(value = "customer-certificates", allEntries = true)
+      })
   public void updateNotificationPrefs(final UUID userId, final UpdateNotificationPrefsRequest req) {
     final CustomerProfile profile = requireCustomerProfile(userId);
     final NotificationPrefsDTO current = parseNotificationPrefs(profile.getNotificationPrefs());

@@ -2,6 +2,8 @@ package com.uk.certifynow.certify_now.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.uk.certifynow.certify_now.service.inspection.EpcInspectionService;
+import com.uk.certifynow.certify_now.service.inspection.GasSafetyRecordService;
 import java.lang.reflect.Method;
 import org.junit.jupiter.api.Test;
 import org.springframework.cache.annotation.CacheEvict;
@@ -240,5 +242,59 @@ class CachingAnnotationsTest {
     final Caching caching = method.getAnnotation(Caching.class);
     assertThat(caching).isNotNull();
     assertThat(caching.evict()).hasSize(2);
+  }
+
+  // ── GasSafetyRecordService ────────────────────────────────────────────
+
+  @Test
+  void gasSafetyRecordService_submitGasSafetyRecord_evictsAllThreeCaches() throws Exception {
+    final Method method =
+        GasSafetyRecordService.class.getMethod(
+            "submitGasSafetyRecord",
+            java.util.UUID.class,
+            java.util.UUID.class,
+            com.uk.certifynow.certify_now.rest.dto.inspection.GasSafetyRecordRequest.class);
+    final Caching caching = method.getAnnotation(Caching.class);
+    assertThat(caching).as("@Caching annotation must be present").isNotNull();
+    assertThat(caching.evict()).hasSize(3);
+
+    boolean hasJobs = false;
+    boolean hasCustomerCerts = false;
+    boolean hasMyProperties = false;
+    for (final CacheEvict evict : caching.evict()) {
+      if ("jobs".equals(evict.value()[0])) hasJobs = true;
+      if ("customer-certificates".equals(evict.value()[0])) hasCustomerCerts = true;
+      if ("my-properties".equals(evict.value()[0])) hasMyProperties = true;
+    }
+    assertThat(hasJobs).as("Should evict jobs").isTrue();
+    assertThat(hasCustomerCerts).as("Should evict customer-certificates").isTrue();
+    assertThat(hasMyProperties).as("Should evict my-properties").isTrue();
+  }
+
+  // ── EpcInspectionService ──────────────────────────────────────────────
+
+  @Test
+  void epcInspectionService_submitEpcRecord_evictsAllThreeCaches() throws Exception {
+    final Method method =
+        EpcInspectionService.class.getMethod(
+            "submitEpcRecord",
+            java.util.UUID.class,
+            java.util.UUID.class,
+            com.uk.certifynow.certify_now.rest.dto.inspection.EpcRecordRequest.class);
+    final Caching caching = method.getAnnotation(Caching.class);
+    assertThat(caching).as("@Caching annotation must be present").isNotNull();
+    assertThat(caching.evict()).hasSize(3);
+
+    boolean hasJobs = false;
+    boolean hasCustomerCerts = false;
+    boolean hasMyProperties = false;
+    for (final CacheEvict evict : caching.evict()) {
+      if ("jobs".equals(evict.value()[0])) hasJobs = true;
+      if ("customer-certificates".equals(evict.value()[0])) hasCustomerCerts = true;
+      if ("my-properties".equals(evict.value()[0])) hasMyProperties = true;
+    }
+    assertThat(hasJobs).as("Should evict jobs").isTrue();
+    assertThat(hasCustomerCerts).as("Should evict customer-certificates").isTrue();
+    assertThat(hasMyProperties).as("Should evict my-properties").isTrue();
   }
 }

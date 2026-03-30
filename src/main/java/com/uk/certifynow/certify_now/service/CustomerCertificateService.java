@@ -605,12 +605,24 @@ public class CustomerCertificateService {
 
     // Null out any Property.current*Certificate FK that points to this cert
     // before deletion to avoid TransientPropertyValueException on flush.
+    // Also clear the denormalised compliance flags so that
+    // GET /properties/with-compliance stays in sync.
     final List<Property> referencingProperties =
         propertyRepository.findAllReferencingCertificate(certId);
     for (final Property p : referencingProperties) {
-      if (cert.equals(p.getCurrentGasCertificate())) p.setCurrentGasCertificate(null);
-      if (cert.equals(p.getCurrentEicrCertificate())) p.setCurrentEicrCertificate(null);
-      if (cert.equals(p.getCurrentEpcCertificate())) p.setCurrentEpcCertificate(null);
+      if (cert.equals(p.getCurrentGasCertificate())) {
+        p.setHasGasCertificate(false);
+        p.setGasExpiryDate(null);
+        p.setCurrentGasCertificate(null);
+      }
+      if (cert.equals(p.getCurrentEicrCertificate())) {
+        p.setHasEicr(false);
+        p.setEicrExpiryDate(null);
+        p.setCurrentEicrCertificate(null);
+      }
+      if (cert.equals(p.getCurrentEpcCertificate())) {
+        p.setCurrentEpcCertificate(null);
+      }
     }
     if (!referencingProperties.isEmpty()) {
       propertyRepository.saveAll(referencingProperties);

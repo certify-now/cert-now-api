@@ -86,13 +86,14 @@ public class MatchingService {
   public List<EngineerProfile> findCandidates(final Job job) {
     final Property property = job.getProperty();
 
-    // If property has no PostGIS coordinates, fall back to all approved engineers
+    // Defensive guard — PropertyService now prevents null coordinates at creation,
+    // but if a property somehow has no coordinates, fail fast instead of loading all engineers.
     if (property.getCoordinates() == null) {
-      log.warn(
-          "Property {} has no geocoded coordinates — falling back to all APPROVED engineers",
-          property.getId());
-      return engineerProfileRepository.findByStatus(
-          com.uk.certifynow.certify_now.service.auth.EngineerApplicationStatus.APPROVED);
+      log.error("Property {} has no coordinates — cannot match engineers", property.getId());
+      throw new BusinessException(
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          "GEOCODING_REQUIRED",
+          "Property must have coordinates for engineer matching");
     }
 
     // JTS Point stores (longitude, latitude) in x/y respectively

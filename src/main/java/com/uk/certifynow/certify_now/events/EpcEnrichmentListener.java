@@ -16,6 +16,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.CacheManager;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
@@ -57,18 +58,21 @@ public class EpcEnrichmentListener {
   private final CertificateRepository certificateRepository;
   private final Clock clock;
   private final SseEmitterRegistry sseEmitterRegistry;
+  private final CacheManager cacheManager;
 
   public EpcEnrichmentListener(
       final EpcLookupService epcLookupService,
       final PropertyRepository propertyRepository,
       final CertificateRepository certificateRepository,
       final Clock clock,
-      final SseEmitterRegistry sseEmitterRegistry) {
+      final SseEmitterRegistry sseEmitterRegistry,
+      final CacheManager cacheManager) {
     this.epcLookupService = epcLookupService;
     this.propertyRepository = propertyRepository;
     this.certificateRepository = certificateRepository;
     this.clock = clock;
     this.sseEmitterRegistry = sseEmitterRegistry;
+    this.cacheManager = cacheManager;
   }
 
   @Async("epcTaskExecutor")
@@ -115,15 +119,21 @@ public class EpcEnrichmentListener {
         saved.getEpcRating(),
         saved.getExpiryAt());
 
-    // Push SSE notification after this transaction commits so the UI refetch always
-    // sees the committed EPC data. TransactionSynchronizationManager fires afterCommit()
-    // on the REQUIRES_NEW transaction, not the original property-creation transaction.
+    // Evict the cached list response and push SSE after this transaction commits so the UI
+    // refetch always sees the committed EPC data. Cache is cleared before the SSE push so
+    // that the refetch triggered by the notification never hits stale data.
+    // TransactionSynchronizationManager fires afterCommit() on the REQUIRES_NEW transaction,
+    // not the original property-creation transaction.
     final UUID ownerId = event.getOwnerId();
     final String propertyId = property.getId().toString();
     TransactionSynchronizationManager.registerSynchronization(
         new TransactionSynchronization() {
           @Override
           public void afterCommit() {
+            final var cache = cacheManager.getCache("my-properties");
+            if (cache != null) {
+              cache.evictIfPresent(ownerId);
+            }
             sseEmitterRegistry.push(ownerId, "epc-enriched", Map.of("propertyId", propertyId));
           }
         });

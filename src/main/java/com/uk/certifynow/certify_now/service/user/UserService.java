@@ -277,7 +277,7 @@ public class UserService {
       final List<Integer> days =
           raw.containsKey("reminderDays")
               ? (List<Integer>) raw.get("reminderDays")
-              : List.of(NotificationPrefsDTO.EXPIRING_SOON_THRESHOLD_DAYS);
+              : NotificationPrefsDTO.DEFAULT_REMINDER_DAYS;
       dto.setReminderDays(days);
       return dto;
     } catch (JacksonException e) {
@@ -285,19 +285,13 @@ public class UserService {
           "Could not parse notificationPrefs JSON (malformed input), returning defaults: {}",
           e.getMessage());
       return new NotificationPrefsDTO(
-          Boolean.TRUE,
-          Boolean.TRUE,
-          Boolean.FALSE,
-          List.of(NotificationPrefsDTO.EXPIRING_SOON_THRESHOLD_DAYS));
+          Boolean.TRUE, Boolean.TRUE, Boolean.FALSE, NotificationPrefsDTO.DEFAULT_REMINDER_DAYS);
     } catch (ClassCastException e) {
       log.warn(
           "Could not parse notificationPrefs JSON (unexpected value types), returning defaults: {}",
           e.getMessage());
       return new NotificationPrefsDTO(
-          Boolean.TRUE,
-          Boolean.TRUE,
-          Boolean.FALSE,
-          List.of(NotificationPrefsDTO.EXPIRING_SOON_THRESHOLD_DAYS));
+          Boolean.TRUE, Boolean.TRUE, Boolean.FALSE, NotificationPrefsDTO.DEFAULT_REMINDER_DAYS);
     }
   }
 

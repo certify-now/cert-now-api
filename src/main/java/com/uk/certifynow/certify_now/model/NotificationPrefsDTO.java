@@ -18,6 +18,9 @@ public class NotificationPrefsDTO {
    */
   public static final int EXPIRING_SOON_THRESHOLD_DAYS = 30;
 
+  /** Default reminder schedule for new users and fallback when stored prefs are missing/invalid. */
+  public static final List<Integer> DEFAULT_REMINDER_DAYS = List.of(30, 14, 7);
+
   private Boolean push;
 
   private Boolean email;

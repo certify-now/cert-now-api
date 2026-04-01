@@ -854,7 +854,7 @@ public class CustomerCertificateService {
     }
     final long days = ChronoUnit.DAYS.between(today, expiryAt);
     if (days < 0) return CertificateStatus.EXPIRED.name();
-    if (days <= NotificationPrefsDTO.EXPIRING_SOON_THRESHOLD_DAYS)
+    if (days < NotificationPrefsDTO.EXPIRING_SOON_THRESHOLD_DAYS)
       return CertificateStatus.EXPIRING_SOON.name();
     return CertificateStatus.VALID.name();
   }

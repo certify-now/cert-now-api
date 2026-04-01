@@ -1,6 +1,7 @@
 package com.uk.certifynow.certify_now.service.certificate;
 
 import com.uk.certifynow.certify_now.model.ComplianceHealthDTO;
+import com.uk.certifynow.certify_now.model.NotificationPrefsDTO;
 import com.uk.certifynow.certify_now.model.PropertyComplianceItemDTO;
 import com.uk.certifynow.certify_now.model.PropertyDTO;
 import com.uk.certifynow.certify_now.service.enums.ComplianceStatus;
@@ -43,14 +44,11 @@ public class ComplianceService {
    * @param expiryDate the certificate's expiry date
    */
   public ComplianceStatus computeCertStatus(
-      final Boolean hasSupply,
-      final Boolean hasCert,
-      final LocalDate expiryDate,
-      final int expiringSoonDays) {
+      final Boolean hasSupply, final Boolean hasCert, final LocalDate expiryDate) {
     if (!Boolean.TRUE.equals(hasSupply)) {
       return ComplianceStatus.NOT_APPLICABLE;
     }
-    return computeExpiryStatus(hasCert, expiryDate, expiringSoonDays);
+    return computeExpiryStatus(hasCert, expiryDate);
   }
 
   /**
@@ -59,13 +57,11 @@ public class ComplianceService {
    * @param hasCert whether a certificate is on record
    * @param expiryDate the certificate's expiry date
    */
-  public ComplianceStatus computeEpcStatus(
-      final Boolean hasCert, final LocalDate expiryDate, final int expiringSoonDays) {
-    return computeExpiryStatus(hasCert, expiryDate, expiringSoonDays);
+  public ComplianceStatus computeEpcStatus(final Boolean hasCert, final LocalDate expiryDate) {
+    return computeExpiryStatus(hasCert, expiryDate);
   }
 
-  private ComplianceStatus computeExpiryStatus(
-      final Boolean hasCert, final LocalDate expiryDate, final int expiringSoonDays) {
+  private ComplianceStatus computeExpiryStatus(final Boolean hasCert, final LocalDate expiryDate) {
     if (!Boolean.TRUE.equals(hasCert) || expiryDate == null) {
       return ComplianceStatus.MISSING;
     }
@@ -73,7 +69,7 @@ public class ComplianceService {
     if (expiryDate.isBefore(today)) {
       return ComplianceStatus.EXPIRED;
     }
-    if (expiryDate.isBefore(today.plusDays(expiringSoonDays))) {
+    if (expiryDate.isBefore(today.plusDays(NotificationPrefsDTO.EXPIRING_SOON_THRESHOLD_DAYS))) {
       return ComplianceStatus.EXPIRING_SOON;
     }
     return ComplianceStatus.COMPLIANT;
@@ -159,7 +155,7 @@ public class ComplianceService {
    * <p>Gas and EICR are gated by supply flags (NOT_APPLICABLE when the utility is absent). EPC
    * always applies — all UK rental properties require one.
    */
-  public void enrich(final PropertyDTO dto, final int expiringSoonDays) {
+  public void enrich(final PropertyDTO dto) {
     record EnrichSpec(
         Boolean hasSupply,
         Boolean hasCert,
@@ -187,7 +183,7 @@ public class ComplianceService {
 
     for (final EnrichSpec spec : specs) {
       final ComplianceStatus status =
-          computeCertStatus(spec.hasSupply(), spec.hasCert(), spec.expiryDate(), expiringSoonDays);
+          computeCertStatus(spec.hasSupply(), spec.hasCert(), spec.expiryDate());
       spec.statusSetter().accept(dto, status.name());
       spec.daysSetter().accept(dto, computeDaysUntilExpiry(status, spec.expiryDate()));
       if (spec.statusSetter() == (BiConsumer<PropertyDTO, String>) PropertyDTO::setGasStatus) {
@@ -211,7 +207,7 @@ public class ComplianceService {
     final ComplianceStatus epcStatus =
         (!hasEpcCert || dto.getEpcExpiryDate() == null)
             ? ComplianceStatus.EXPIRED
-            : computeEpcStatus(true, dto.getEpcExpiryDate(), expiringSoonDays);
+            : computeEpcStatus(true, dto.getEpcExpiryDate());
     dto.setEpcStatus(epcStatus.name());
     dto.setEpcDaysUntilExpiry(computeDaysUntilExpiry(epcStatus, dto.getEpcExpiryDate()));
 
@@ -223,7 +219,7 @@ public class ComplianceService {
 
   /**
    * Computes the aggregate ComplianceHealthDTO from an already-enriched list of properties. Expects
-   * {@link #enrich(PropertyDTO, int)} to have been called on each DTO first.
+   * {@link #enrich(PropertyDTO)} to have been called on each DTO first.
    */
   public ComplianceHealthDTO computeHealth(final List<PropertyDTO> properties) {
     int total = properties.size();

@@ -10,7 +10,6 @@ import com.uk.certifynow.certify_now.domain.enums.CertificateType;
 import com.uk.certifynow.certify_now.model.NotificationPrefsDTO;
 import com.uk.certifynow.certify_now.repos.ShareTokenRepository;
 import com.uk.certifynow.certify_now.service.storage.DocumentStorageService;
-import com.uk.certifynow.certify_now.service.user.UserService;
 import java.io.InputStream;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -32,7 +31,6 @@ public class PublicShareService {
   private final ShareRenderService shareRenderService;
   private final DocumentStorageService documentStorageService;
   private final ShareProperties shareProperties;
-  private final UserService userService;
   private final Clock clock;
 
   public PublicShareService(
@@ -40,13 +38,11 @@ public class PublicShareService {
       final ShareRenderService shareRenderService,
       final DocumentStorageService documentStorageService,
       final ShareProperties shareProperties,
-      final UserService userService,
       final Clock clock) {
     this.shareTokenRepository = shareTokenRepository;
     this.shareRenderService = shareRenderService;
     this.documentStorageService = documentStorageService;
     this.shareProperties = shareProperties;
-    this.userService = userService;
     this.clock = clock;
   }
 
@@ -91,9 +87,7 @@ public class PublicShareService {
         shareToken.getAccessCount());
 
     final Certificate cert = shareToken.getCertificate();
-    final int expiringSoonDays = resolveOwnerExpiringSoonDays(cert);
-    final String html =
-        shareRenderService.renderSharePage(buildSharePageModel(cert, shareToken, expiringSoonDays));
+    final String html = shareRenderService.renderSharePage(buildSharePageModel(cert, shareToken));
     return new SharePageResult(false, html);
   }
 
@@ -174,10 +168,10 @@ public class PublicShareService {
   // ── Private helpers ──────────────────────────────────────────────────────
 
   private ShareRenderService.SharePageModel buildSharePageModel(
-      final Certificate cert, final ShareToken shareToken, final int expiringSoonDays) {
+      final Certificate cert, final ShareToken shareToken) {
     final String propertyAddress = buildPropertyAddress(cert);
     final String certTypeName = friendlyCertType(cert.getCertificateType());
-    final String status = calculateDisplayStatus(cert, clock, expiringSoonDays).name();
+    final String status = calculateDisplayStatus(cert, clock).name();
     final String engineerName =
         cert.getIssuedByEngineer() != null ? cert.getIssuedByEngineer().getFullName() : null;
 
@@ -250,23 +244,13 @@ public class PublicShareService {
   }
 
   private static CertificateStatus calculateDisplayStatus(
-      final Certificate cert, final Clock clock, final int expiringSoonDays) {
+      final Certificate cert, final Clock clock) {
     if (cert.getExpiryAt() == null) return CertificateStatus.VALID;
     final java.time.LocalDate today = java.time.LocalDate.now(clock);
     if (cert.getExpiryAt().isBefore(today)) return CertificateStatus.EXPIRED;
-    if (cert.getExpiryAt().isBefore(today.plusDays(expiringSoonDays)))
+    if (cert.getExpiryAt()
+        .isBefore(today.plusDays(NotificationPrefsDTO.EXPIRING_SOON_THRESHOLD_DAYS)))
       return CertificateStatus.EXPIRING_SOON;
     return CertificateStatus.VALID;
-  }
-
-  private int resolveOwnerExpiringSoonDays(final Certificate cert) {
-    try {
-      if (cert.getProperty() != null && cert.getProperty().getOwner() != null) {
-        return userService.resolveExpiringSoonDays(cert.getProperty().getOwner().getId());
-      }
-    } catch (Exception e) {
-      // fall through to default
-    }
-    return NotificationPrefsDTO.DEFAULT_EXPIRING_SOON_DAYS;
   }
 }

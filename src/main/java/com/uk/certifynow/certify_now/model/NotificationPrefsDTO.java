@@ -12,8 +12,11 @@ import lombok.Setter;
 @NoArgsConstructor
 public class NotificationPrefsDTO {
 
-  /** Default threshold when no user preferences are available. */
-  public static final int DEFAULT_EXPIRING_SOON_DAYS = 60;
+  /**
+   * Fixed compliance threshold (in days) used to determine whether a certificate is "expiring
+   * soon". This is a system-wide constant and is not derived from user preferences.
+   */
+  public static final int EXPIRING_SOON_THRESHOLD_DAYS = 30;
 
   private Boolean push;
 
@@ -21,20 +24,6 @@ public class NotificationPrefsDTO {
 
   private Boolean sms;
 
-  /** Days before expiry to send a renewal reminder, e.g. [90, 60, 30]. */
+  /** Days before expiry to send a renewal reminder, e.g. [30, 14, 7]. */
   private List<Integer> reminderDays;
-
-  /**
-   * Returns the maximum value from {@code reminderDays}, which is used as the "expiring soon"
-   * threshold. Defaults to {@value #DEFAULT_EXPIRING_SOON_DAYS} when the list is null or empty.
-   */
-  public int getExpiringSoonDays() {
-    if (reminderDays == null || reminderDays.isEmpty()) {
-      return DEFAULT_EXPIRING_SOON_DAYS;
-    }
-    return reminderDays.stream()
-        .mapToInt(Integer::intValue)
-        .max()
-        .orElse(DEFAULT_EXPIRING_SOON_DAYS);
-  }
 }

@@ -12,6 +12,7 @@ import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.domain.enums.CertificateStatus;
 import com.uk.certifynow.certify_now.domain.enums.CertificateType;
 import com.uk.certifynow.certify_now.events.BeforeDeleteCertificate;
+import com.uk.certifynow.certify_now.model.NotificationPrefsDTO;
 import com.uk.certifynow.certify_now.repos.CertificateRepository;
 import com.uk.certifynow.certify_now.repos.DocumentRepository;
 import com.uk.certifynow.certify_now.repos.EicrInspectionRepository;
@@ -80,7 +81,6 @@ public class CustomerCertificateService {
   private final ShareProperties shareProperties;
   private final Clock clock;
   private final ApplicationEventPublisher eventPublisher;
-  private final UserService userService;
 
   public CustomerCertificateService(
       final CertificateRepository certificateRepository,
@@ -93,8 +93,7 @@ public class CustomerCertificateService {
       final ShareTokenRepository shareTokenRepository,
       final ShareProperties shareProperties,
       final Clock clock,
-      final ApplicationEventPublisher eventPublisher,
-      final UserService userService) {
+      final ApplicationEventPublisher eventPublisher) {
     this.certificateRepository = certificateRepository;
     this.propertyRepository = propertyRepository;
     this.gasSafetyRecordRepository = gasSafetyRecordRepository;
@@ -106,7 +105,6 @@ public class CustomerCertificateService {
     this.shareProperties = shareProperties;
     this.clock = clock;
     this.eventPublisher = eventPublisher;
-    this.userService = userService;
   }
 
   // ── POST /upload ──────────────────────────────────────────────────────────
@@ -137,10 +135,8 @@ public class CustomerCertificateService {
             ? request.customTypeName().trim()
             : request.certType();
 
-    final int expiringSoonDays = userService.resolveExpiringSoonDays(customerId);
     final String status =
-        calculateStatus(
-            request.expiresAt(), CertificateStatus.VALID.name(), today, expiringSoonDays);
+        calculateStatus(request.expiresAt(), CertificateStatus.VALID.name(), today);
 
     final Certificate cert = new Certificate();
     cert.setCertificateType(certType);
@@ -228,8 +224,7 @@ public class CustomerCertificateService {
         certType,
         property.getId());
 
-    final String dynamicStatus =
-        calculateStatus(cert.getExpiryAt(), cert.getStatus(), today, expiringSoonDays);
+    final String dynamicStatus = calculateStatus(cert.getExpiryAt(), cert.getStatus(), today);
     return toListItem(cert, dynamicStatus, today, customerId);
   }
 
@@ -241,7 +236,6 @@ public class CustomerCertificateService {
       final UUID customerId, final GetCertificatesRequest filters) {
 
     final LocalDate today = LocalDate.now(clock);
-    final int expiringSoonDays = userService.resolveExpiringSoonDays(customerId);
     final List<Certificate> rawCerts =
         filters.includeHistory()
             ? certificateRepository.findByPropertyOwnerIdWithHistory(
@@ -252,8 +246,7 @@ public class CustomerCertificateService {
     // Compute dynamic status and build list items
     final List<CertificateListItemResponse> items = new ArrayList<>();
     for (final Certificate cert : rawCerts) {
-      final String dynamicStatus =
-          calculateStatus(cert.getExpiryAt(), cert.getStatus(), today, expiringSoonDays);
+      final String dynamicStatus = calculateStatus(cert.getExpiryAt(), cert.getStatus(), today);
 
       // Apply status filter after dynamic calculation
       if (filters.status() != null && !filters.status().equalsIgnoreCase(dynamicStatus)) {
@@ -307,9 +300,7 @@ public class CustomerCertificateService {
     verifyAccess(cert, requestingUserId, role);
 
     final LocalDate today = LocalDate.now(clock);
-    final int expiringSoonDays = userService.resolveExpiringSoonDays(requestingUserId);
-    final String dynamicStatus =
-        calculateStatus(cert.getExpiryAt(), cert.getStatus(), today, expiringSoonDays);
+    final String dynamicStatus = calculateStatus(cert.getExpiryAt(), cert.getStatus(), today);
 
     // Load inspection data
     GasInspectionSummary gasInspection = null;
@@ -698,9 +689,7 @@ public class CustomerCertificateService {
     }
 
     final LocalDate today = LocalDate.now(clock);
-    final int expiringSoonDays = userService.resolveExpiringSoonDays(customerId);
-    final String dynamicStatus =
-        calculateStatus(cert.getExpiryAt(), cert.getStatus(), today, expiringSoonDays);
+    final String dynamicStatus = calculateStatus(cert.getExpiryAt(), cert.getStatus(), today);
     log.info("Certificate updated: certId={} customerId={}", certId, customerId);
     return toListItem(cert, dynamicStatus, today, customerId);
   }
@@ -853,10 +842,7 @@ public class CustomerCertificateService {
   }
 
   static String calculateStatus(
-      final LocalDate expiryAt,
-      final String entityStatus,
-      final LocalDate today,
-      final int expiringSoonDays) {
+      final LocalDate expiryAt, final String entityStatus, final LocalDate today) {
     if (CertificateStatus.SUPERSEDED.name().equals(entityStatus)) {
       return CertificateStatus.SUPERSEDED.name();
     }
@@ -868,7 +854,8 @@ public class CustomerCertificateService {
     }
     final long days = ChronoUnit.DAYS.between(today, expiryAt);
     if (days < 0) return CertificateStatus.EXPIRED.name();
-    if (days <= expiringSoonDays) return CertificateStatus.EXPIRING_SOON.name();
+    if (days <= NotificationPrefsDTO.EXPIRING_SOON_THRESHOLD_DAYS)
+      return CertificateStatus.EXPIRING_SOON.name();
     return CertificateStatus.VALID.name();
   }
 

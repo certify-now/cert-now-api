@@ -257,25 +257,6 @@ public class UserService {
     log.info("Notification prefs updated for user {}", userId);
   }
 
-  /**
-   * Resolves the "expiring soon" threshold (in days) from the user's notification preferences.
-   * Returns {@link NotificationPrefsDTO#DEFAULT_EXPIRING_SOON_DAYS} if the profile is missing or
-   * the preferences cannot be parsed.
-   */
-  public int resolveExpiringSoonDays(final UUID userId) {
-    try {
-      final CustomerProfile profile = customerProfileRepository.findFirstByUserId(userId);
-      if (profile == null) {
-        return NotificationPrefsDTO.DEFAULT_EXPIRING_SOON_DAYS;
-      }
-      final NotificationPrefsDTO prefs = parseNotificationPrefs(profile.getNotificationPrefs());
-      return prefs.getExpiringSoonDays();
-    } catch (Exception e) {
-      log.warn("Failed to resolve expiring-soon threshold for user {}: {}", userId, e.getMessage());
-      return NotificationPrefsDTO.DEFAULT_EXPIRING_SOON_DAYS;
-    }
-  }
-
   private CustomerProfile requireCustomerProfile(final UUID userId) {
     final CustomerProfile profile = customerProfileRepository.findFirstByUserId(userId);
     if (profile == null) {
@@ -296,7 +277,7 @@ public class UserService {
       final List<Integer> days =
           raw.containsKey("reminderDays")
               ? (List<Integer>) raw.get("reminderDays")
-              : List.of(NotificationPrefsDTO.DEFAULT_EXPIRING_SOON_DAYS);
+              : NotificationPrefsDTO.DEFAULT_REMINDER_DAYS;
       dto.setReminderDays(days);
       return dto;
     } catch (JacksonException e) {
@@ -304,19 +285,13 @@ public class UserService {
           "Could not parse notificationPrefs JSON (malformed input), returning defaults: {}",
           e.getMessage());
       return new NotificationPrefsDTO(
-          Boolean.TRUE,
-          Boolean.TRUE,
-          Boolean.FALSE,
-          List.of(NotificationPrefsDTO.DEFAULT_EXPIRING_SOON_DAYS));
+          Boolean.TRUE, Boolean.TRUE, Boolean.FALSE, NotificationPrefsDTO.DEFAULT_REMINDER_DAYS);
     } catch (ClassCastException e) {
       log.warn(
           "Could not parse notificationPrefs JSON (unexpected value types), returning defaults: {}",
           e.getMessage());
       return new NotificationPrefsDTO(
-          Boolean.TRUE,
-          Boolean.TRUE,
-          Boolean.FALSE,
-          List.of(NotificationPrefsDTO.DEFAULT_EXPIRING_SOON_DAYS));
+          Boolean.TRUE, Boolean.TRUE, Boolean.FALSE, NotificationPrefsDTO.DEFAULT_REMINDER_DAYS);
     }
   }
 

@@ -10,9 +10,7 @@ import com.uk.certifynow.certify_now.events.PropertySoftDeletedEvent;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.model.ComplianceHealthDTO;
 import com.uk.certifynow.certify_now.model.MyPropertiesResponse;
-import com.uk.certifynow.certify_now.model.NotificationPrefsDTO;
 import com.uk.certifynow.certify_now.model.PropertyDTO;
-import com.uk.certifynow.certify_now.repos.CustomerProfileRepository;
 import com.uk.certifynow.certify_now.repos.JobRepository;
 import com.uk.certifynow.certify_now.repos.PropertyRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
@@ -63,8 +61,6 @@ public class PropertyService {
   private final PropertyMapper propertyMapper;
   private final ComplianceService complianceService;
   private final AddressLookupService addressLookupService;
-  private final CustomerProfileRepository customerProfileRepository;
-  private final tools.jackson.databind.ObjectMapper objectMapper;
   private final Clock clock;
 
   public PropertyService(
@@ -75,8 +71,6 @@ public class PropertyService {
       final PropertyMapper propertyMapper,
       final ComplianceService complianceService,
       final AddressLookupService addressLookupService,
-      final CustomerProfileRepository customerProfileRepository,
-      final tools.jackson.databind.ObjectMapper objectMapper,
       final Clock clock) {
     this.propertyRepository = propertyRepository;
     this.userRepository = userRepository;
@@ -85,52 +79,42 @@ public class PropertyService {
     this.propertyMapper = propertyMapper;
     this.complianceService = complianceService;
     this.addressLookupService = addressLookupService;
-    this.customerProfileRepository = customerProfileRepository;
-    this.objectMapper = objectMapper;
     this.clock = clock;
   }
 
   public Page<PropertyDTO> findAll(final Pageable pageable) {
-    final int threshold = NotificationPrefsDTO.DEFAULT_EXPIRING_SOON_DAYS;
-    return propertyRepository
-        .findAll(pageable)
-        .map(p -> enriched(propertyMapper.toDTO(p), threshold));
+    return propertyRepository.findAll(pageable).map(p -> enriched(propertyMapper.toDTO(p)));
   }
 
   public Page<PropertyDTO> findAllIncludingDeleted(final Pageable pageable) {
-    final int threshold = NotificationPrefsDTO.DEFAULT_EXPIRING_SOON_DAYS;
     return propertyRepository
         .findAllIncludingDeletedPaged(pageable)
-        .map(p -> enriched(propertyMapper.toDTO(p), threshold));
+        .map(p -> enriched(propertyMapper.toDTO(p)));
   }
 
   public Page<PropertyDTO> findAllDeleted(final Pageable pageable) {
-    final int threshold = NotificationPrefsDTO.DEFAULT_EXPIRING_SOON_DAYS;
     return propertyRepository
         .findAllDeletedPaged(pageable)
-        .map(p -> enriched(propertyMapper.toDTO(p), threshold));
+        .map(p -> enriched(propertyMapper.toDTO(p)));
   }
 
   public PropertyDTO get(final UUID id) {
     return propertyRepository
         .findById(id)
-        .map(
-            p -> enriched(propertyMapper.toDTO(p), NotificationPrefsDTO.DEFAULT_EXPIRING_SOON_DAYS))
+        .map(p -> enriched(propertyMapper.toDTO(p)))
         .orElseThrow(NotFoundException::new);
   }
 
   public PropertyDTO getForOwner(final UUID id, final UUID userId) {
     final Property property = propertyRepository.findById(id).orElseThrow(NotFoundException::new);
     assertOwnership(property, userId);
-    final int threshold = resolveExpiringSoonDays(userId);
-    return enriched(propertyMapper.toDTO(property), threshold);
+    return enriched(propertyMapper.toDTO(property));
   }
 
   public Page<PropertyDTO> getByOwner(final UUID ownerId, final Pageable pageable) {
-    final int threshold = resolveExpiringSoonDays(ownerId);
     return propertyRepository
         .findByOwnerIdAndIsActiveTrue(ownerId, pageable)
-        .map(p -> enriched(propertyMapper.toDTO(p), threshold));
+        .map(p -> enriched(propertyMapper.toDTO(p)));
   }
 
   /**
@@ -139,12 +123,11 @@ public class PropertyService {
    */
   @Cacheable(value = "my-properties", key = "#ownerId")
   public MyPropertiesResponse getMyPropertiesWithCompliance(final UUID ownerId) {
-    final int threshold = resolveExpiringSoonDays(ownerId);
     final List<PropertyDTO> properties =
         propertyRepository
             .findByOwnerIdAndIsActiveTrue(ownerId, Sort.by("createdAt").descending())
             .stream()
-            .map(p -> enriched(propertyMapper.toDTO(p), threshold))
+            .map(p -> enriched(propertyMapper.toDTO(p)))
             .toList();
     final ComplianceHealthDTO health = complianceService.computeHealth(properties);
     return new MyPropertiesResponse(properties, health);
@@ -206,7 +189,7 @@ public class PropertyService {
     property.setUpdatedAt(OffsetDateTime.now(clock));
     final Property saved = propertyRepository.save(property);
     log.info("Property {} updated", id);
-    return enriched(propertyMapper.toDTO(saved), resolveExpiringSoonDays(userId));
+    return enriched(propertyMapper.toDTO(saved));
   }
 
   @CacheEvict(value = "my-properties", allEntries = true)
@@ -284,7 +267,7 @@ public class PropertyService {
             : ActorType.ADMIN;
     publisher.publishEvent(new PropertyRestoredEvent(id, restoredByUserId, actorType));
 
-    return enriched(propertyMapper.toDTO(saved), resolveExpiringSoonDays(restoredByUserId));
+    return enriched(propertyMapper.toDTO(saved));
   }
 
   // ── Certificate metadata updates ─────────────────────────────────────────
@@ -306,7 +289,7 @@ public class PropertyService {
     property.setUpdatedAt(OffsetDateTime.now(clock));
     final Property saved = propertyRepository.save(property);
     log.info("Gas certificate metadata updated for property {}", id);
-    return enriched(propertyMapper.toDTO(saved), resolveExpiringSoonDays(userId));
+    return enriched(propertyMapper.toDTO(saved));
   }
 
   @CacheEvict(value = "my-properties", allEntries = true)
@@ -320,7 +303,7 @@ public class PropertyService {
     property.setUpdatedAt(OffsetDateTime.now(clock));
     final Property saved = propertyRepository.save(property);
     log.info("EICR metadata updated for property {}", id);
-    return enriched(propertyMapper.toDTO(saved), resolveExpiringSoonDays(userId));
+    return enriched(propertyMapper.toDTO(saved));
   }
 
   @EventListener(BeforeDeleteUser.class)
@@ -378,23 +361,8 @@ public class PropertyService {
     }
   }
 
-  private PropertyDTO enriched(final PropertyDTO dto, final int expiringSoonDays) {
-    complianceService.enrich(dto, expiringSoonDays);
+  private PropertyDTO enriched(final PropertyDTO dto) {
+    complianceService.enrich(dto);
     return dto;
-  }
-
-  private int resolveExpiringSoonDays(final UUID userId) {
-    try {
-      final var profile = customerProfileRepository.findFirstByUserId(userId);
-      if (profile == null || profile.getNotificationPrefs() == null) {
-        return NotificationPrefsDTO.DEFAULT_EXPIRING_SOON_DAYS;
-      }
-      final NotificationPrefsDTO prefs =
-          objectMapper.readValue(profile.getNotificationPrefs(), NotificationPrefsDTO.class);
-      return prefs.getExpiringSoonDays();
-    } catch (Exception e) {
-      log.warn("Failed to resolve expiring-soon threshold for user {}: {}", userId, e.getMessage());
-      return NotificationPrefsDTO.DEFAULT_EXPIRING_SOON_DAYS;
-    }
   }
 }

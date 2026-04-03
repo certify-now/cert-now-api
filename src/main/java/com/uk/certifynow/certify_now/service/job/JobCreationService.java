@@ -17,6 +17,8 @@ import com.uk.certifynow.certify_now.rest.dto.job.CreateJobRequest;
 import com.uk.certifynow.certify_now.rest.dto.job.DayAvailability;
 import com.uk.certifynow.certify_now.rest.dto.job.JobResponse;
 import com.uk.certifynow.certify_now.rest.dto.pricing.PriceBreakdown;
+import com.uk.certifynow.certify_now.service.enums.ActorType;
+import com.uk.certifynow.certify_now.service.enums.JobStatus;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.Set;

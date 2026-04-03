@@ -38,6 +38,7 @@ import com.uk.certifynow.certify_now.rest.dto.certificate.UpdateCertificateReque
 import com.uk.certifynow.certify_now.rest.dto.certificate.UploadCertificateRequest;
 import com.uk.certifynow.certify_now.service.enums.UserRole;
 import com.uk.certifynow.certify_now.service.storage.DocumentStorageService;
+import com.uk.certifynow.certify_now.service.user.UserService;
 import com.uk.certifynow.certify_now.util.NotFoundException;
 import java.io.IOException;
 import java.time.Clock;

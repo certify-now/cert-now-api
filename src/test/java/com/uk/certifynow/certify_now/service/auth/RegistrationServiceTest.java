@@ -14,6 +14,7 @@ import com.uk.certifynow.certify_now.repos.EngineerProfileRepository;
 import com.uk.certifynow.certify_now.repos.UserConsentRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
 import com.uk.certifynow.certify_now.service.auth.dto.RegisterRequest;
+import com.uk.certifynow.certify_now.service.enums.UserRole;
 import com.uk.certifynow.certify_now.util.TestConstants;
 import com.uk.certifynow.certify_now.util.TestUserBuilder;
 import java.time.Clock;

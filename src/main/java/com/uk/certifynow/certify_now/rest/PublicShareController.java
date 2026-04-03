@@ -1,9 +1,7 @@
 package com.uk.certifynow.certify_now.rest;
 
 import com.uk.certifynow.certify_now.service.share.PublicShareService;
-import com.uk.certifynow.certify_now.service.PublicShareService.DocumentMeta;
-import com.uk.certifynow.certify_now.service.PublicShareService.DocumentMetaWithLabel;
-import com.uk.certifynow.certify_now.service.PublicShareService.SharePageResult;
+import com.uk.certifynow.certify_now.service.share.PublicShareService.DocumentMetaWithLabel;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.io.InputStream;
@@ -45,7 +43,7 @@ public class PublicShareController {
           "Public endpoint. Renders a branded HTML page with certificate details and document"
               + " download links. Returns 410 Gone if the token is expired or invalid.")
   public ResponseEntity<String> viewSharePage(@PathVariable final String token) {
-    final SharePageResult result = publicShareService.resolveSharePage(token);
+    final PublicShareService.SharePageResult result = publicShareService.resolveSharePage(token);
     if (result.expired()) {
       return ResponseEntity.status(HttpStatus.GONE)
           .contentType(MediaType.TEXT_HTML)
@@ -66,12 +64,13 @@ public class PublicShareController {
   public ResponseEntity<StreamingResponseBody> downloadDocument(
       @PathVariable final String token, @PathVariable final UUID docId) {
 
-    final Optional<DocumentMeta> metaOpt = publicShareService.resolveDocument(token, docId);
+    final Optional<PublicShareService.DocumentMeta> metaOpt =
+        publicShareService.resolveDocument(token, docId);
     if (metaOpt.isEmpty()) {
       return ResponseEntity.status(HttpStatus.GONE).build();
     }
 
-    final DocumentMeta meta = metaOpt.get();
+    final PublicShareService.DocumentMeta meta = metaOpt.get();
     final HttpHeaders headers = buildDownloadHeaders(meta.mimeType(), meta.filename());
 
     final StreamingResponseBody body =

@@ -3,6 +3,7 @@ package com.uk.certifynow.certify_now.service.certificate;
 import com.uk.certifynow.certify_now.model.ComplianceHealthDTO;
 import com.uk.certifynow.certify_now.model.PropertyComplianceItemDTO;
 import com.uk.certifynow.certify_now.model.PropertyDTO;
+import com.uk.certifynow.certify_now.service.enums.ComplianceStatus;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;

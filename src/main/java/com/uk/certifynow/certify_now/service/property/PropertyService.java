@@ -18,6 +18,7 @@ import com.uk.certifynow.certify_now.repos.PropertyRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
 import com.uk.certifynow.certify_now.rest.dto.property.CreatePropertyRequest;
 import com.uk.certifynow.certify_now.rest.dto.property.UpdatePropertyRequest;
+import com.uk.certifynow.certify_now.service.certificate.ComplianceService;
 import com.uk.certifynow.certify_now.service.enums.ActorType;
 import com.uk.certifynow.certify_now.service.enums.JobStatus;
 import com.uk.certifynow.certify_now.service.mappers.PropertyMapper;

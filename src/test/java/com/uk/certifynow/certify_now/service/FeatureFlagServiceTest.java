@@ -10,6 +10,7 @@ import com.uk.certifynow.certify_now.domain.FeatureFlag;
 import com.uk.certifynow.certify_now.model.FeatureFlagDTO;
 import com.uk.certifynow.certify_now.repos.AuditLogRepository;
 import com.uk.certifynow.certify_now.repos.FeatureFlagRepository;
+import com.uk.certifynow.certify_now.service.feature.FeatureFlagService;
 import com.uk.certifynow.certify_now.util.TestConstants;
 import java.time.Clock;
 import java.time.OffsetDateTime;

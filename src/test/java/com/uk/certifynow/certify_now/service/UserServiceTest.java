@@ -20,6 +20,8 @@ import com.uk.certifynow.certify_now.repos.RefreshTokenRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
 import com.uk.certifynow.certify_now.service.enums.UserStatus;
 import com.uk.certifynow.certify_now.service.mappers.UserMapper;
+import com.uk.certifynow.certify_now.service.property.PropertyService;
+import com.uk.certifynow.certify_now.service.user.UserService;
 import com.uk.certifynow.certify_now.util.TestConstants;
 import com.uk.certifynow.certify_now.util.TestUserBuilder;
 import java.time.Clock;

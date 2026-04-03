@@ -9,9 +9,8 @@ import com.uk.certifynow.certify_now.domain.enums.CertificateStatus;
 import com.uk.certifynow.certify_now.domain.enums.CertificateType;
 import com.uk.certifynow.certify_now.model.NotificationPrefsDTO;
 import com.uk.certifynow.certify_now.repos.ShareTokenRepository;
-import com.uk.certifynow.certify_now.service.ShareRenderService.SharePageModel;
-import com.uk.certifynow.certify_now.service.ShareRenderService.SharePageModel.DocumentLink;
 import com.uk.certifynow.certify_now.service.storage.DocumentStorageService;
+import com.uk.certifynow.certify_now.service.user.UserService;
 import java.io.InputStream;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -174,7 +173,7 @@ public class PublicShareService {
 
   // ── Private helpers ──────────────────────────────────────────────────────
 
-  private SharePageModel buildSharePageModel(
+  private ShareRenderService.SharePageModel buildSharePageModel(
       final Certificate cert, final ShareToken shareToken, final int expiringSoonDays) {
     final String propertyAddress = buildPropertyAddress(cert);
     final String certTypeName = friendlyCertType(cert.getCertificateType());
@@ -184,7 +183,7 @@ public class PublicShareService {
 
     final String baseToken = shareProperties.getBaseUrl() + "/share/" + shareToken.getToken();
 
-    final List<DocumentLink> documents =
+    final List<ShareRenderService.SharePageModel.DocumentLink> documents =
         cert.getDocuments().stream()
             .filter(cd -> cd.getDocument() != null && cd.getDocument().getStorageUrl() != null)
             .sorted(Comparator.comparingInt(CertificateDocument::getDisplayOrder))
@@ -195,13 +194,14 @@ public class PublicShareService {
                   final String fileName =
                       decodeFilename(doc.getFileName() != null ? doc.getFileName() : "certificate");
                   final String fileSize = formatFileSize(doc.getFileSizeBytes());
-                  return new DocumentLink(fileName, doc.getMimeType(), downloadUrl, fileSize);
+                  return new ShareRenderService.SharePageModel.DocumentLink(
+                      fileName, doc.getMimeType(), downloadUrl, fileSize);
                 })
             .toList();
 
     final String downloadAllUrl = documents.isEmpty() ? null : baseToken + "/download";
 
-    return new SharePageModel(
+    return new ShareRenderService.SharePageModel(
         certTypeName,
         propertyAddress,
         cert.getIssuedAt(),

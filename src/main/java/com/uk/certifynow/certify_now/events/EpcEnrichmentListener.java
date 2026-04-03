@@ -6,7 +6,6 @@ import com.uk.certifynow.certify_now.domain.enums.CertificateStatus;
 import com.uk.certifynow.certify_now.repos.CertificateRepository;
 import com.uk.certifynow.certify_now.repos.PropertyRepository;
 import com.uk.certifynow.certify_now.service.epc.EpcLookupService;
-import com.uk.certifynow.certify_now.service.EpcLookupService.EpcRecord;
 import com.uk.certifynow.certify_now.service.notification.SseEmitterRegistry;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -95,7 +94,7 @@ public class EpcEnrichmentListener {
 
     log.info("EPC enrichment: starting lookup for property={} uprn={}", property.getId(), uprn);
 
-    final EpcRecord record = epcLookupService.lookup(uprn);
+    final EpcLookupService.EpcRecord record = epcLookupService.lookup(uprn);
 
     if (record == null) {
       log.info(
@@ -140,7 +139,7 @@ public class EpcEnrichmentListener {
   }
 
   private Certificate buildCertificate(
-      final Property property, final String uprn, final EpcRecord record) {
+      final Property property, final String uprn, final EpcLookupService.EpcRecord record) {
     final OffsetDateTime now = OffsetDateTime.now(clock);
     final LocalDate today = now.toLocalDate();
 

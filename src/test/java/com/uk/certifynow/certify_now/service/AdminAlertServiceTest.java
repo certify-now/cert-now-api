@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 
 import com.uk.certifynow.certify_now.domain.Job;
+import com.uk.certifynow.certify_now.service.notification.AdminAlertService;
+import com.uk.certifynow.certify_now.service.notification.EmailService;
+import com.uk.certifynow.certify_now.service.notification.SlackNotificationService;
 import com.uk.certifynow.certify_now.util.TestJobBuilder;
 import com.uk.certifynow.certify_now.util.TestPropertyBuilder;
 import com.uk.certifynow.certify_now.util.TestUserBuilder;

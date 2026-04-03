@@ -3,6 +3,8 @@ package com.uk.certifynow.certify_now.service.auth;
 import com.uk.certifynow.certify_now.domain.CustomerProfile;
 import com.uk.certifynow.certify_now.domain.EngineerProfile;
 import com.uk.certifynow.certify_now.domain.User;
+import com.uk.certifynow.certify_now.service.enums.EngineerApplicationStatus;
+import com.uk.certifynow.certify_now.service.enums.EngineerTier;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.OffsetDateTime;

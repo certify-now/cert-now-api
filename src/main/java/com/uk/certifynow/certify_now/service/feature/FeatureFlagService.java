@@ -6,6 +6,7 @@ import com.uk.certifynow.certify_now.domain.enums.AuditEntityType;
 import com.uk.certifynow.certify_now.model.FeatureFlagDTO;
 import com.uk.certifynow.certify_now.repos.AuditLogRepository;
 import com.uk.certifynow.certify_now.repos.FeatureFlagRepository;
+import com.uk.certifynow.certify_now.service.audit.AuditHelper;
 import com.uk.certifynow.certify_now.service.enums.ActorType;
 import com.uk.certifynow.certify_now.util.NotFoundException;
 import java.time.Clock;

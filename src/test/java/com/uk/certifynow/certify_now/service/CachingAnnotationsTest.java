@@ -2,8 +2,14 @@ package com.uk.certifynow.certify_now.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.uk.certifynow.certify_now.service.certificate.CustomerCertificateService;
+import com.uk.certifynow.certify_now.service.engineer.EngineerProfileService;
+import com.uk.certifynow.certify_now.service.epc.EpcLookupService;
+import com.uk.certifynow.certify_now.service.feature.FeatureFlagService;
 import com.uk.certifynow.certify_now.service.inspection.EpcInspectionService;
 import com.uk.certifynow.certify_now.service.inspection.GasSafetyRecordService;
+import com.uk.certifynow.certify_now.service.property.AddressLookupService;
+import com.uk.certifynow.certify_now.service.property.PropertyService;
 import java.lang.reflect.Method;
 import org.junit.jupiter.api.Test;
 import org.springframework.cache.annotation.CacheEvict;

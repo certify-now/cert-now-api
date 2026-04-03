@@ -13,6 +13,8 @@ import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.repos.JobMatchLogRepository;
 import com.uk.certifynow.certify_now.repos.JobStatusHistoryRepository;
 import com.uk.certifynow.certify_now.rest.dto.job.JobStatusHistoryResponse;
+import com.uk.certifynow.certify_now.service.enums.ActorType;
+import com.uk.certifynow.certify_now.service.enums.JobStatus;
 import com.uk.certifynow.certify_now.util.TestConstants;
 import com.uk.certifynow.certify_now.util.TestJobBuilder;
 import com.uk.certifynow.certify_now.util.TestPropertyBuilder;

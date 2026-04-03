@@ -12,7 +12,6 @@ import com.uk.certifynow.certify_now.rest.dto.certificate.ShareCertificateRespon
 import com.uk.certifynow.certify_now.rest.dto.certificate.UpdateCertificateRequest;
 import com.uk.certifynow.certify_now.rest.dto.certificate.UploadCertificateRequest;
 import com.uk.certifynow.certify_now.service.certificate.CustomerCertificateService;
-import com.uk.certifynow.certify_now.service.CustomerCertificateService.CertificateDownloadPair;
 import com.uk.certifynow.certify_now.service.enums.UserRole;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -258,7 +257,7 @@ public class CertificateController extends BaseController {
 
     final UUID userId = extractUserId(authentication);
     final UserRole role = extractRole(authentication);
-    final CertificateDownloadPair result =
+    final CustomerCertificateService.CertificateDownloadPair result =
         customerCertificateService.downloadCertificate(id, userId, role);
 
     final HttpHeaders headers = new HttpHeaders();

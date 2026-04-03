@@ -10,6 +10,7 @@ import com.uk.certifynow.certify_now.domain.enums.CertificateType;
 import com.uk.certifynow.certify_now.rest.dto.job.DayAvailability;
 import com.uk.certifynow.certify_now.rest.dto.job.JobResponse;
 import com.uk.certifynow.certify_now.rest.dto.job.JobSummaryResponse;
+import com.uk.certifynow.certify_now.service.enums.JobStatus;
 import com.uk.certifynow.certify_now.util.TestConstants;
 import com.uk.certifynow.certify_now.util.TestJobBuilder;
 import com.uk.certifynow.certify_now.util.TestPropertyBuilder;

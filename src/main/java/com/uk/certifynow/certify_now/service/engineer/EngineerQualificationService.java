@@ -8,6 +8,7 @@ import com.uk.certifynow.certify_now.repos.EngineerProfileRepository;
 import com.uk.certifynow.certify_now.repos.EngineerQualificationRepository;
 import com.uk.certifynow.certify_now.rest.dto.engineer.AddQualificationRequest;
 import com.uk.certifynow.certify_now.rest.dto.engineer.QualificationResponse;
+import com.uk.certifynow.certify_now.service.enums.VerificationStatus;
 import com.uk.certifynow.certify_now.service.mappers.EngineerQualificationMapper;
 import com.uk.certifynow.certify_now.util.NotFoundException;
 import com.uk.certifynow.certify_now.util.ReferencedException;

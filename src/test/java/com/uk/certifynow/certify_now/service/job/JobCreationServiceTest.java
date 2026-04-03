@@ -21,6 +21,7 @@ import com.uk.certifynow.certify_now.repos.UserRepository;
 import com.uk.certifynow.certify_now.rest.dto.job.CreateJobRequest;
 import com.uk.certifynow.certify_now.rest.dto.job.JobResponse;
 import com.uk.certifynow.certify_now.rest.dto.pricing.PriceBreakdown;
+import com.uk.certifynow.certify_now.service.enums.JobStatus;
 import com.uk.certifynow.certify_now.util.TestConstants;
 import com.uk.certifynow.certify_now.util.TestPropertyBuilder;
 import com.uk.certifynow.certify_now.util.TestUserBuilder;

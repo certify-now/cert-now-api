@@ -22,6 +22,7 @@ import com.uk.certifynow.certify_now.rest.dto.pricing.CreatePricingRuleRequest;
 import com.uk.certifynow.certify_now.rest.dto.pricing.PriceBreakdown;
 import com.uk.certifynow.certify_now.rest.dto.pricing.UpdatePricingRuleRequest;
 import com.uk.certifynow.certify_now.rest.dto.pricing.UpdateUrgencyMultiplierRequest;
+import com.uk.certifynow.certify_now.service.pricing.PricingService;
 import com.uk.certifynow.certify_now.util.TestConstants;
 import com.uk.certifynow.certify_now.util.TestPricingBuilder;
 import java.math.BigDecimal;

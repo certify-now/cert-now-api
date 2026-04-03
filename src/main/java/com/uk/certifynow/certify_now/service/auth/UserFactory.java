@@ -1,6 +1,9 @@
 package com.uk.certifynow.certify_now.service.auth;
 
 import com.uk.certifynow.certify_now.domain.User;
+import com.uk.certifynow.certify_now.service.enums.AuthProvider;
+import com.uk.certifynow.certify_now.service.enums.UserRole;
+import com.uk.certifynow.certify_now.service.enums.UserStatus;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.Locale;

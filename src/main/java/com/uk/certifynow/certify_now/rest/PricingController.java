@@ -2,8 +2,8 @@ package com.uk.certifynow.certify_now.rest;
 
 import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
 import com.uk.certifynow.certify_now.rest.dto.pricing.PriceBreakdown;
-import com.uk.certifynow.certify_now.service.pricing.PricingService;
 import com.uk.certifynow.certify_now.service.enums.UserRole;
+import com.uk.certifynow.certify_now.service.pricing.PricingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;

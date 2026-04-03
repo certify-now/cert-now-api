@@ -51,6 +51,9 @@ import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
+/**
+ * Service handling EPC (Energy Performance Certificate) inspection record submission and retrieval.
+ */
 @Service
 public class EpcInspectionService {
 
@@ -87,10 +90,15 @@ public class EpcInspectionService {
     this.jobService = jobService;
   }
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // SUBMIT
-  // ────────────────────────────────────────────────────────────────────────────
-
+  /**
+   * Submits an EPC inspection record for a completed job, issues a certificate, and certifies the
+   * job.
+   *
+   * @param jobId the unique identifier of the job
+   * @param engineerId the unique identifier of the engineer submitting the record
+   * @param request the EPC record request containing inspection data
+   * @return the created EPC record response
+   */
   @Caching(
       evict = {
         @CacheEvict(value = "jobs", key = "#jobId"),
@@ -161,10 +169,13 @@ public class EpcInspectionService {
     return toResponse(saved);
   }
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // GET
-  // ────────────────────────────────────────────────────────────────────────────
-
+  /**
+   * Retrieves the EPC inspection record for a job, enforcing ownership checks.
+   *
+   * @param jobId the unique identifier of the job
+   * @param callerId the unique identifier of the requesting user
+   * @return the EPC record response
+   */
   @Transactional(readOnly = true)
   public EpcRecordResponse getEpcRecord(final UUID jobId, final UUID callerId) {
     final EpcAssessment record =
@@ -186,10 +197,6 @@ public class EpcInspectionService {
 
     return toResponse(record);
   }
-
-  // ────────────────────────────────────────────────────────────────────────────
-  // PRIVATE HELPERS
-  // ────────────────────────────────────────────────────────────────────────────
 
   private Certificate issueCertificate(final Job job, final EpcAssessment assessment) {
     final Certificate certificate = new Certificate();

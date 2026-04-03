@@ -8,11 +8,17 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+/** Listens for authentication-related application events and logs them for audit purposes. */
 @Component
 public class AuthEventLogger {
 
   private static final Logger log = LoggerFactory.getLogger(AuthEventLogger.class);
 
+  /**
+   * Handles the user-registered event by logging registration details.
+   *
+   * @param event the user-registered event
+   */
   @Async("authEventsExecutor")
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
   public void onUserRegistered(final UserRegisteredEvent event) {
@@ -35,6 +41,11 @@ public class AuthEventLogger {
     }
   }
 
+  /**
+   * Handles the user-logged-in event by logging login details.
+   *
+   * @param event the user-logged-in event
+   */
   @Async("authEventsExecutor")
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
   public void onUserLoggedIn(final UserLoggedInEvent event) {
@@ -58,6 +69,11 @@ public class AuthEventLogger {
     }
   }
 
+  /**
+   * Handles the user-logged-out event by logging logout details.
+   *
+   * @param event the user-logged-out event
+   */
   @Async("authEventsExecutor")
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
   public void onUserLoggedOut(final UserLoggedOutEvent event) {
@@ -78,6 +94,11 @@ public class AuthEventLogger {
     }
   }
 
+  /**
+   * Handles the login-failed event by logging the failure details.
+   *
+   * @param event the login-failed event
+   */
   @Async("authEventsExecutor")
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMPLETION)
   public void onLoginFailed(final LoginFailedEvent event) {
@@ -97,6 +118,11 @@ public class AuthEventLogger {
     }
   }
 
+  /**
+   * Handles the account-deactivated event by logging deactivation details.
+   *
+   * @param event the account-deactivated event
+   */
   @Async("authEventsExecutor")
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
   public void onAccountDeactivated(final AccountDeactivatedEvent event) {
@@ -118,6 +144,11 @@ public class AuthEventLogger {
     }
   }
 
+  /**
+   * Handles the email-verified event by logging verification details.
+   *
+   * @param event the email-verified event
+   */
   @Async("authEventsExecutor")
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
   public void onEmailVerified(final EmailVerifiedEvent event) {
@@ -137,10 +168,6 @@ public class AuthEventLogger {
       MDC.clear();
     }
   }
-
-  // ============================================================================
-  // HELPER METHODS
-  // ============================================================================
 
   /**
    * Masks email for GDPR compliance while keeping it searchable. Example: john.doe@example.com →

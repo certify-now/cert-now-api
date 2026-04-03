@@ -47,6 +47,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
+/**
+ * Service responsible for certificate pricing calculations, pricing rule management, and
+ * modifier/urgency multiplier administration.
+ */
 @Slf4j
 @Service
 public class PricingService {
@@ -81,13 +85,15 @@ public class PricingService {
     this.clock = clock;
   }
 
-  // ═══════════════════════════════════════════════════════
-  // CORE CALCULATION
-  // ═══════════════════════════════════════════════════════
-
   /**
-   * Validates access and business rules for the given property, then calculates the price. Intended
-   * for use by controllers that receive a propertyId instead of raw property attributes.
+   * Validates access and business rules for the given property, then calculates the price.
+   *
+   * @param propertyId the unique identifier of the property
+   * @param certificateType the certificate type to price
+   * @param urgency the urgency level (STANDARD, PRIORITY, or EMERGENCY)
+   * @param requesterId the unique identifier of the requesting user
+   * @param isAdmin whether the requester has admin privileges
+   * @return the calculated price breakdown
    */
   @Transactional(readOnly = true)
   public PriceBreakdown calculatePriceForProperty(
@@ -128,6 +134,18 @@ public class PricingService {
         urgency);
   }
 
+  /**
+   * Calculates the price for a certificate based on property attributes and urgency.
+   *
+   * @param certificateType the certificate type to price
+   * @param postcode the property postcode used for regional rule resolution
+   * @param propertyType the property type (e.g. FLAT, DETACHED)
+   * @param bedrooms the number of bedrooms, or {@code null}
+   * @param gasApplianceCount the number of gas appliances, or {@code null}
+   * @param floorAreaSqm the floor area in square metres, or {@code null}
+   * @param urgency the urgency level (STANDARD, PRIORITY, or EMERGENCY)
+   * @return the calculated price breakdown
+   */
   @Transactional(readOnly = true)
   @Cacheable(
       value = "pricing-calc",
@@ -274,10 +292,12 @@ public class PricingService {
     };
   }
 
-  // ═══════════════════════════════════════════════════════
-  // ADMIN — READ
-  // ═══════════════════════════════════════════════════════
-
+  /**
+   * Returns all pricing rules, optionally filtered to active-only.
+   *
+   * @param activeOnly when {@code true}, only active rules are returned
+   * @return the list of pricing rule responses
+   */
   @Transactional(readOnly = true)
   @Cacheable(value = "pricing-rules")
   public List<PricingRuleResponse> getActivePricingRules(final boolean activeOnly) {
@@ -286,6 +306,12 @@ public class PricingService {
     return rules.stream().map(this::toRuleResponse).toList();
   }
 
+  /**
+   * Retrieves a single pricing rule by its identifier.
+   *
+   * @param id the unique identifier of the pricing rule
+   * @return the pricing rule response
+   */
   @Transactional(readOnly = true)
   public PricingRuleResponse getPricingRule(final UUID id) {
     final PricingRule rule =
@@ -295,6 +321,11 @@ public class PricingService {
     return toRuleResponse(rule);
   }
 
+  /**
+   * Returns all active urgency multipliers.
+   *
+   * @return the list of urgency multiplier responses
+   */
   @Transactional(readOnly = true)
   @Cacheable(value = "urgency-multipliers")
   public List<UrgencyMultiplierResponse> getActiveUrgencyMultipliers() {
@@ -303,6 +334,12 @@ public class PricingService {
         .toList();
   }
 
+  /**
+   * Returns the deduplicated list of certificate types available for booking, based on active
+   * national pricing rules.
+   *
+   * @return the certificate types response
+   */
   @Transactional(readOnly = true)
   @Cacheable(value = "certificate-types", key = "T(java.time.LocalDate).now().toString()")
   public CertificateTypesResponse getCertificateTypes() {
@@ -345,10 +382,12 @@ public class PricingService {
           "BOILER_SERVICE",
               new CertificateTypeMeta("Boiler Service", "Annual boiler service & inspection"));
 
-  // ═══════════════════════════════════════════════════════
-  // ADMIN — WRITE (all evict caches)
-  // ═══════════════════════════════════════════════════════
-
+  /**
+   * Creates a new pricing rule, handling date-range succession and overlap validation.
+   *
+   * @param request the create pricing rule request
+   * @return the created pricing rule response
+   */
   @Transactional
   @CacheEvict(
       value = {"pricing-rules", "pricing-calc", "urgency-multipliers", "certificate-types"},
@@ -419,6 +458,13 @@ public class PricingService {
     return response;
   }
 
+  /**
+   * Updates an existing pricing rule's base price, region, or effective-to date.
+   *
+   * @param id the unique identifier of the pricing rule to update
+   * @param request the update pricing rule request
+   * @return the updated pricing rule response
+   */
   @Transactional
   @CacheEvict(
       value = {"pricing-rules", "pricing-calc", "urgency-multipliers", "certificate-types"},
@@ -468,6 +514,13 @@ public class PricingService {
     return toRuleResponse(saved);
   }
 
+  /**
+   * Adds a conditional price modifier to a pricing rule.
+   *
+   * @param ruleId the unique identifier of the pricing rule
+   * @param request the create pricing modifier request
+   * @return the updated pricing rule response including the new modifier
+   */
   @Transactional
   @CacheEvict(
       value = {"pricing-rules", "pricing-calc", "urgency-multipliers", "certificate-types"},
@@ -540,6 +593,12 @@ public class PricingService {
         modifierResponses);
   }
 
+  /**
+   * Removes a modifier from a pricing rule.
+   *
+   * @param ruleId the unique identifier of the pricing rule
+   * @param modifierId the unique identifier of the modifier to remove
+   */
   @Transactional
   @CacheEvict(
       value = {"pricing-rules", "pricing-calc", "urgency-multipliers", "certificate-types"},
@@ -560,6 +619,13 @@ public class PricingService {
     log.info("Modifier {} removed from rule {}", modifierId, ruleId);
   }
 
+  /**
+   * Updates the multiplier value for an urgency level.
+   *
+   * @param id the unique identifier of the urgency multiplier
+   * @param request the update urgency multiplier request
+   * @return the updated urgency multiplier response
+   */
   @Transactional
   @CacheEvict(
       value = {"pricing-rules", "pricing-calc", "urgency-multipliers", "certificate-types"},
@@ -592,10 +658,6 @@ public class PricingService {
     return toMultiplierResponse(saved);
   }
 
-  // ═══════════════════════════════════════════════════════
-  // AUDIT HELPERS
-  // ═══════════════════════════════════════════════════════
-
   private UUID currentActorId() {
     final Authentication auth = SecurityContextHolder.getContext().getAuthentication();
     if (auth != null && auth.getPrincipal() instanceof String principal) {
@@ -616,10 +678,6 @@ public class PricingService {
       return null;
     }
   }
-
-  // ═══════════════════════════════════════════════════════
-  // HELPERS
-  // ═══════════════════════════════════════════════════════
 
   private boolean datesOverlap(
       final LocalDate start1, final LocalDate end1, final LocalDate start2, final LocalDate end2) {

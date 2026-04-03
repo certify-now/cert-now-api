@@ -18,6 +18,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import tools.jackson.databind.ObjectMapper;
 
+/**
+ * Servlet filter that extracts and validates JWT tokens from incoming requests, setting the Spring
+ * Security context for authenticated users.
+ */
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
@@ -67,17 +71,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     final String path = request.getRequestURI();
 
-    // ═══════════════════════════════════════════════════════
-    // SKIP JWT VALIDATION FOR PUBLIC PATHS
-    // ═══════════════════════════════════════════════════════
+    // Skip JWT validation for public paths
     if (isPublicPath(path)) {
       filterChain.doFilter(request, response);
       return;
     }
 
-    // ═══════════════════════════════════════════════════════
-    // EXTRACT AND VALIDATE JWT TOKEN
-    // ═══════════════════════════════════════════════════════
+    // Extract and validate JWT token
     final String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
     if (authHeader == null || !authHeader.startsWith("Bearer ")) {
       filterChain.doFilter(request, response);
@@ -99,11 +99,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       return;
     }
 
-    // ═══════════════════════════════════════════════════════
-    // CHECK JTI DENYLIST (logout / account suspension)
-    // SECURITY NOTE: denylist lookup is delegated to TokenDenylistService.
+    // Check JTI denylist (logout / account suspension).
+    // Denylist lookup is delegated to TokenDenylistService.
     // With in-memory denylist, revocations are node-local and reset on restart.
-    // ═══════════════════════════════════════════════════════
     final String jti = claims.getId();
     if (jti != null && tokenDenylistService.isDenied(jti)) {
       SecurityResponseWriter.writeError(
@@ -120,9 +118,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     final String role = String.valueOf(claims.get("role"));
     final String userId = claims.getSubject();
 
-    // ═══════════════════════════════════════════════════════
-    // CHECK USER STATUS
-    // ═══════════════════════════════════════════════════════
+    // Check user status
     if ("SUSPENDED".equals(status)) {
       SecurityResponseWriter.writeError(
           request,
@@ -147,9 +143,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       return;
     }
 
-    // ═══════════════════════════════════════════════════════
-    // SET SECURITY CONTEXT
-    // ═══════════════════════════════════════════════════════
+    // Set security context
     final UsernamePasswordAuthenticationToken authentication =
         new UsernamePasswordAuthenticationToken(
             userId, null, List.of(new SimpleGrantedAuthority("ROLE_" + role)));

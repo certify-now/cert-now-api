@@ -46,6 +46,10 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Service managing the full job lifecycle including creation, acceptance, status transitions,
+ * scheduling, and cancellation.
+ */
 @Service
 public class JobService {
 
@@ -82,10 +86,14 @@ public class JobService {
     this.jobCancellationService = jobCancellationService;
   }
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // GET BY ID
-  // ────────────────────────────────────────────────────────────────────────────
-
+  /**
+   * Retrieves a job by its identifier.
+   *
+   * @param jobId the unique identifier of the job
+   * @param actorId the unique identifier of the requesting user
+   * @param actorRole the role of the requesting user
+   * @return the job response
+   */
   @Cacheable(value = "jobs", key = "#jobId")
   @Transactional(readOnly = true)
   public JobResponse getById(final UUID jobId, final UUID actorId, final UserRole actorRole) {
@@ -95,10 +103,16 @@ public class JobService {
     return jobResponseMapper.toJobResponse(job, payment);
   }
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // LIST JOBS
-  // ────────────────────────────────────────────────────────────────────────────
-
+  /**
+   * Lists jobs with optional status and certificate-type filters.
+   *
+   * @param actorId the unique identifier of the requesting user
+   * @param actorRole the role of the requesting user
+   * @param statusFilter comma-separated status filter, or {@code null} for all
+   * @param certTypeFilter certificate type filter, or {@code null} for all
+   * @param pageable pagination parameters
+   * @return a page of job summaries
+   */
   @Transactional(readOnly = true)
   public Page<JobSummaryResponse> listJobs(
       final UUID actorId,
@@ -131,10 +145,14 @@ public class JobService {
     return result.isEmpty() ? null : result;
   }
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // ACCEPT JOB
-  // ────────────────────────────────────────────────────────────────────────────
-
+  /**
+   * Accepts a job on behalf of the specified engineer.
+   *
+   * @param jobId the unique identifier of the job to accept
+   * @param engineerId the unique identifier of the engineer accepting the job
+   * @param request the accept-job request containing scheduling details
+   * @return the updated job response
+   */
   @CacheEvict(value = "jobs", key = "#jobId")
   @Transactional
   public JobResponse acceptJob(
@@ -186,10 +204,14 @@ public class JobService {
     return jobResponseMapper.toJobResponse(saved, payment);
   }
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // DECLINE JOB
-  // ────────────────────────────────────────────────────────────────────────────
-
+  /**
+   * Declines a job on behalf of the specified engineer.
+   *
+   * @param jobId the unique identifier of the job to decline
+   * @param engineerId the unique identifier of the engineer declining the job
+   * @param request the decline-job request containing the reason
+   * @return the updated job response
+   */
   @CacheEvict(value = "jobs", key = "#jobId")
   @Transactional
   public JobResponse declineJob(
@@ -197,10 +219,13 @@ public class JobService {
     return jobCancellationService.declineJob(jobId, engineerId, request);
   }
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // MARK EN-ROUTE
-  // ────────────────────────────────────────────────────────────────────────────
-
+  /**
+   * Marks a job as en-route for the specified engineer.
+   *
+   * @param jobId the unique identifier of the job
+   * @param engineerId the unique identifier of the engineer
+   * @return the updated job response
+   */
   @CacheEvict(value = "jobs", key = "#jobId")
   @Transactional
   public JobResponse markEnRoute(final UUID jobId, final UUID engineerId) {
@@ -212,10 +237,14 @@ public class JobService {
         job -> job.setEnRouteAt(OffsetDateTime.now(clock)));
   }
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // START JOB
-  // ────────────────────────────────────────────────────────────────────────────
-
+  /**
+   * Starts a job after validating GPS proximity to the property.
+   *
+   * @param jobId the unique identifier of the job
+   * @param engineerId the unique identifier of the engineer starting the job
+   * @param request the start-job request containing GPS coordinates
+   * @return the updated job response
+   */
   @CacheEvict(value = "jobs", key = "#jobId")
   @Transactional
   public JobResponse startJob(
@@ -254,10 +283,13 @@ public class JobService {
     return jobResponseMapper.toJobResponse(saved, payment);
   }
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // COMPLETE JOB
-  // ────────────────────────────────────────────────────────────────────────────
-
+  /**
+   * Marks a job as completed.
+   *
+   * @param jobId the unique identifier of the job
+   * @param engineerId the unique identifier of the engineer completing the job
+   * @return the updated job response
+   */
   @CacheEvict(value = "jobs", key = "#jobId")
   @Transactional
   public JobResponse completeJob(final UUID jobId, final UUID engineerId) {
@@ -269,10 +301,11 @@ public class JobService {
         job -> job.setCompletedAt(OffsetDateTime.now(clock)));
   }
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // CERTIFY JOB
-  // ────────────────────────────────────────────────────────────────────────────
-
+  /**
+   * Certifies a completed job, recording the certification timestamp.
+   *
+   * @param jobId the unique identifier of the job to certify
+   */
   @CacheEvict(value = "jobs", key = "#jobId")
   @Transactional
   public void certifyJob(final UUID jobId) {
@@ -293,10 +326,15 @@ public class JobService {
             job.getId(), prev, JobStatus.CERTIFIED.name(), engineerId, ActorType.SYSTEM.name()));
   }
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // CANCEL JOB
-  // ────────────────────────────────────────────────────────────────────────────
-
+  /**
+   * Cancels a job.
+   *
+   * @param jobId the unique identifier of the job to cancel
+   * @param actorId the unique identifier of the user requesting cancellation
+   * @param actorRole the role of the user requesting cancellation
+   * @param request the cancel-job request containing the reason
+   * @return the updated job response
+   */
   @CacheEvict(value = "jobs", key = "#jobId")
   @Transactional
   public JobResponse cancelJob(
@@ -307,10 +345,14 @@ public class JobService {
     return jobCancellationService.cancelJob(jobId, actorId, actorRole, request);
   }
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // GET STATUS HISTORY
-  // ────────────────────────────────────────────────────────────────────────────
-
+  /**
+   * Returns the status-change history for a job.
+   *
+   * @param jobId the unique identifier of the job
+   * @param actorId the unique identifier of the requesting user
+   * @param actorRole the role of the requesting user
+   * @return the ordered list of status history entries
+   */
   @Transactional(readOnly = true)
   public List<JobStatusHistoryResponse> getHistory(
       final UUID jobId, final UUID actorId, final UserRole actorRole) {
@@ -319,10 +361,11 @@ public class JobService {
     return jobHistoryService.getHistoryResponses(jobId);
   }
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // BEFORE-DELETE GUARD EVENT LISTENERS (preserved from original CRUD stub)
-  // ────────────────────────────────────────────────────────────────────────────
-
+  /**
+   * Guards against deleting a user that has associated jobs.
+   *
+   * @param event the before-delete-user event
+   */
   @EventListener(BeforeDeleteUser.class)
   public void on(final BeforeDeleteUser event) {
     // Only block hard-delete if there are ANY jobs (active or terminal).
@@ -342,6 +385,11 @@ public class JobService {
     }
   }
 
+  /**
+   * Guards against deleting a property that has associated jobs.
+   *
+   * @param event the before-delete-property event
+   */
   @EventListener(BeforeDeleteProperty.class)
   public void on(final BeforeDeleteProperty event) {
     // Only block hard-delete if there are ANY jobs.
@@ -355,10 +403,14 @@ public class JobService {
     }
   }
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // PROPOSE SCHEDULE
-  // ────────────────────────────────────────────────────────────────────────────
-
+  /**
+   * Proposes a new schedule for an accepted job.
+   *
+   * @param jobId the unique identifier of the job
+   * @param engineerId the unique identifier of the engineer proposing the schedule
+   * @param request the propose-schedule request containing date and time slot
+   * @return the updated job response
+   */
   @CacheEvict(value = "jobs", key = "#jobId")
   @Transactional
   public JobResponse proposeSchedule(
@@ -387,10 +439,7 @@ public class JobService {
     return jobResponseMapper.toJobResponse(job, null);
   }
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // PRIVATE HELPERS
-  // ────────────────────────────────────────────────────────────────────────────
-
+  // Transitions job to target status and publishes a status-changed event.
   private JobResponse transitionAndPublish(
       final UUID jobId,
       final UUID actorId,

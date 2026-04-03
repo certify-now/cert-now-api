@@ -28,6 +28,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * REST controller exposing admin endpoints for managing pricing rules, modifiers, and urgency
+ * multipliers.
+ */
 @RestController
 @RequestMapping("/api/v1/admin/pricing")
 @Tag(name = "Admin - Pricing", description = "Admin management of pricing configurations")
@@ -38,10 +42,6 @@ public class AdminPricingController extends BaseController {
   public AdminPricingController(final PricingService pricingService) {
     this.pricingService = pricingService;
   }
-
-  // ═══════════════════════════════════════════════════════
-  // PRICING RULES
-  // ═══════════════════════════════════════════════════════
 
   @GetMapping("/rules")
   @Operation(
@@ -58,6 +58,13 @@ public class AdminPricingController extends BaseController {
         responseCode = "403",
         description = "Forbidden — admin access required")
   })
+  /**
+   * Lists pricing rules, optionally filtered to active-only.
+   *
+   * @param activeOnly whether to return only active rules
+   * @param request the HTTP servlet request
+   * @return the list of pricing rules wrapped in an API response
+   */
   public ApiResponse<List<PricingRuleResponse>> listRules(
       @Parameter(description = "If true, return only active rules")
           @RequestParam(value = "active_only", defaultValue = "true")
@@ -87,6 +94,13 @@ public class AdminPricingController extends BaseController {
         responseCode = "403",
         description = "Forbidden — admin access required")
   })
+  /**
+   * Creates a new pricing rule.
+   *
+   * @param body the create pricing rule request
+   * @param request the HTTP servlet request
+   * @return the created pricing rule wrapped in an API response
+   */
   public ApiResponse<PricingRuleResponse> createRule(
       @Valid @RequestBody final CreatePricingRuleRequest body, final HttpServletRequest request) {
     return ApiResponse.of(pricingService.createPricingRule(body), requestId(request));
@@ -114,16 +128,20 @@ public class AdminPricingController extends BaseController {
         responseCode = "404",
         description = "Pricing rule not found")
   })
+  /**
+   * Updates an existing pricing rule.
+   *
+   * @param id the pricing rule identifier
+   * @param body the update pricing rule request
+   * @param request the HTTP servlet request
+   * @return the updated pricing rule wrapped in an API response
+   */
   public ApiResponse<PricingRuleResponse> updateRule(
       @Parameter(description = "Pricing rule ID") @PathVariable final UUID id,
       @Valid @RequestBody final UpdatePricingRuleRequest body,
       final HttpServletRequest request) {
     return ApiResponse.of(pricingService.updatePricingRule(id, body), requestId(request));
   }
-
-  // ═══════════════════════════════════════════════════════
-  // MODIFIERS
-  // ═══════════════════════════════════════════════════════
 
   @PostMapping("/rules/{ruleId}/modifiers")
   @ResponseStatus(HttpStatus.CREATED)
@@ -149,6 +167,14 @@ public class AdminPricingController extends BaseController {
         responseCode = "404",
         description = "Pricing rule not found")
   })
+  /**
+   * Adds a conditional price modifier to a pricing rule.
+   *
+   * @param ruleId the pricing rule identifier
+   * @param body the create pricing modifier request
+   * @param request the HTTP servlet request
+   * @return the updated pricing rule wrapped in an API response
+   */
   public ApiResponse<PricingRuleResponse> addModifier(
       @Parameter(description = "Pricing rule ID") @PathVariable final UUID ruleId,
       @Valid @RequestBody final CreatePricingModifierRequest body,
@@ -175,15 +201,17 @@ public class AdminPricingController extends BaseController {
         responseCode = "404",
         description = "Pricing rule or modifier not found")
   })
+  /**
+   * Removes a modifier from a pricing rule.
+   *
+   * @param ruleId the pricing rule identifier
+   * @param modifierId the modifier identifier
+   */
   public void removeModifier(
       @Parameter(description = "Pricing rule ID") @PathVariable final UUID ruleId,
       @Parameter(description = "Modifier ID") @PathVariable final UUID modifierId) {
     pricingService.removeModifier(ruleId, modifierId);
   }
-
-  // ═══════════════════════════════════════════════════════
-  // URGENCY MULTIPLIERS
-  // ═══════════════════════════════════════════════════════
 
   @GetMapping("/urgency-multipliers")
   @Operation(
@@ -200,6 +228,12 @@ public class AdminPricingController extends BaseController {
         responseCode = "403",
         description = "Forbidden — admin access required")
   })
+  /**
+   * Lists all active urgency multipliers.
+   *
+   * @param request the HTTP servlet request
+   * @return the list of urgency multipliers wrapped in an API response
+   */
   public ApiResponse<List<UrgencyMultiplierResponse>> listMultipliers(
       final HttpServletRequest request) {
     return ApiResponse.of(pricingService.getActiveUrgencyMultipliers(), requestId(request));
@@ -226,6 +260,14 @@ public class AdminPricingController extends BaseController {
         responseCode = "404",
         description = "Urgency multiplier not found")
   })
+  /**
+   * Updates the multiplier value for an urgency level.
+   *
+   * @param id the urgency multiplier identifier
+   * @param body the update urgency multiplier request
+   * @param request the HTTP servlet request
+   * @return the updated urgency multiplier wrapped in an API response
+   */
   public ApiResponse<UrgencyMultiplierResponse> updateMultiplier(
       @Parameter(description = "Urgency multiplier ID") @PathVariable final UUID id,
       @Valid @RequestBody final UpdateUrgencyMultiplierRequest body,

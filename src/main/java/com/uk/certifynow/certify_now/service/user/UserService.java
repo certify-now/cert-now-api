@@ -220,9 +220,15 @@ public class UserService {
     }
 
     final String contentType = file.getContentType();
-    if (contentType == null || !contentType.startsWith("image/")) {
+    if (contentType == null
+        || !(contentType.equals("image/jpeg")
+            || contentType.equals("image/png")
+            || contentType.equals("image/webp")
+            || contentType.equals("image/gif"))) {
       throw new BusinessException(
-          HttpStatus.BAD_REQUEST, "INVALID_FILE_TYPE", "Only image files are accepted");
+          HttpStatus.BAD_REQUEST,
+          "INVALID_FILE_TYPE",
+          "Only JPEG, PNG, WebP, and GIF images are accepted");
     }
 
     final User user =

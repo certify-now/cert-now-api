@@ -88,6 +88,13 @@ public class AccountManagementService {
 
     final String normalized = newEmail.toLowerCase(Locale.ROOT).trim();
 
+    if (normalized.equalsIgnoreCase(user.getEmail())) {
+      throw new BusinessException(
+          HttpStatus.BAD_REQUEST,
+          "EMAIL_UNCHANGED",
+          "New email must be different from the current email");
+    }
+
     userRepository
         .findByEmailIgnoreCase(normalized)
         .ifPresent(

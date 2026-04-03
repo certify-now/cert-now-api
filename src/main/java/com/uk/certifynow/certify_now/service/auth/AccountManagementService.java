@@ -3,6 +3,7 @@ package com.uk.certifynow.certify_now.service.auth;
 import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.exception.EntityNotFoundException;
+import com.uk.certifynow.certify_now.repos.RefreshTokenRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
 import com.uk.certifynow.certify_now.service.enums.UserStatus;
 import java.time.Clock;
@@ -27,16 +28,19 @@ public class AccountManagementService {
   private static final Logger log = LoggerFactory.getLogger(AccountManagementService.class);
 
   private final UserRepository userRepository;
+  private final RefreshTokenRepository refreshTokenRepository;
   private final PasswordEncoder passwordEncoder;
   private final EmailVerificationService emailVerificationService;
   private final Clock clock;
 
   public AccountManagementService(
       final UserRepository userRepository,
+      final RefreshTokenRepository refreshTokenRepository,
       final PasswordEncoder passwordEncoder,
       final EmailVerificationService emailVerificationService,
       final Clock clock) {
     this.userRepository = userRepository;
+    this.refreshTokenRepository = refreshTokenRepository;
     this.passwordEncoder = passwordEncoder;
     this.emailVerificationService = emailVerificationService;
     this.clock = clock;
@@ -62,6 +66,8 @@ public class AccountManagementService {
     user.setPasswordHash(passwordEncoder.encode(newPassword));
     user.setUpdatedAt(OffsetDateTime.now(clock));
     userRepository.save(user);
+
+    refreshTokenRepository.deleteAllByUserId(userId);
 
     log.info("User {} changed their password", userId);
   }
@@ -113,6 +119,7 @@ public class AccountManagementService {
     user.setUpdatedAt(OffsetDateTime.now(clock));
     userRepository.save(user);
 
+    refreshTokenRepository.deleteAllByUserId(userId);
     emailVerificationService.sendVerificationEmail(user);
 
     log.info("User {} changed their email address", userId);

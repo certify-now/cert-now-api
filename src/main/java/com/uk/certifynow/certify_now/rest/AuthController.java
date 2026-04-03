@@ -1,5 +1,7 @@
 package com.uk.certifynow.certify_now.rest;
 
+import com.uk.certifynow.certify_now.model.ChangeEmailRequest;
+import com.uk.certifynow.certify_now.model.ChangePasswordRequest;
 import com.uk.certifynow.certify_now.model.UpdateEmailRequest;
 import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
 import com.uk.certifynow.certify_now.service.auth.AuthFacade;
@@ -193,6 +195,68 @@ public class AuthController extends BaseController {
     authService.resendVerificationByEmail(request.email());
     return ApiResponse.of(
         Map.of("message", "If that email is registered and unverified, a new code has been sent."),
+        requestId(httpRequest));
+  }
+
+  @PostMapping("/change-password")
+  @Operation(
+      summary = "Change password",
+      description =
+          "Allows an authenticated user to change their password by providing their current"
+              + " password and a new password. Not available for OAuth accounts.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Password changed successfully"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "Validation error or OAuth account"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Not authenticated or current password is incorrect")
+  })
+  public ApiResponse<Map<String, String>> changePassword(
+      @Valid @RequestBody final ChangePasswordRequest request,
+      final Authentication authentication,
+      final HttpServletRequest httpRequest) {
+    final UUID userId = extractUserId(authentication);
+    authService.changePassword(userId, request.currentPassword(), request.newPassword());
+    return ApiResponse.of(
+        Map.of("message", "Password changed successfully."), requestId(httpRequest));
+  }
+
+  @PostMapping("/change-email")
+  @Operation(
+      summary = "Change email address",
+      description =
+          "Allows an authenticated verified user to change their email address. Requires current"
+              + " password confirmation. The account is placed back into PENDING_VERIFICATION"
+              + " status and a verification email is sent to the new address.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Email updated — verification email dispatched to new address"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "Validation error or OAuth account"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Not authenticated or current password is incorrect"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "409",
+        description = "New email is already in use")
+  })
+  public ApiResponse<Map<String, String>> changeEmail(
+      @Valid @RequestBody final ChangeEmailRequest request,
+      final Authentication authentication,
+      final HttpServletRequest httpRequest) {
+    final UUID userId = extractUserId(authentication);
+    authService.changeEmail(userId, request.currentPassword(), request.newEmail());
+    return ApiResponse.of(
+        Map.of(
+            "message",
+            "Email updated. A verification link has been sent to your new address."
+                + " Please verify it to regain full access."),
         requestId(httpRequest));
   }
 

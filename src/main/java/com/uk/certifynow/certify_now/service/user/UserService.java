@@ -28,6 +28,8 @@ import com.uk.certifynow.certify_now.service.enums.UserRole;
 import com.uk.certifynow.certify_now.service.enums.UserStatus;
 import com.uk.certifynow.certify_now.service.mappers.UserMapper;
 import com.uk.certifynow.certify_now.service.property.PropertyService;
+import com.uk.certifynow.certify_now.service.storage.DocumentStorageService;
+import java.io.IOException;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
@@ -43,6 +45,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
@@ -61,6 +64,7 @@ public class UserService {
   private final Clock clock;
   private final PropertyService propertyService;
   private final ObjectMapper objectMapper;
+  private final DocumentStorageService documentStorageService;
 
   public UserService(
       final UserRepository userRepository,
@@ -72,7 +76,8 @@ public class UserService {
       final UserMapper userMapper,
       final Clock clock,
       final PropertyService propertyService,
-      final ObjectMapper objectMapper) {
+      final ObjectMapper objectMapper,
+      final DocumentStorageService documentStorageService) {
     this.userRepository = userRepository;
     this.jobRepository = jobRepository;
     this.customerProfileRepository = customerProfileRepository;
@@ -83,6 +88,7 @@ public class UserService {
     this.clock = clock;
     this.propertyService = propertyService;
     this.objectMapper = objectMapper;
+    this.documentStorageService = documentStorageService;
   }
 
   @Transactional(readOnly = true)
@@ -194,6 +200,56 @@ public class UserService {
     user.setUpdatedAt(OffsetDateTime.now(clock));
     userRepository.save(user);
     log.info("User {} updated their profile", id);
+  }
+
+  /**
+   * Uploads a profile photo for the given user, stores it in object storage, and persists the
+   * returned public URL on the user entity.
+   *
+   * @param userId the authenticated user's ID
+   * @param file multipart image file (JPEG, PNG, WebP, etc.)
+   * @return the public URL of the stored avatar
+   */
+  @Transactional
+  @CacheEvict(
+      value = {"users", "users_all", "users_email", "users_me"},
+      allEntries = true)
+  public String uploadAvatar(final UUID userId, final MultipartFile file) {
+    if (file == null || file.isEmpty()) {
+      throw new BusinessException(HttpStatus.BAD_REQUEST, "INVALID_FILE", "No file provided");
+    }
+
+    final String contentType = file.getContentType();
+    if (contentType == null
+        || !(contentType.equals("image/jpeg")
+            || contentType.equals("image/png")
+            || contentType.equals("image/webp")
+            || contentType.equals("image/gif"))) {
+      throw new BusinessException(
+          HttpStatus.BAD_REQUEST,
+          "INVALID_FILE_TYPE",
+          "Only JPEG, PNG, WebP, and GIF images are accepted");
+    }
+
+    final User user =
+        userRepository
+            .findById(userId)
+            .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
+
+    try {
+      final String subtype = contentType.contains("/") ? contentType.split("/")[1] : "jpg";
+      final String filename = "avatar-" + userId + "." + subtype;
+      final String url =
+          documentStorageService.storeRaw(userId, filename, file.getBytes(), contentType);
+      user.setAvatarUrl(url);
+      user.setUpdatedAt(OffsetDateTime.now(clock));
+      userRepository.save(user);
+      log.info("User {} uploaded avatar: {}", userId, url);
+      return url;
+    } catch (IOException e) {
+      throw new BusinessException(
+          HttpStatus.INTERNAL_SERVER_ERROR, "UPLOAD_FAILED", "Failed to process avatar upload");
+    }
   }
 
   @Transactional(readOnly = true)

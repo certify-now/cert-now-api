@@ -33,18 +33,21 @@ public class AuthFacade {
   private final SessionService sessionService;
   private final AuthMapper authMapper;
   private final EmailVerificationService emailVerificationService;
+  private final AccountManagementService accountManagementService;
 
   public AuthFacade(
       final RegistrationService registrationService,
       final AuthenticationService authenticationService,
       final SessionService sessionService,
       final AuthMapper authMapper,
-      final EmailVerificationService emailVerificationService) {
+      final EmailVerificationService emailVerificationService,
+      final AccountManagementService accountManagementService) {
     this.registrationService = registrationService;
     this.authenticationService = authenticationService;
     this.sessionService = sessionService;
     this.authMapper = authMapper;
     this.emailVerificationService = emailVerificationService;
+    this.accountManagementService = accountManagementService;
   }
 
   /**
@@ -153,6 +156,31 @@ public class AuthFacade {
   }
 
   /**
+   * Changes the authenticated user's password after verifying their current password.
+   *
+   * @param userId authenticated user's ID
+   * @param currentPassword current password for verification
+   * @param newPassword new password to set
+   */
+  public void changePassword(
+      final UUID userId, final String currentPassword, final String newPassword) {
+    accountManagementService.changePassword(userId, currentPassword, newPassword);
+  }
+
+  /**
+   * Changes the authenticated user's email address after verifying their current password.
+   *
+   * <p>Sets the account to PENDING_VERIFICATION and sends a verification email to the new address.
+   *
+   * @param userId authenticated user's ID
+   * @param currentPassword current password for verification
+   * @param newEmail desired new email address
+   */
+  public void changeEmail(final UUID userId, final String currentPassword, final String newEmail) {
+    accountManagementService.changeEmail(userId, currentPassword, newEmail);
+  }
+
+  /**
    * Logs out a user by revoking their refresh token and denylisting the access token jti.
    *
    * @param userId user requesting logout
@@ -162,6 +190,18 @@ public class AuthFacade {
    */
   public void logout(final UUID userId, final String refreshToken, final String accessToken) {
     sessionService.revokeToken(userId, refreshToken, accessToken);
+  }
+
+  /**
+   * Immediately denylists the given access token by JTI.
+   *
+   * <p>Intended for operations that have already revoked all refresh tokens (e.g. account deletion)
+   * and need to prevent any further use of the caller's current access token.
+   *
+   * @param rawAccessToken Bearer access token extracted from the Authorization header
+   */
+  public void denyAccessToken(final String rawAccessToken) {
+    sessionService.denyAccessToken(rawAccessToken);
   }
 
   /**

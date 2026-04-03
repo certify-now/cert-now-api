@@ -8,15 +8,21 @@ import com.uk.certifynow.certify_now.model.UpdateMeRequest;
 import com.uk.certifynow.certify_now.model.UpdateNotificationPrefsRequest;
 import com.uk.certifynow.certify_now.model.UserMeDTO;
 import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
+import com.uk.certifynow.certify_now.service.auth.AuthFacade;
 import com.uk.certifynow.certify_now.service.user.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.util.Map;
 import java.util.UUID;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -24,9 +30,11 @@ import org.springframework.web.bind.annotation.*;
 public class UserController extends BaseController {
 
   private final UserService userService;
+  private final AuthFacade authFacade;
 
-  public UserController(final UserService userService) {
+  public UserController(final UserService userService, final AuthFacade authFacade) {
     this.userService = userService;
+    this.authFacade = authFacade;
   }
 
   @GetMapping("/me")
@@ -72,6 +80,60 @@ public class UserController extends BaseController {
     final UUID userId = extractUserId(authentication);
     userService.updateMe(userId, updateMeRequest);
     return ApiResponse.of(null, requestId(request));
+  }
+
+  @PostMapping(value = "/me/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  @Operation(
+      summary = "Upload profile photo",
+      description =
+          "Accepts a multipart image file (JPEG, PNG, WebP), stores it in object storage,"
+              + " and updates the user's avatarUrl. Returns the public URL of the uploaded image.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Avatar uploaded successfully"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "No file provided or unsupported file type"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Not authenticated")
+  })
+  public ApiResponse<Map<String, String>> uploadAvatar(
+      @RequestParam("file") final MultipartFile file,
+      final Authentication authentication,
+      final HttpServletRequest request) {
+    final UUID userId = extractUserId(authentication);
+    final String url = userService.uploadAvatar(userId, file);
+    return ApiResponse.of(Map.of("url", url), requestId(request));
+  }
+
+  @DeleteMapping("/me")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  @Operation(
+      summary = "Delete account",
+      description =
+          "Soft-deletes the authenticated user's account and all associated data."
+              + " Revokes all active refresh tokens. This action cannot be undone.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "204",
+        description = "Account deleted successfully"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Not authenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "409",
+        description = "User has active jobs and cannot be deleted")
+  })
+  public void deleteMe(final Authentication authentication, final HttpServletRequest httpRequest) {
+    final UUID userId = extractUserId(authentication);
+    userService.softDelete(userId, userId);
+
+    final String authHeader = httpRequest.getHeader(HttpHeaders.AUTHORIZATION);
+    final String accessToken =
+        (authHeader != null && authHeader.startsWith("Bearer ")) ? authHeader.substring(7) : null;
+    authFacade.denyAccessToken(accessToken);
   }
 
   @GetMapping("/me/stats")

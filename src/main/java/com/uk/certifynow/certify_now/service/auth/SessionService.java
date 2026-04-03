@@ -168,6 +168,27 @@ public class SessionService {
         new UserLoggedOutEvent(userId, sessionDurationSeconds, token.getDeviceInfo()));
   }
 
+  /**
+   * Denylists a single access token by JTI without touching refresh tokens.
+   *
+   * <p>Used by operations that have already revoked all refresh tokens (e.g. account deletion) and
+   * only need to immediately invalidate the caller's current access token.
+   *
+   * @param rawAccessToken the raw Bearer access token
+   */
+  public void denyAccessToken(final String rawAccessToken) {
+    if (rawAccessToken == null) {
+      return;
+    }
+    try {
+      final String jti = jwtTokenProvider.getJtiFromToken(rawAccessToken);
+      tokenDenylistService.denyToken(jti, jwtTokenProvider.getAccessTokenExpirySeconds());
+      log.debug("Access token denylisted | jti={}", jti);
+    } catch (final Exception ex) {
+      log.warn("Failed to denylist access token during account deletion", ex);
+    }
+  }
+
   /** Masks IP address for privacy-compliant logging. Example: 192.168.1.100 → 192.168.***.*** */
   private String maskIpAddress(final String ipAddress) {
     if (ipAddress == null) {

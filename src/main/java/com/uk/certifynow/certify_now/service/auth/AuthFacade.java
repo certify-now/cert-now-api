@@ -193,6 +193,18 @@ public class AuthFacade {
   }
 
   /**
+   * Immediately denylists the given access token by JTI.
+   *
+   * <p>Intended for operations that have already revoked all refresh tokens (e.g. account deletion)
+   * and need to prevent any further use of the caller's current access token.
+   *
+   * @param rawAccessToken Bearer access token extracted from the Authorization header
+   */
+  public void denyAccessToken(final String rawAccessToken) {
+    sessionService.denyAccessToken(rawAccessToken);
+  }
+
+  /**
    * Retrieves the current user's profile.
    *
    * @param userId user ID from JWT

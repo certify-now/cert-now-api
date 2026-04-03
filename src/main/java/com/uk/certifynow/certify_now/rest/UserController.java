@@ -8,6 +8,7 @@ import com.uk.certifynow.certify_now.model.UpdateMeRequest;
 import com.uk.certifynow.certify_now.model.UpdateNotificationPrefsRequest;
 import com.uk.certifynow.certify_now.model.UserMeDTO;
 import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
+import com.uk.certifynow.certify_now.service.auth.AuthFacade;
 import com.uk.certifynow.certify_now.service.user.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -16,6 +17,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
@@ -28,9 +30,11 @@ import org.springframework.web.multipart.MultipartFile;
 public class UserController extends BaseController {
 
   private final UserService userService;
+  private final AuthFacade authFacade;
 
-  public UserController(final UserService userService) {
+  public UserController(final UserService userService, final AuthFacade authFacade) {
     this.userService = userService;
+    this.authFacade = authFacade;
   }
 
   @GetMapping("/me")
@@ -122,9 +126,14 @@ public class UserController extends BaseController {
         responseCode = "409",
         description = "User has active jobs and cannot be deleted")
   })
-  public void deleteMe(final Authentication authentication) {
+  public void deleteMe(final Authentication authentication, final HttpServletRequest httpRequest) {
     final UUID userId = extractUserId(authentication);
     userService.softDelete(userId, userId);
+
+    final String authHeader = httpRequest.getHeader(HttpHeaders.AUTHORIZATION);
+    final String accessToken =
+        (authHeader != null && authHeader.startsWith("Bearer ")) ? authHeader.substring(7) : null;
+    authFacade.denyAccessToken(accessToken);
   }
 
   @GetMapping("/me/stats")

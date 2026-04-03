@@ -35,8 +35,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Matching engine implementing the broadcast model. When a job is created, all eligible engineers
- * are notified simultaneously. The first engineer to accept (claim) wins the job atomically.
+ * Service responsible for matching jobs to eligible engineers, broadcasting availability, handling
+ * claims, and escalation logic.
  */
 @Service
 public class MatchingService {
@@ -74,14 +74,11 @@ public class MatchingService {
     this.adminAlertService = adminAlertService;
   }
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // FIND CANDIDATES
-  // ────────────────────────────────────────────────────────────────────────────
-
   /**
-   * Finds all eligible engineers for a job: approved, within service radius, available, and under
-   * daily job cap. Qualification filtering is a TODO (stub) until qualification-to-cert-type
-   * mapping is defined.
+   * Finds all eligible engineers for a job based on proximity, approval status, and daily job cap.
+   *
+   * @param job the job to find candidates for
+   * @return the list of eligible engineer profiles
    */
   @Transactional(readOnly = true)
   public List<EngineerProfile> findCandidates(final Job job) {
@@ -121,10 +118,8 @@ public class MatchingService {
                 })
             .toList();
 
-    // TODO: Qualification filtering — once cert-type-to-qualification mapping is
-    // defined,
-    // filter engineers who hold the required qualification for
-    // job.getCertificateType().
+    // TODO: Filter engineers by required qualification once cert-type-to-qualification mapping is
+    // defined.
 
     log.debug(
         "findCandidates: job={}, nearby={}, eligible (after cap check)={}",
@@ -135,18 +130,10 @@ public class MatchingService {
     return eligible;
   }
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // BROADCAST TO ELIGIBLE
-  // ────────────────────────────────────────────────────────────────────────────
-
   /**
-   * Broadcasts a job to all eligible engineers. Updates job status to AWAITING_ACCEPTANCE and
-   * creates match log entries for each notified engineer.
+   * Broadcasts a job to all eligible engineers, updating status to AWAITING_ACCEPTANCE.
    *
-   * <p>The {@code jobRef} parameter may come from a detached / proxy-only entity (e.g. loaded by
-   * the scheduler outside a transaction). We therefore re-load the job with its {@code property}
-   * eagerly joined so that {@link #findCandidates} can access {@code property.location} safely
-   * within this transaction.
+   * @param jobRef the job reference (may be detached; re-loaded within the transaction)
    */
   @Transactional
   public void broadcastToEligible(final Job jobRef) {
@@ -203,13 +190,12 @@ public class MatchingService {
     log.info("Job {} status=AWAITING_ACCEPTANCE", job.getId());
   }
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // CLAIM JOB (atomic first-to-accept)
-  // ────────────────────────────────────────────────────────────────────────────
-
   /**
-   * Atomic first-to-accept logic. Uses a conditional UPDATE to ensure only one engineer can claim a
-   * job. Returns the updated job response on success. Throws 409 Conflict if already claimed.
+   * Atomically claims a job for an engineer using first-to-accept logic.
+   *
+   * @param jobId the unique identifier of the job to claim
+   * @param engineerId the unique identifier of the engineer claiming the job
+   * @return the updated job response
    */
   @Transactional
   public JobResponse claimJob(final UUID jobId, final UUID engineerId) {
@@ -267,13 +253,10 @@ public class MatchingService {
     return jobResponseMapper.toJobResponse(job, null);
   }
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // ESCALATE JOB
-  // ────────────────────────────────────────────────────────────────────────────
-
   /**
-   * Called when nobody accepts within the timeout. Updates job status to ESCALATED and expires all
-   * pending match log entries.
+   * Escalates a job when no engineer accepts within the timeout.
+   *
+   * @param job the job to escalate
    */
   @Transactional
   public void escalateJob(final Job job) {
@@ -300,10 +283,9 @@ public class MatchingService {
   }
 
   /**
-   * Called by the reminder scheduler for jobs that remain in ESCALATED status longer than the
-   * configured reminder interval. Re-loads the job inside a transaction to guard against concurrent
-   * resolution, increments the alert counter, persists the new {@code lastAdminAlertAt} timestamp,
-   * then fires the async reminder notifications.
+   * Sends an escalation reminder for a job that remains in ESCALATED status and records the alert.
+   *
+   * @param jobRef the job reference to send a reminder for
    */
   @Transactional
   public void sendEscalationReminderAndRecord(final Job jobRef) {
@@ -344,10 +326,6 @@ public class MatchingService {
 
     adminAlertService.sendJobEscalationReminder(job, newCount, minutesEscalated);
   }
-
-  // ────────────────────────────────────────────────────────────────────────────
-  // PRIVATE HELPERS
-  // ────────────────────────────────────────────────────────────────────────────
 
   /**
    * Parses a location string into [lat, lng]. Supports formats: "POINT(lng lat)",

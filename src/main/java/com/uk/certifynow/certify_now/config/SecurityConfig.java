@@ -25,6 +25,10 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import tools.jackson.databind.ObjectMapper;
 
+/**
+ * Spring Security configuration defining the HTTP security filter chain, CORS policy, and password
+ * encoder.
+ */
 @Configuration
 public class SecurityConfig {
 
@@ -42,11 +46,21 @@ public class SecurityConfig {
   }
 
   @Bean
+  /**
+   * Creates a BCrypt password encoder with strength 12.
+   *
+   * @return the configured password encoder
+   */
   public PasswordEncoder passwordEncoder() {
     return new BCryptPasswordEncoder(12);
   }
 
   @Bean
+  /**
+   * Configures CORS settings based on allowed origin patterns.
+   *
+   * @return the CORS configuration source
+   */
   public CorsConfigurationSource corsConfigurationSource() {
     final CorsConfiguration config = new CorsConfiguration();
     config.setAllowedOriginPatterns(Arrays.asList(allowedOriginPatterns.split(",")));
@@ -62,6 +76,16 @@ public class SecurityConfig {
   }
 
   @Bean
+  /**
+   * Defines the HTTP security filter chain with authorization rules, exception handling, and JWT
+   * filter registration.
+   *
+   * @param http the HTTP security builder
+   * @param jwtAuthenticationFilter the JWT authentication filter
+   * @param objectMapper the JSON object mapper for error responses
+   * @return the configured security filter chain
+   * @throws Exception if an error occurs during configuration
+   */
   public SecurityFilterChain securityFilterChain(
       final HttpSecurity http,
       final JwtAuthenticationFilter jwtAuthenticationFilter,
@@ -75,15 +99,11 @@ public class SecurityConfig {
         .authorizeHttpRequests(
             auth ->
                 auth
-                    // ═══════════════════════════════════════════════════════
-                    // CORS PREFLIGHT - MUST BE PUBLIC
-                    // ═══════════════════════════════════════════════════════
+                    // CORS preflight — must be public
                     .requestMatchers(HttpMethod.OPTIONS, "/**")
                     .permitAll()
 
-                    // ═══════════════════════════════════════════════════════
-                    // SWAGGER UI ENDPOINTS - MUST BE PUBLIC
-                    // ═══════════════════════════════════════════════════════
+                    // Swagger UI endpoints — must be public
                     .requestMatchers(
                         "/swagger-ui/**", // Swagger UI static resources
                         "/v3/api-docs/**", // OpenAPI JSON/YAML
@@ -94,9 +114,7 @@ public class SecurityConfig {
                         )
                     .permitAll()
 
-                    // ═══════════════════════════════════════════════════════
-                    // PUBLIC AUTH ENDPOINTS (from API spec)
-                    // ═══════════════════════════════════════════════════════
+                    // Public auth endpoints
                     .requestMatchers(HttpMethod.POST, "/api/v1/auth/register")
                     .permitAll()
                     .requestMatchers(HttpMethod.POST, "/api/v1/auth/login")
@@ -112,9 +130,7 @@ public class SecurityConfig {
                     .requestMatchers(HttpMethod.POST, "/api/v1/auth/reset-password")
                     .permitAll()
 
-                    // ═══════════════════════════════════════════════════════
-                    // PUBLIC CERTIFICATE SHARING
-                    // ═══════════════════════════════════════════════════════
+                    // Public certificate sharing
                     .requestMatchers(HttpMethod.GET, "/api/v1/certificates/shared/**")
                     .permitAll()
                     .requestMatchers(HttpMethod.GET, "/share/**")
@@ -122,9 +138,7 @@ public class SecurityConfig {
                     .requestMatchers(HttpMethod.GET, "/images/**")
                     .permitAll()
 
-                    // ═══════════════════════════════════════════════════════
-                    // CUSTOMER CERTIFICATE ENDPOINTS
-                    // ═══════════════════════════════════════════════════════
+                    // Customer certificate endpoints
                     .requestMatchers(HttpMethod.GET, "/api/v1/certificates/types")
                     .hasRole("CUSTOMER")
                     .requestMatchers(HttpMethod.GET, "/api/v1/certificates/my-certificates")
@@ -141,29 +155,21 @@ public class SecurityConfig {
                     .requestMatchers(HttpMethod.DELETE, "/api/v1/certificates/{id}/share")
                     .authenticated()
 
-                    // ═══════════════════════════════════════════════════════
-                    // STRIPE WEBHOOK (uses signature verification, not JWT)
-                    // ═══════════════════════════════════════════════════════
+                    // Stripe webhook (uses signature verification, not JWT)
                     .requestMatchers(HttpMethod.POST, "/api/v1/webhooks/stripe")
                     .permitAll()
 
-                    // ═══════════════════════════════════════════════════════
-                    // ACTUATOR — health + prometheus public, metrics require auth
-                    // ═══════════════════════════════════════════════════════
+                    // Actuator — health + prometheus public, metrics require auth
                     .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/prometheus")
                     .permitAll()
                     .requestMatchers(HttpMethod.GET, "/actuator/metrics/**", "/actuator/info")
                     .hasRole("ADMIN")
 
-                    // ═══════════════════════════════════════════════════════
-                    // ADMIN-ONLY ENDPOINTS
-                    // ═══════════════════════════════════════════════════════
+                    // Admin-only endpoints
                     .requestMatchers("/api/v1/admin/**")
                     .hasRole("ADMIN")
 
-                    // ═══════════════════════════════════════════════════════
-                    // JOB LIFECYCLE ROLE RESTRICTIONS
-                    // ═══════════════════════════════════════════════════════
+                    // Job lifecycle role restrictions
                     .requestMatchers(HttpMethod.POST, "/api/v1/jobs")
                     .hasRole("CUSTOMER")
                     .requestMatchers(HttpMethod.PUT, "/api/v1/jobs/{id}/accept")
@@ -179,24 +185,18 @@ public class SecurityConfig {
                     .requestMatchers(HttpMethod.PUT, "/api/v1/jobs/{id}/propose-schedule")
                     .hasRole("ENGINEER")
 
-                    // ═══════════════════════════════════════════════════════
-                    // INSPECTION ENDPOINTS
-                    // ═══════════════════════════════════════════════════════
+                    // Inspection endpoints
                     .requestMatchers(HttpMethod.POST, "/api/v1/jobs/{id}/inspection/gas-safety")
                     .hasRole("ENGINEER")
                     // GET inspection: ownership enforced in service layer —
                     // only the assigned engineer or the booking customer may read.
                     // cancel + GET /jobs endpoints: role checked in service layer
 
-                    // ═══════════════════════════════════════════════════════
-                    // ENGINEER ONBOARDING ENDPOINTS
-                    // ═══════════════════════════════════════════════════════
+                    // Engineer onboarding endpoints
                     .requestMatchers("/api/v1/engineer/**")
                     .hasRole("ENGINEER")
 
-                    // ═══════════════════════════════════════════════════════
-                    // ALL OTHER ENDPOINTS REQUIRE AUTHENTICATION
-                    // ═══════════════════════════════════════════════════════
+                    // All other endpoints require authentication
                     .anyRequest()
                     .authenticated())
         .exceptionHandling(

@@ -76,7 +76,7 @@ class JobCreationServiceTest {
             jobHistoryService);
   }
 
-  // --- CREATE JOB ----------------------------------------------------------------
+  // Create Job
 
   @Test
   void createJob_happyPath_returnsCreatedJob() {
@@ -238,7 +238,7 @@ class JobCreationServiceTest {
     verify(jobRepository, times(3)).save(any());
   }
 
-  // --- Helpers -------------------------------------------------------------------
+  // Helpers
 
   private PriceBreakdown buildPrice() {
     return new PriceBreakdown(

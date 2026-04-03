@@ -1,6 +1,6 @@
 package com.uk.certifynow.certify_now.exception;
 
-import com.uk.certifynow.certify_now.service.job.JobStatus;
+import com.uk.certifynow.certify_now.service.enums.JobStatus;
 import org.springframework.http.HttpStatus;
 
 /**

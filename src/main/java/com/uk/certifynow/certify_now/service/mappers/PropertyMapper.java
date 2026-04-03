@@ -6,7 +6,7 @@ import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.model.PropertyDTO;
 import com.uk.certifynow.certify_now.rest.dto.property.CreatePropertyRequest;
 import com.uk.certifynow.certify_now.rest.dto.property.UpdatePropertyRequest;
-import com.uk.certifynow.certify_now.service.ComplianceStatus;
+import com.uk.certifynow.certify_now.service.enums.ComplianceStatus;
 import java.util.UUID;
 import org.mapstruct.AfterMapping;
 import org.mapstruct.Mapper;

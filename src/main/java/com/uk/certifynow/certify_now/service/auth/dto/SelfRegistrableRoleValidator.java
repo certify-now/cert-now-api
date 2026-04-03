@@ -1,6 +1,6 @@
 package com.uk.certifynow.certify_now.service.auth.dto;
 
-import com.uk.certifynow.certify_now.service.auth.UserRole;
+import com.uk.certifynow.certify_now.service.enums.UserRole;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
 

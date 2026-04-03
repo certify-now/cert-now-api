@@ -3,7 +3,7 @@ package com.uk.certifynow.certify_now.rest;
 import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
 import com.uk.certifynow.certify_now.rest.dto.address.AddressSuggestionResponse;
 import com.uk.certifynow.certify_now.rest.dto.address.ResolvedAddressResponse;
-import com.uk.certifynow.certify_now.service.AddressLookupService;
+import com.uk.certifynow.certify_now.service.property.AddressLookupService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;

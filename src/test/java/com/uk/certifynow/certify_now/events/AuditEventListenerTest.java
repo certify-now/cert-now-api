@@ -7,7 +7,7 @@ import static org.mockito.Mockito.when;
 
 import com.uk.certifynow.certify_now.domain.AuditLog;
 import com.uk.certifynow.certify_now.repos.AuditLogRepository;
-import com.uk.certifynow.certify_now.service.job.ActorType;
+import com.uk.certifynow.certify_now.service.enums.ActorType;
 import com.uk.certifynow.certify_now.util.TestConstants;
 import java.time.Clock;
 import java.time.OffsetDateTime;

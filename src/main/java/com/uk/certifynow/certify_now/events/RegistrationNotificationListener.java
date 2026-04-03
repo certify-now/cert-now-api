@@ -1,6 +1,6 @@
 package com.uk.certifynow.certify_now.events;
 
-import com.uk.certifynow.certify_now.service.EmailService;
+import com.uk.certifynow.certify_now.service.notification.EmailService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;

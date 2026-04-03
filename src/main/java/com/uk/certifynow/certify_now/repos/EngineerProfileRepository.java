@@ -1,7 +1,7 @@
 package com.uk.certifynow.certify_now.repos;
 
 import com.uk.certifynow.certify_now.domain.EngineerProfile;
-import com.uk.certifynow.certify_now.service.auth.EngineerApplicationStatus;
+import com.uk.certifynow.certify_now.service.enums.EngineerApplicationStatus;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;

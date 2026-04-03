@@ -11,7 +11,7 @@ import com.uk.certifynow.certify_now.service.auth.CustomerProfileView;
 import com.uk.certifynow.certify_now.service.auth.EngineerProfileView;
 import com.uk.certifynow.certify_now.service.auth.ProfileView;
 import com.uk.certifynow.certify_now.service.auth.SessionService;
-import com.uk.certifynow.certify_now.service.auth.UserRole;
+import com.uk.certifynow.certify_now.service.enums.UserRole;
 import com.uk.certifynow.certify_now.service.auth.dto.AuthResponse;
 import com.uk.certifynow.certify_now.service.security.JwtTokenProvider;
 import java.util.UUID;

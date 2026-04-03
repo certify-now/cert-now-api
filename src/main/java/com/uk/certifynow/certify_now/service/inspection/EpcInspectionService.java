@@ -32,7 +32,7 @@ import com.uk.certifynow.certify_now.rest.dto.inspection.EpcRecordResponse.Docum
 import com.uk.certifynow.certify_now.rest.dto.inspection.EpcRecordResponse.PhotosSummary;
 import com.uk.certifynow.certify_now.rest.dto.inspection.EpcRecordResponse.PreAssessmentSummary;
 import com.uk.certifynow.certify_now.service.job.JobService;
-import com.uk.certifynow.certify_now.service.job.JobStatus;
+import com.uk.certifynow.certify_now.service.enums.JobStatus;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;

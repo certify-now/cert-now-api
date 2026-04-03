@@ -6,7 +6,7 @@ import com.uk.certifynow.certify_now.events.EmailVerifiedEvent;
 import com.uk.certifynow.certify_now.exception.BusinessException;
 import com.uk.certifynow.certify_now.repos.EmailVerificationTokenRepository;
 import com.uk.certifynow.certify_now.repos.UserRepository;
-import com.uk.certifynow.certify_now.service.EmailService;
+import com.uk.certifynow.certify_now.service.notification.EmailService;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;

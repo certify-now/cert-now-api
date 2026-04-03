@@ -1,7 +1,7 @@
 package com.uk.certifynow.certify_now.domain;
 
-import com.uk.certifynow.certify_now.service.auth.EngineerApplicationStatus;
-import com.uk.certifynow.certify_now.service.auth.EngineerTier;
+import com.uk.certifynow.certify_now.service.enums.EngineerApplicationStatus;
+import com.uk.certifynow.certify_now.service.enums.EngineerTier;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;

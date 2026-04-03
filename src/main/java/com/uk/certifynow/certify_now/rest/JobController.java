@@ -11,7 +11,7 @@ import com.uk.certifynow.certify_now.rest.dto.job.JobStatusHistoryResponse;
 import com.uk.certifynow.certify_now.rest.dto.job.JobSummaryResponse;
 import com.uk.certifynow.certify_now.rest.dto.job.ProposeScheduleRequest;
 import com.uk.certifynow.certify_now.rest.dto.job.StartJobRequest;
-import com.uk.certifynow.certify_now.service.auth.UserRole;
+import com.uk.certifynow.certify_now.service.enums.UserRole;
 import com.uk.certifynow.certify_now.service.job.JobCreationService;
 import com.uk.certifynow.certify_now.service.job.JobService;
 import io.swagger.v3.oas.annotations.Operation;

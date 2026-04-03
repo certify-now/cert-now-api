@@ -12,7 +12,7 @@ import com.uk.certifynow.certify_now.domain.Job;
 import com.uk.certifynow.certify_now.domain.Property;
 import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.repos.JobRepository;
-import com.uk.certifynow.certify_now.service.job.JobStatus;
+import com.uk.certifynow.certify_now.service.enums.JobStatus;
 import com.uk.certifynow.certify_now.service.matching.MatchingService;
 import com.uk.certifynow.certify_now.util.TestConstants;
 import com.uk.certifynow.certify_now.util.TestJobBuilder;

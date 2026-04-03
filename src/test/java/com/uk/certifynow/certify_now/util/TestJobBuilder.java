@@ -4,7 +4,7 @@ import com.uk.certifynow.certify_now.domain.Job;
 import com.uk.certifynow.certify_now.domain.Property;
 import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.domain.enums.CertificateType;
-import com.uk.certifynow.certify_now.service.job.JobStatus;
+import com.uk.certifynow.certify_now.service.enums.JobStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;

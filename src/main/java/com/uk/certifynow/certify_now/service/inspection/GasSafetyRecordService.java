@@ -18,7 +18,7 @@ import com.uk.certifynow.certify_now.repos.PropertyRepository;
 import com.uk.certifynow.certify_now.rest.dto.inspection.GasSafetyRecordRequest;
 import com.uk.certifynow.certify_now.rest.dto.inspection.GasSafetyRecordResponse;
 import com.uk.certifynow.certify_now.service.job.JobService;
-import com.uk.certifynow.certify_now.service.job.JobStatus;
+import com.uk.certifynow.certify_now.service.enums.JobStatus;
 import com.uk.certifynow.certify_now.service.mappers.GasSafetyRecordMapper;
 import java.time.Clock;
 import java.time.OffsetDateTime;

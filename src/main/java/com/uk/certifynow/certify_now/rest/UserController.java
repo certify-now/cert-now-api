@@ -8,7 +8,7 @@ import com.uk.certifynow.certify_now.model.UpdateMeRequest;
 import com.uk.certifynow.certify_now.model.UpdateNotificationPrefsRequest;
 import com.uk.certifynow.certify_now.model.UserMeDTO;
 import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
-import com.uk.certifynow.certify_now.service.UserService;
+import com.uk.certifynow.certify_now.service.user.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;

@@ -1,7 +1,7 @@
 package com.uk.certifynow.certify_now.model;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
-import com.uk.certifynow.certify_now.service.PropertyType;
+import com.uk.certifynow.certify_now.service.enums.PropertyType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;

@@ -2,7 +2,7 @@ package com.uk.certifynow.certify_now.scheduler;
 
 import com.uk.certifynow.certify_now.domain.Job;
 import com.uk.certifynow.certify_now.repos.JobRepository;
-import com.uk.certifynow.certify_now.service.job.JobStatus;
+import com.uk.certifynow.certify_now.service.enums.JobStatus;
 import com.uk.certifynow.certify_now.service.matching.MatchingService;
 import java.time.Clock;
 import java.time.OffsetDateTime;

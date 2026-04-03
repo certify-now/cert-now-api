@@ -7,7 +7,7 @@ import com.uk.certifynow.certify_now.rest.dto.pricing.PricingRuleResponse;
 import com.uk.certifynow.certify_now.rest.dto.pricing.UpdatePricingRuleRequest;
 import com.uk.certifynow.certify_now.rest.dto.pricing.UpdateUrgencyMultiplierRequest;
 import com.uk.certifynow.certify_now.rest.dto.pricing.UrgencyMultiplierResponse;
-import com.uk.certifynow.certify_now.service.PricingService;
+import com.uk.certifynow.certify_now.service.pricing.PricingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;

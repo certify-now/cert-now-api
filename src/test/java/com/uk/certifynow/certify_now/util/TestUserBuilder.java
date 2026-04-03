@@ -1,9 +1,9 @@
 package com.uk.certifynow.certify_now.util;
 
 import com.uk.certifynow.certify_now.domain.User;
-import com.uk.certifynow.certify_now.service.auth.AuthProvider;
-import com.uk.certifynow.certify_now.service.auth.UserRole;
-import com.uk.certifynow.certify_now.service.auth.UserStatus;
+import com.uk.certifynow.certify_now.service.enums.AuthProvider;
+import com.uk.certifynow.certify_now.service.enums.UserRole;
+import com.uk.certifynow.certify_now.service.enums.UserStatus;
 import java.util.UUID;
 
 public final class TestUserBuilder {

@@ -7,11 +7,11 @@ import static org.mockito.Mockito.doAnswer;
 
 import com.uk.certifynow.certify_now.domain.User;
 import com.uk.certifynow.certify_now.repos.UserRepository;
-import com.uk.certifynow.certify_now.service.EmailService;
-import com.uk.certifynow.certify_now.service.auth.AuthProvider;
+import com.uk.certifynow.certify_now.service.notification.EmailService;
+import com.uk.certifynow.certify_now.service.enums.AuthProvider;
 import com.uk.certifynow.certify_now.service.auth.UserFactory;
-import com.uk.certifynow.certify_now.service.auth.UserRole;
-import com.uk.certifynow.certify_now.service.auth.UserStatus;
+import com.uk.certifynow.certify_now.service.enums.UserRole;
+import com.uk.certifynow.certify_now.service.enums.UserStatus;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import java.util.UUID;

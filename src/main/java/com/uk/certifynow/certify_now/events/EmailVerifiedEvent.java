@@ -1,6 +1,6 @@
 package com.uk.certifynow.certify_now.events;
 
-import com.uk.certifynow.certify_now.service.job.ActorType;
+import com.uk.certifynow.certify_now.service.enums.ActorType;
 import java.util.UUID;
 
 public class EmailVerifiedEvent extends DomainEvent {

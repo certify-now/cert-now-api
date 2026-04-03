@@ -1,6 +1,6 @@
 package com.uk.certifynow.certify_now.rest.dto.property;
 
-import com.uk.certifynow.certify_now.service.PropertyType;
+import com.uk.certifynow.certify_now.service.enums.PropertyType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Min;

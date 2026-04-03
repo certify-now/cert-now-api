@@ -1,6 +1,6 @@
 package com.uk.certifynow.certify_now.rest;
 
-import com.uk.certifynow.certify_now.service.PublicShareService;
+import com.uk.certifynow.certify_now.service.share.PublicShareService;
 import com.uk.certifynow.certify_now.service.PublicShareService.DocumentMeta;
 import com.uk.certifynow.certify_now.service.PublicShareService.DocumentMetaWithLabel;
 import com.uk.certifynow.certify_now.service.PublicShareService.SharePageResult;

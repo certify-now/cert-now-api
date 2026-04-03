@@ -19,7 +19,7 @@ import com.uk.certifynow.certify_now.repos.PaymentRepository;
 import com.uk.certifynow.certify_now.rest.dto.job.AcceptJobRequest;
 import com.uk.certifynow.certify_now.rest.dto.job.JobResponse;
 import com.uk.certifynow.certify_now.rest.dto.job.StartJobRequest;
-import com.uk.certifynow.certify_now.service.auth.UserRole;
+import com.uk.certifynow.certify_now.service.enums.UserRole;
 import com.uk.certifynow.certify_now.util.TestConstants;
 import com.uk.certifynow.certify_now.util.TestJobBuilder;
 import com.uk.certifynow.certify_now.util.TestPropertyBuilder;

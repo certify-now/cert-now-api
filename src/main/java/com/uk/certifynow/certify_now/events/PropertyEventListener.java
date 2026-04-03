@@ -1,6 +1,6 @@
 package com.uk.certifynow.certify_now.events;
 
-import com.uk.certifynow.certify_now.service.CustomerProfileService;
+import com.uk.certifynow.certify_now.service.customer.CustomerProfileService;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 

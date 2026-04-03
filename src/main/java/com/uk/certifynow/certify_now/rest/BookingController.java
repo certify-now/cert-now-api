@@ -2,7 +2,7 @@ package com.uk.certifynow.certify_now.rest;
 
 import com.uk.certifynow.certify_now.rest.dto.ApiResponse;
 import com.uk.certifynow.certify_now.rest.dto.booking.CertificateTypesResponse;
-import com.uk.certifynow.certify_now.service.BookingService;
+import com.uk.certifynow.certify_now.service.booking.BookingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;

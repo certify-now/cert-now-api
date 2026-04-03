@@ -1,7 +1,7 @@
 package com.uk.certifynow.certify_now.rest;
 
 import com.uk.certifynow.certify_now.config.RequestIdFilter;
-import com.uk.certifynow.certify_now.service.auth.UserRole;
+import com.uk.certifynow.certify_now.service.enums.UserRole;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
 import org.springframework.security.access.AccessDeniedException;

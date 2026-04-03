@@ -11,9 +11,9 @@ import com.uk.certifynow.certify_now.rest.dto.certificate.MissingCertificateResp
 import com.uk.certifynow.certify_now.rest.dto.certificate.ShareCertificateResponse;
 import com.uk.certifynow.certify_now.rest.dto.certificate.UpdateCertificateRequest;
 import com.uk.certifynow.certify_now.rest.dto.certificate.UploadCertificateRequest;
-import com.uk.certifynow.certify_now.service.CustomerCertificateService;
+import com.uk.certifynow.certify_now.service.certificate.CustomerCertificateService;
 import com.uk.certifynow.certify_now.service.CustomerCertificateService.CertificateDownloadPair;
-import com.uk.certifynow.certify_now.service.auth.UserRole;
+import com.uk.certifynow.certify_now.service.enums.UserRole;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;

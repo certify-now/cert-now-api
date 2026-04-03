@@ -3,7 +3,7 @@ package com.uk.certifynow.certify_now.events;
 import com.uk.certifynow.certify_now.domain.enums.AuditAction;
 import com.uk.certifynow.certify_now.domain.enums.AuditEntityType;
 import com.uk.certifynow.certify_now.repos.AuditLogRepository;
-import com.uk.certifynow.certify_now.service.AuditHelper;
+import com.uk.certifynow.certify_now.service.audit.AuditHelper;
 import java.time.Clock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

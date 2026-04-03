@@ -14,9 +14,13 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.util.Map;
 import java.util.UUID;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -72,6 +76,55 @@ public class UserController extends BaseController {
     final UUID userId = extractUserId(authentication);
     userService.updateMe(userId, updateMeRequest);
     return ApiResponse.of(null, requestId(request));
+  }
+
+  @PostMapping(value = "/me/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  @Operation(
+      summary = "Upload profile photo",
+      description =
+          "Accepts a multipart image file (JPEG, PNG, WebP), stores it in object storage,"
+              + " and updates the user's avatarUrl. Returns the public URL of the uploaded image.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Avatar uploaded successfully"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "No file provided or unsupported file type"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Not authenticated")
+  })
+  public ApiResponse<Map<String, String>> uploadAvatar(
+      @RequestParam("file") final MultipartFile file,
+      final Authentication authentication,
+      final HttpServletRequest request) {
+    final UUID userId = extractUserId(authentication);
+    final String url = userService.uploadAvatar(userId, file);
+    return ApiResponse.of(Map.of("url", url), requestId(request));
+  }
+
+  @DeleteMapping("/me")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  @Operation(
+      summary = "Delete account",
+      description =
+          "Soft-deletes the authenticated user's account and all associated data."
+              + " Revokes all active refresh tokens. This action cannot be undone.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "204",
+        description = "Account deleted successfully"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Not authenticated"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "409",
+        description = "User has active jobs and cannot be deleted")
+  })
+  public void deleteMe(final Authentication authentication) {
+    final UUID userId = extractUserId(authentication);
+    userService.softDelete(userId, userId);
   }
 
   @GetMapping("/me/stats")

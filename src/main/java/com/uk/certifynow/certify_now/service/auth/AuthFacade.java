@@ -33,18 +33,21 @@ public class AuthFacade {
   private final SessionService sessionService;
   private final AuthMapper authMapper;
   private final EmailVerificationService emailVerificationService;
+  private final AccountManagementService accountManagementService;
 
   public AuthFacade(
       final RegistrationService registrationService,
       final AuthenticationService authenticationService,
       final SessionService sessionService,
       final AuthMapper authMapper,
-      final EmailVerificationService emailVerificationService) {
+      final EmailVerificationService emailVerificationService,
+      final AccountManagementService accountManagementService) {
     this.registrationService = registrationService;
     this.authenticationService = authenticationService;
     this.sessionService = sessionService;
     this.authMapper = authMapper;
     this.emailVerificationService = emailVerificationService;
+    this.accountManagementService = accountManagementService;
   }
 
   /**
@@ -150,6 +153,31 @@ public class AuthFacade {
   @Transactional
   public void updateEmailForUnverifiedUser(final UUID userId, final String newEmail) {
     emailVerificationService.updateEmailForUnverifiedUser(userId, newEmail);
+  }
+
+  /**
+   * Changes the authenticated user's password after verifying their current password.
+   *
+   * @param userId authenticated user's ID
+   * @param currentPassword current password for verification
+   * @param newPassword new password to set
+   */
+  public void changePassword(
+      final UUID userId, final String currentPassword, final String newPassword) {
+    accountManagementService.changePassword(userId, currentPassword, newPassword);
+  }
+
+  /**
+   * Changes the authenticated user's email address after verifying their current password.
+   *
+   * <p>Sets the account to PENDING_VERIFICATION and sends a verification email to the new address.
+   *
+   * @param userId authenticated user's ID
+   * @param currentPassword current password for verification
+   * @param newEmail desired new email address
+   */
+  public void changeEmail(final UUID userId, final String currentPassword, final String newEmail) {
+    accountManagementService.changeEmail(userId, currentPassword, newEmail);
   }
 
   /**

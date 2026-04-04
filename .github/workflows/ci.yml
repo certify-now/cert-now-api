@@ -124,7 +124,7 @@ jobs:
           username: maher
           key: ${{ secrets.VPS_SSH_KEY }}
           source: "docker-compose.staging.yml,docker-compose.monitoring.yml,prometheus.yml"
-          target: "~/"
+          target: "/opt/certnow/"
 
       - name: Deploy to staging
         uses: appleboy/ssh-action@v1
@@ -135,10 +135,10 @@ jobs:
           script: |
             set -e
             echo ${{ secrets.GHCR_PAT }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            docker compose -p cert-now-staging --env-file ~/staging.env -f ~/docker-compose.staging.yml pull app
-            docker compose -p cert-now-staging --env-file ~/staging.env -f ~/docker-compose.staging.yml up -d
+            docker compose -p cert-now-staging --env-file /opt/certnow/staging.env -f /opt/certnow/docker-compose.staging.yml pull app
+            docker compose -p cert-now-staging --env-file /opt/certnow/staging.env -f /opt/certnow/docker-compose.staging.yml up -d
             sleep 15
-            docker compose -p cert-now-staging --env-file ~/staging.env -f ~/docker-compose.staging.yml ps | grep "app" | grep "Up"
+            docker compose -p cert-now-staging --env-file /opt/certnow/staging.env -f /opt/certnow/docker-compose.staging.yml ps | grep "app" | grep "Up"
             echo "Staging deployed successfully"
 
   # ─────────────────────────────────────────────────────────────
@@ -186,7 +186,7 @@ jobs:
           username: maher
           key: ${{ secrets.VPS_SSH_KEY }}
           source: docker-compose.prod.yml
-          target: "~/"
+          target: "/opt/certnow/"
 
       - name: Deploy to production
         uses: appleboy/ssh-action@v1
@@ -197,8 +197,8 @@ jobs:
           script: |
             set -e
             echo ${{ secrets.GHCR_PAT }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            docker compose -p cert-now-prod --env-file ~/prod.env -f ~/docker-compose.prod.yml pull app
-            docker compose -p cert-now-prod --env-file ~/prod.env -f ~/docker-compose.prod.yml up -d
+            docker compose -p cert-now-prod --env-file /opt/certnow/prod.env -f /opt/certnow/docker-compose.prod.yml pull app
+            docker compose -p cert-now-prod --env-file /opt/certnow/prod.env -f /opt/certnow/docker-compose.prod.yml up -d
             sleep 15
-            docker compose -p cert-now-prod --env-file ~/prod.env -f ~/docker-compose.prod.yml ps | grep "app" | grep "Up"
+            docker compose -p cert-now-prod --env-file /opt/certnow/prod.env -f /opt/certnow/docker-compose.prod.yml ps | grep "app" | grep "Up"
             echo "Production deployed successfully"

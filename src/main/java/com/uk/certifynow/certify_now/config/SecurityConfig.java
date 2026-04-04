@@ -141,6 +141,8 @@ public class SecurityConfig {
                     // Customer certificate endpoints
                     .requestMatchers(HttpMethod.GET, "/api/v1/certificates/types")
                     .hasRole("CUSTOMER")
+                    .requestMatchers(HttpMethod.GET, "/api/v1/certificates/compliance-vault")
+                    .hasRole("CUSTOMER")
                     .requestMatchers(HttpMethod.GET, "/api/v1/certificates/my-certificates")
                     .hasRole("CUSTOMER")
                     .requestMatchers(HttpMethod.GET, "/api/v1/certificates/missing")

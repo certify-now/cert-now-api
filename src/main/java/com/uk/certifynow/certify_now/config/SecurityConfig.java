@@ -2,6 +2,7 @@ package com.uk.certifynow.certify_now.config;
 
 import com.uk.certifynow.certify_now.service.security.JwtAuthenticationFilter;
 import com.uk.certifynow.certify_now.service.security.SecurityResponseWriter;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -99,6 +100,11 @@ public class SecurityConfig {
         .authorizeHttpRequests(
             auth ->
                 auth
+                    // Tomcat async dispatches (e.g. SSE emitter writes from background threads)
+                    // must be permitted — they carry no JWT and have no user context
+                    .dispatcherTypeMatchers(DispatcherType.ASYNC)
+                    .permitAll()
+
                     // CORS preflight — must be public
                     .requestMatchers(HttpMethod.OPTIONS, "/**")
                     .permitAll()

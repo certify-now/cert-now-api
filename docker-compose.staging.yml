@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgis/postgis:16-alpine
+    image: postgis/postgis:16-3.4-alpine
     environment:
       POSTGRES_DB: cert-now-staging
       POSTGRES_USER: ${JDBC_DATABASE_USERNAME}

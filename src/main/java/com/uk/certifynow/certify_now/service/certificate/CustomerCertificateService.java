@@ -30,6 +30,7 @@ import com.uk.certifynow.certify_now.rest.dto.certificate.CertificateListItemRes
 import com.uk.certifynow.certify_now.rest.dto.certificate.CertificatesListResponse;
 import com.uk.certifynow.certify_now.rest.dto.certificate.CertificatesListResponse.Breakdown;
 import com.uk.certifynow.certify_now.rest.dto.certificate.CertificatesListResponse.Meta;
+import com.uk.certifynow.certify_now.rest.dto.certificate.ComplianceVaultResponse;
 import com.uk.certifynow.certify_now.rest.dto.certificate.EngineerSummaryResponse;
 import com.uk.certifynow.certify_now.rest.dto.certificate.GetCertificatesRequest;
 import com.uk.certifynow.certify_now.rest.dto.certificate.MissingCertificateResponse;
@@ -111,7 +112,8 @@ public class CustomerCertificateService {
   @Caching(
       evict = {
         @CacheEvict(value = "customer-certificates", allEntries = true),
-        @CacheEvict(value = "my-properties", allEntries = true)
+        @CacheEvict(value = "my-properties", allEntries = true),
+        @CacheEvict(value = "compliance-vault", allEntries = true)
       })
   @Transactional
   public CertificateListItemResponse uploadCertificate(
@@ -283,6 +285,92 @@ public class CustomerCertificateService {
     final Meta meta = buildMeta(items);
 
     return new CertificatesListResponse(items, meta);
+  }
+
+  // ── GET /compliance-vault ───────────────────────────────────────────────────
+
+  @Cacheable(value = "compliance-vault", key = "#customerId")
+  @Transactional(readOnly = true)
+  public ComplianceVaultResponse getComplianceVault(final UUID customerId) {
+
+    final LocalDate today = LocalDate.now(clock);
+
+    // 1. Load all active properties
+    final List<Property> properties =
+        propertyRepository.findByOwnerIdAndIsActiveTrue(customerId, Sort.by("addressLine1"));
+
+    // 2. Load all non-superseded certificates for those properties
+    final List<Certificate> rawCerts =
+        certificateRepository.findByPropertyOwnerIdWithFilters(customerId, null, null);
+
+    // 3. Compute dynamic statuses and build list items grouped by property
+    final Map<UUID, List<CertificateListItemResponse>> certsByProperty = new HashMap<>();
+    final List<CertificateListItemResponse> allItems = new ArrayList<>();
+    for (final Certificate cert : rawCerts) {
+      final String dynamicStatus = calculateStatus(cert.getExpiryAt(), cert.getStatus(), today);
+      final CertificateListItemResponse item = toListItem(cert, dynamicStatus, today, customerId);
+      allItems.add(item);
+      final UUID pid = cert.getProperty() != null ? cert.getProperty().getId() : null;
+      if (pid != null) {
+        certsByProperty.computeIfAbsent(pid, k -> new ArrayList<>()).add(item);
+      }
+    }
+
+    // 4. Detect missing certificates per property
+    final Map<String, List<Certificate>> activeCertsByKey =
+        batchLoadActiveCerts(properties.stream().map(Property::getId).toList());
+    for (final Property property : properties) {
+      final List<MissingEntry> missing =
+          detectMissingForProperty(property, activeCertsByKey, today);
+      for (final MissingEntry entry : missing) {
+        final CertificateListItemResponse missingItem =
+            toMissingListItem(property, entry.certificateType());
+        allItems.add(missingItem);
+        certsByProperty.computeIfAbsent(property.getId(), k -> new ArrayList<>()).add(missingItem);
+      }
+    }
+
+    // 5. Build PropertyWithCertificates list sorted by urgency
+    final List<ComplianceVaultResponse.PropertyWithCertificates> propertyList = new ArrayList<>();
+    for (final Property property : properties) {
+      final List<CertificateListItemResponse> certs =
+          certsByProperty.getOrDefault(property.getId(), List.of());
+      propertyList.add(
+          new ComplianceVaultResponse.PropertyWithCertificates(
+              property.getId(),
+              property.getAddressLine1(),
+              property.getCity(),
+              property.getPostcode(),
+              property.getHasGasSupply(),
+              property.getHasElectric(),
+              certs));
+    }
+
+    propertyList.sort(
+        Comparator.<ComplianceVaultResponse.PropertyWithCertificates>comparingInt(
+                p -> propertyUrgencyOrder(p.certificates()))
+            .thenComparing(p -> p.addressLine1() != null ? p.addressLine1() : ""));
+
+    // 6. Build meta breakdown from all items
+    final Meta meta = buildMeta(allItems);
+
+    return new ComplianceVaultResponse(propertyList, meta);
+  }
+
+  private static int propertyUrgencyOrder(final List<CertificateListItemResponse> certs) {
+    boolean hasExpired = false;
+    boolean hasExpiringSoon = false;
+    boolean hasMissing = false;
+    for (final CertificateListItemResponse c : certs) {
+      final String st = c.status();
+      if (CertificateStatus.EXPIRED.name().equals(st)) hasExpired = true;
+      else if (CertificateStatus.EXPIRING_SOON.name().equals(st)) hasExpiringSoon = true;
+      else if (CertificateStatus.MISSING.name().equals(st)) hasMissing = true;
+    }
+    if (hasExpired) return 0;
+    if (hasExpiringSoon) return 1;
+    if (hasMissing) return 2;
+    return 3;
   }
 
   // ── GET /{id} ─────────────────────────────────────────────────────────────
@@ -579,7 +667,8 @@ public class CustomerCertificateService {
   @Caching(
       evict = {
         @CacheEvict(value = "customer-certificates", allEntries = true),
-        @CacheEvict(value = "my-properties", allEntries = true)
+        @CacheEvict(value = "my-properties", allEntries = true),
+        @CacheEvict(value = "compliance-vault", allEntries = true)
       })
   @Transactional
   public void deleteCertificate(final UUID certId, final UUID customerId) {
@@ -629,7 +718,8 @@ public class CustomerCertificateService {
   @Caching(
       evict = {
         @CacheEvict(value = "customer-certificates", allEntries = true),
-        @CacheEvict(value = "my-properties", allEntries = true)
+        @CacheEvict(value = "my-properties", allEntries = true),
+        @CacheEvict(value = "compliance-vault", allEntries = true)
       })
   @Transactional
   public CertificateListItemResponse updateCertificate(

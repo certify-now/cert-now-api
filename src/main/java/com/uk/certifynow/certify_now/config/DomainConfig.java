@@ -43,6 +43,7 @@ public class DomainConfig {
             buildCache("engineer-profiles", Duration.ofMinutes(5), 500),
             buildCache("my-properties", Duration.ofMinutes(2), 500),
             buildCache("customer-certificates", Duration.ofMinutes(2), 500),
+            buildCache("compliance-vault", Duration.ofMinutes(2), 500),
             buildCache("users", Duration.ofMinutes(10), 500),
             buildCache("users_all", Duration.ofMinutes(10), 500),
             buildCache("users_email", Duration.ofMinutes(10), 500),

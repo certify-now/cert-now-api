@@ -133,6 +133,10 @@ public class EpcEnrichmentListener {
             if (cache != null) {
               cache.evictIfPresent(ownerId);
             }
+            final var complianceVaultCache = cacheManager.getCache("compliance-vault");
+            if (complianceVaultCache != null) {
+              complianceVaultCache.evictIfPresent(ownerId);
+            }
             sseEmitterRegistry.push(ownerId, "epc-enriched", Map.of("propertyId", propertyId));
           }
         });

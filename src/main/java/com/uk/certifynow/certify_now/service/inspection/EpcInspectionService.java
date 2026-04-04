@@ -103,7 +103,8 @@ public class EpcInspectionService {
       evict = {
         @CacheEvict(value = "jobs", key = "#jobId"),
         @CacheEvict(value = "customer-certificates", allEntries = true),
-        @CacheEvict(value = "my-properties", allEntries = true)
+        @CacheEvict(value = "my-properties", allEntries = true),
+        @CacheEvict(value = "compliance-vault", allEntries = true)
       })
   @Transactional
   public EpcRecordResponse submitEpcRecord(

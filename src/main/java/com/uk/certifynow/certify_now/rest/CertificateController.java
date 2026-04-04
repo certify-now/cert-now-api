@@ -6,6 +6,7 @@ import com.uk.certifynow.certify_now.rest.dto.certificate.CertificateDetailRespo
 import com.uk.certifynow.certify_now.rest.dto.certificate.CertificateListItemResponse;
 import com.uk.certifynow.certify_now.rest.dto.certificate.CertificateTypeResponse;
 import com.uk.certifynow.certify_now.rest.dto.certificate.CertificatesListResponse;
+import com.uk.certifynow.certify_now.rest.dto.certificate.ComplianceVaultResponse;
 import com.uk.certifynow.certify_now.rest.dto.certificate.GetCertificatesRequest;
 import com.uk.certifynow.certify_now.rest.dto.certificate.MissingCertificateResponse;
 import com.uk.certifynow.certify_now.rest.dto.certificate.ShareCertificateResponse;
@@ -108,6 +109,23 @@ public class CertificateController extends BaseController {
     return ApiResponse.of(
         customerCertificateService.uploadCertificate(customerId, request, files),
         requestId(httpRequest));
+  }
+
+  // ── GET /api/v1/certificates/compliance-vault ─────────────────────────────
+
+  @GetMapping("/compliance-vault")
+  @Operation(
+      summary = "Compliance Vault view",
+      description =
+          "Returns all properties with their certificates grouped, "
+              + "including missing entries and meta breakdown. "
+              + "Designed for the Compliance Vault screen.")
+  public ApiResponse<ComplianceVaultResponse> getComplianceVault(
+      final Authentication authentication, final HttpServletRequest httpRequest) {
+
+    final UUID customerId = extractUserId(authentication);
+    return ApiResponse.of(
+        customerCertificateService.getComplianceVault(customerId), requestId(httpRequest));
   }
 
   // ── GET /api/v1/certificates/my-certificates ──────────────────────────────

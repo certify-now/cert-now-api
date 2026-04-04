@@ -34,6 +34,7 @@ import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Page;
@@ -133,7 +134,11 @@ public class PropertyService {
     return new MyPropertiesResponse(properties, health);
   }
 
-  @CacheEvict(value = "my-properties", allEntries = true)
+  @Caching(
+      evict = {
+        @CacheEvict(value = "my-properties", allEntries = true),
+        @CacheEvict(value = "compliance-vault", allEntries = true)
+      })
   @Transactional
   public PropertyDTO create(final CreatePropertyRequest request, final UUID ownerId) {
     final User owner =
@@ -171,7 +176,11 @@ public class PropertyService {
     return propertyMapper.toDTO(saved);
   }
 
-  @CacheEvict(value = "my-properties", allEntries = true)
+  @Caching(
+      evict = {
+        @CacheEvict(value = "my-properties", allEntries = true),
+        @CacheEvict(value = "compliance-vault", allEntries = true)
+      })
   @Transactional
   public PropertyDTO update(final UUID id, final UpdatePropertyRequest request, final UUID userId) {
     final Property property = propertyRepository.findById(id).orElseThrow(NotFoundException::new);
@@ -192,7 +201,11 @@ public class PropertyService {
     return enriched(propertyMapper.toDTO(saved));
   }
 
-  @CacheEvict(value = "my-properties", allEntries = true)
+  @Caching(
+      evict = {
+        @CacheEvict(value = "my-properties", allEntries = true),
+        @CacheEvict(value = "compliance-vault", allEntries = true)
+      })
   @Transactional
   public void deactivate(final UUID id, final UUID userId) {
     final Property property = propertyRepository.findById(id).orElseThrow(NotFoundException::new);
@@ -202,7 +215,11 @@ public class PropertyService {
     log.info("Property {} deactivated", id);
   }
 
-  @CacheEvict(value = "my-properties", allEntries = true)
+  @Caching(
+      evict = {
+        @CacheEvict(value = "my-properties", allEntries = true),
+        @CacheEvict(value = "compliance-vault", allEntries = true)
+      })
   @Transactional
   public void delete(final UUID id) {
     final Property property = propertyRepository.findById(id).orElseThrow(NotFoundException::new);
@@ -213,7 +230,11 @@ public class PropertyService {
 
   // ── Soft-delete operations ──────────────────────────────────────────────────
 
-  @CacheEvict(value = "my-properties", allEntries = true)
+  @Caching(
+      evict = {
+        @CacheEvict(value = "my-properties", allEntries = true),
+        @CacheEvict(value = "compliance-vault", allEntries = true)
+      })
   @Transactional
   public void softDelete(final UUID id, final UUID deletedByUserId) {
     final Property property =
@@ -245,7 +266,11 @@ public class PropertyService {
     publisher.publishEvent(new PropertySoftDeletedEvent(id, deletedByUserId, actorType));
   }
 
-  @CacheEvict(value = "my-properties", allEntries = true)
+  @Caching(
+      evict = {
+        @CacheEvict(value = "my-properties", allEntries = true),
+        @CacheEvict(value = "compliance-vault", allEntries = true)
+      })
   @Transactional
   public PropertyDTO restore(final UUID id, final UUID restoredByUserId) {
     final Property property =
@@ -275,7 +300,11 @@ public class PropertyService {
   // These endpoints update only the denormalised metadata flags used for quick
   // compliance checks; file upload is handled by the ComplianceDocument flow.
 
-  @CacheEvict(value = "my-properties", allEntries = true)
+  @Caching(
+      evict = {
+        @CacheEvict(value = "my-properties", allEntries = true),
+        @CacheEvict(value = "compliance-vault", allEntries = true)
+      })
   @Transactional
   public PropertyDTO updateGasCertificateMetadata(
       final UUID id,
@@ -292,7 +321,11 @@ public class PropertyService {
     return enriched(propertyMapper.toDTO(saved));
   }
 
-  @CacheEvict(value = "my-properties", allEntries = true)
+  @Caching(
+      evict = {
+        @CacheEvict(value = "my-properties", allEntries = true),
+        @CacheEvict(value = "compliance-vault", allEntries = true)
+      })
   @Transactional
   public PropertyDTO updateEicrMetadata(
       final UUID id, final Boolean hasEicr, final LocalDate eicrExpiryDate, final UUID userId) {

@@ -291,7 +291,8 @@ public class UserService {
   @Caching(
       evict = {
         @CacheEvict(value = "my-properties", allEntries = true),
-        @CacheEvict(value = "customer-certificates", allEntries = true)
+        @CacheEvict(value = "customer-certificates", allEntries = true),
+        @CacheEvict(value = "compliance-vault", allEntries = true)
       })
   public void updateNotificationPrefs(final UUID userId, final UpdateNotificationPrefsRequest req) {
     final CustomerProfile profile = requireCustomerProfile(userId);

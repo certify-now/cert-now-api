@@ -201,7 +201,8 @@ public abstract class BaseIntegrationTest {
                   "hasGasSupply": true,
                   "hasElectric": true,
                   "gasApplianceCount": 1,
-                  "complianceStatus": "UNKNOWN"
+                  "latitude": 51.5034,
+                  "longitude": -0.1276
                 }
                 """)
             .post("/api/v1/properties")

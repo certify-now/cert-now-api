@@ -175,20 +175,32 @@ class CachingAnnotationsTest {
             "create",
             com.uk.certifynow.certify_now.rest.dto.property.CreatePropertyRequest.class,
             java.util.UUID.class);
-    final CacheEvict annotation = method.getAnnotation(CacheEvict.class);
-    assertThat(annotation).isNotNull();
-    assertThat(annotation.value()).contains("my-properties");
-    assertThat(annotation.allEntries()).isTrue();
+    final Caching caching = method.getAnnotation(Caching.class);
+    assertThat(caching).isNotNull();
+    boolean hasMyProperties = false;
+    boolean hasComplianceVault = false;
+    for (final CacheEvict evict : caching.evict()) {
+      if ("my-properties".equals(evict.value()[0])) hasMyProperties = true;
+      if ("compliance-vault".equals(evict.value()[0])) hasComplianceVault = true;
+    }
+    assertThat(hasMyProperties).as("Should evict my-properties").isTrue();
+    assertThat(hasComplianceVault).as("Should evict compliance-vault").isTrue();
   }
 
   @Test
   void propertyService_softDelete_evictsMyPropertiesCache() throws Exception {
     final Method method =
         PropertyService.class.getMethod("softDelete", java.util.UUID.class, java.util.UUID.class);
-    final CacheEvict annotation = method.getAnnotation(CacheEvict.class);
-    assertThat(annotation).isNotNull();
-    assertThat(annotation.value()).contains("my-properties");
-    assertThat(annotation.allEntries()).isTrue();
+    final Caching caching = method.getAnnotation(Caching.class);
+    assertThat(caching).isNotNull();
+    boolean hasMyProperties = false;
+    boolean hasComplianceVault = false;
+    for (final CacheEvict evict : caching.evict()) {
+      if ("my-properties".equals(evict.value()[0])) hasMyProperties = true;
+      if ("compliance-vault".equals(evict.value()[0])) hasComplianceVault = true;
+    }
+    assertThat(hasMyProperties).as("Should evict my-properties").isTrue();
+    assertThat(hasComplianceVault).as("Should evict compliance-vault").isTrue();
   }
 
   // ── CustomerCertificateService ─────────────────────────────────────────
@@ -206,7 +218,7 @@ class CachingAnnotationsTest {
   }
 
   @Test
-  void customerCertificateService_uploadCertificate_evictsBothCaches() throws Exception {
+  void customerCertificateService_uploadCertificate_evictsAllThreeCaches() throws Exception {
     final Method method =
         CustomerCertificateService.class.getMethod(
             "uploadCertificate",
@@ -215,30 +227,33 @@ class CachingAnnotationsTest {
             java.util.List.class);
     final Caching caching = method.getAnnotation(Caching.class);
     assertThat(caching).isNotNull();
-    assertThat(caching.evict()).hasSize(2);
+    assertThat(caching.evict()).hasSize(3);
 
     boolean hasCustomerCerts = false;
     boolean hasMyProperties = false;
+    boolean hasComplianceVault = false;
     for (final CacheEvict evict : caching.evict()) {
       if ("customer-certificates".equals(evict.value()[0])) hasCustomerCerts = true;
       if ("my-properties".equals(evict.value()[0])) hasMyProperties = true;
+      if ("compliance-vault".equals(evict.value()[0])) hasComplianceVault = true;
     }
     assertThat(hasCustomerCerts).as("Should evict customer-certificates").isTrue();
     assertThat(hasMyProperties).as("Should evict my-properties").isTrue();
+    assertThat(hasComplianceVault).as("Should evict compliance-vault").isTrue();
   }
 
   @Test
-  void customerCertificateService_deleteCertificate_evictsBothCaches() throws Exception {
+  void customerCertificateService_deleteCertificate_evictsAllThreeCaches() throws Exception {
     final Method method =
         CustomerCertificateService.class.getMethod(
             "deleteCertificate", java.util.UUID.class, java.util.UUID.class);
     final Caching caching = method.getAnnotation(Caching.class);
     assertThat(caching).isNotNull();
-    assertThat(caching.evict()).hasSize(2);
+    assertThat(caching.evict()).hasSize(3);
   }
 
   @Test
-  void customerCertificateService_updateCertificate_evictsBothCaches() throws Exception {
+  void customerCertificateService_updateCertificate_evictsAllThreeCaches() throws Exception {
     final Method method =
         CustomerCertificateService.class.getMethod(
             "updateCertificate",
@@ -247,7 +262,7 @@ class CachingAnnotationsTest {
             com.uk.certifynow.certify_now.rest.dto.certificate.UpdateCertificateRequest.class);
     final Caching caching = method.getAnnotation(Caching.class);
     assertThat(caching).isNotNull();
-    assertThat(caching.evict()).hasSize(2);
+    assertThat(caching.evict()).hasSize(3);
   }
 
   // ── GasSafetyRecordService ────────────────────────────────────────────
@@ -262,25 +277,28 @@ class CachingAnnotationsTest {
             com.uk.certifynow.certify_now.rest.dto.inspection.GasSafetyRecordRequest.class);
     final Caching caching = method.getAnnotation(Caching.class);
     assertThat(caching).as("@Caching annotation must be present").isNotNull();
-    assertThat(caching.evict()).hasSize(3);
+    assertThat(caching.evict()).hasSize(4);
 
     boolean hasJobs = false;
     boolean hasCustomerCerts = false;
     boolean hasMyProperties = false;
+    boolean hasComplianceVault = false;
     for (final CacheEvict evict : caching.evict()) {
       if ("jobs".equals(evict.value()[0])) hasJobs = true;
       if ("customer-certificates".equals(evict.value()[0])) hasCustomerCerts = true;
       if ("my-properties".equals(evict.value()[0])) hasMyProperties = true;
+      if ("compliance-vault".equals(evict.value()[0])) hasComplianceVault = true;
     }
     assertThat(hasJobs).as("Should evict jobs").isTrue();
     assertThat(hasCustomerCerts).as("Should evict customer-certificates").isTrue();
     assertThat(hasMyProperties).as("Should evict my-properties").isTrue();
+    assertThat(hasComplianceVault).as("Should evict compliance-vault").isTrue();
   }
 
   // ── EpcInspectionService ──────────────────────────────────────────────
 
   @Test
-  void epcInspectionService_submitEpcRecord_evictsAllThreeCaches() throws Exception {
+  void epcInspectionService_submitEpcRecord_evictsAllFourCaches() throws Exception {
     final Method method =
         EpcInspectionService.class.getMethod(
             "submitEpcRecord",
@@ -289,18 +307,21 @@ class CachingAnnotationsTest {
             com.uk.certifynow.certify_now.rest.dto.inspection.EpcRecordRequest.class);
     final Caching caching = method.getAnnotation(Caching.class);
     assertThat(caching).as("@Caching annotation must be present").isNotNull();
-    assertThat(caching.evict()).hasSize(3);
+    assertThat(caching.evict()).hasSize(4);
 
     boolean hasJobs = false;
     boolean hasCustomerCerts = false;
     boolean hasMyProperties = false;
+    boolean hasComplianceVault = false;
     for (final CacheEvict evict : caching.evict()) {
       if ("jobs".equals(evict.value()[0])) hasJobs = true;
       if ("customer-certificates".equals(evict.value()[0])) hasCustomerCerts = true;
       if ("my-properties".equals(evict.value()[0])) hasMyProperties = true;
+      if ("compliance-vault".equals(evict.value()[0])) hasComplianceVault = true;
     }
     assertThat(hasJobs).as("Should evict jobs").isTrue();
     assertThat(hasCustomerCerts).as("Should evict customer-certificates").isTrue();
     assertThat(hasMyProperties).as("Should evict my-properties").isTrue();
+    assertThat(hasComplianceVault).as("Should evict compliance-vault").isTrue();
   }
 }

@@ -46,7 +46,7 @@ services:
     volumes:
       - staging_logs:/app/logs
     environment:
-      JAVA_OPTS: "-Xms256m -Xmx512m -XX:MaxMetaspaceSize=256m"
+      JAVA_OPTS: "-Xms256m -Xmx512m -XX:MaxMetaspaceSize=256m -Dlog4j2.skipJansi=false"
       SPRING_PROFILES_ACTIVE: staging
       JDBC_DATABASE_URL: jdbc:postgresql://postgres:5432/cert-now-staging
       JDBC_DATABASE_USERNAME: ${JDBC_DATABASE_USERNAME}

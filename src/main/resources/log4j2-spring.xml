@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+
+  <Properties>
+    <Property name="LOG_PATH">/app/logs</Property>
+    <Property name="LOG_FILE">${LOG_PATH}/app.log</Property>
+    <Property name="ARCHIVE_PATTERN">${LOG_PATH}/app-%d{yyyy-MM-dd}-%i.log.gz</Property>
+    <Property name="CONSOLE_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight{%-5level}{FATAL=red blink, ERROR=red, WARN=yellow, INFO=green, DEBUG=cyan, TRACE=white} [%15.15t] %-40.40c{1.} : %msg%n%throwable</Property>
+    <Property name="FILE_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%t] %c{1.} : %msg%n%throwable</Property>
+  </Properties>
+
+  <Appenders>
+
+    <Console name="Console" target="SYSTEM_OUT">
+      <PatternLayout pattern="${CONSOLE_PATTERN}" disableAnsi="false"/>
+    </Console>
+
+    <RollingFile name="File" fileName="${LOG_FILE}" filePattern="${ARCHIVE_PATTERN}">
+      <PatternLayout pattern="${FILE_PATTERN}"/>
+      <Policies>
+        <!-- Roll to archive on every JVM startup → fresh app.log each time -->
+        <OnStartupTriggeringPolicy />
+        <SizeBasedTriggeringPolicy size="50MB"/>
+        <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+      </Policies>
+      <DefaultRolloverStrategy max="30">
+        <Delete basePath="${LOG_PATH}" maxDepth="1">
+          <IfFileName glob="app-*.log.gz"/>
+          <IfLastModified age="30d"/>
+        </Delete>
+      </DefaultRolloverStrategy>
+    </RollingFile>
+
+  </Appenders>
+
+  <Loggers>
+
+    <SpringProfile name="dev">
+      <Root level="INFO">
+        <AppenderRef ref="Console"/>
+      </Root>
+    </SpringProfile>
+
+    <SpringProfile name="!dev">
+      <Logger name="org.hibernate.orm.jdbc.warn" level="ERROR" additivity="false">
+        <AppenderRef ref="File"/>
+      </Logger>
+      <Root level="INFO">
+        <AppenderRef ref="Console"/>
+        <AppenderRef ref="File"/>
+      </Root>
+    </SpringProfile>
+
+  </Loggers>
+
+</Configuration>

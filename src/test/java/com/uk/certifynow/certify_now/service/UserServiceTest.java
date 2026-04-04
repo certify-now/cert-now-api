@@ -19,6 +19,7 @@ import com.uk.certifynow.certify_now.repos.UserRepository;
 import com.uk.certifynow.certify_now.service.enums.UserStatus;
 import com.uk.certifynow.certify_now.service.mappers.UserMapper;
 import com.uk.certifynow.certify_now.service.property.PropertyService;
+import com.uk.certifynow.certify_now.service.storage.DocumentStorageService;
 import com.uk.certifynow.certify_now.service.user.UserService;
 import com.uk.certifynow.certify_now.util.TestConstants;
 import com.uk.certifynow.certify_now.util.TestUserBuilder;
@@ -49,6 +50,7 @@ class UserServiceTest {
   @Mock private UserMapper userMapper;
   @Mock private PropertyService propertyService;
   @Mock private ObjectMapper objectMapper;
+  @Mock private DocumentStorageService documentStorageService;
 
   private UserService service;
 
@@ -65,7 +67,8 @@ class UserServiceTest {
             userMapper,
             clock,
             propertyService,
-            objectMapper);
+            objectMapper,
+            documentStorageService);
   }
 
   @Test

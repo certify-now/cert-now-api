@@ -65,6 +65,8 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-cert-now-docs}
+      IDEAL_POSTCODES_API_KEY: ${IDEAL_POSTCODES_API_KEY}
+      EPC_API_KEY: ${EPC_API_KEY}
     mem_limit: 900m
     mem_reservation: 512m
     depends_on:

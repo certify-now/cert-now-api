@@ -20,6 +20,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 
 @ControllerAdvice
 public class GlobalExceptionHandler {
@@ -108,6 +109,11 @@ public class GlobalExceptionHandler {
         "MISSING_PARAMETER",
         "Required parameter '" + ex.getParameterName() + "' is missing",
         List.of());
+  }
+
+  @ExceptionHandler(AsyncRequestNotUsableException.class)
+  public void handleDisconnectedClient(final AsyncRequestNotUsableException ex) {
+    log.debug("SSE client disconnected: {}", ex.getMessage());
   }
 
   @ExceptionHandler(Exception.class)
